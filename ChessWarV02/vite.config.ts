@@ -15,16 +15,30 @@ const resolveBase = () => {
   }
 
   const repo = process.env.GITHUB_REPOSITORY?.split('/')[1]
-  if (!repo || repo.endsWith('.github.io')) {
+  if (!repo) {
+    return './'
+  }
+
+  if (repo.endsWith('.github.io')) {
     return '/'
   }
 
   return `/${repo}/`
 }
 
+const resolveOutDir = () => {
+  if (process.env.NETLIFY) {
+    return 'dist'
+  }
+  return process.env.VITE_OUT_DIR ?? 'docs'
+}
+
 // https://vite.dev/config/
-export default defineConfig({
-  base: resolveBase(),
+export default defineConfig(({ command }) => ({
+  base: command === 'serve' ? '/' : resolveBase(),
+  build: {
+    outDir: resolveOutDir(),
+  },
   plugins: [
     vue(),
     vueDevTools(),
@@ -34,4 +48,4 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
-})
+}))

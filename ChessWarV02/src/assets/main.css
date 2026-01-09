@@ -1,0 +1,40 @@
+@import './base.css';
+@import './dashboard.css';
+
+html,
+body {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+#app {
+  min-height: 100vh;
+  position: relative;
+  isolation: isolate;
+}
+
+#app::before,
+#app::after {
+  content: '';
+  position: fixed;
+  inset: auto;
+  pointer-events: none;
+  z-index: -1;
+  filter: blur(0);
+}
+
+#app::before {
+  width: 520px;
+  height: 520px;
+  left: -120px;
+  top: 10%;
+  background: radial-gradient(circle at center, rgba(110, 160, 255, 0.28), transparent 70%);
+}
+
+#app::after {
+  width: 480px;
+  height: 480px;
+  right: -140px;
+  bottom: 5%;
+  background: radial-gradient(circle at center, rgba(53, 209, 181, 0.2), transparent 70%);
+}

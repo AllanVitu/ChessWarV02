@@ -1,0 +1,51 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import HomeView from '../views/HomeView.vue'
+import MatchListView from '../views/MatchListView.vue'
+import GameView from '../views/GameView.vue'
+import ProfileView from '../views/ProfileView.vue'
+import LoginView from '../views/LoginView.vue'
+import RegisterView from '../views/RegisterView.vue'
+import ForgotPasswordView from '../views/ForgotPasswordView.vue'
+
+const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: '/',
+      name: 'dashboard',
+      component: HomeView,
+    },
+    {
+      path: '/matchs',
+      name: 'matchs',
+      component: MatchListView,
+    },
+    {
+      path: '/jeu/:id?',
+      name: 'jeu',
+      component: GameView,
+    },
+    {
+      path: '/profil',
+      name: 'profil',
+      component: ProfileView,
+    },
+    {
+      path: '/connexion',
+      name: 'connexion',
+      component: LoginView,
+    },
+    {
+      path: '/inscription',
+      name: 'inscription',
+      component: RegisterView,
+    },
+    {
+      path: '/mot-de-passe-oublie',
+      name: 'mot-de-passe-oublie',
+      component: ForgotPasswordView,
+    },
+  ],
+})
+
+export default router

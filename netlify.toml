@@ -1,9 +1,11 @@
 [build]
+  base = "ChessWarV02"
   command = "npm run build"
   publish = "dist"
   functions = "netlify/functions"
 
 [dev]
+  base = "ChessWarV02"
   command = "npm run dev"
   targetPort = 5173
   port = 8888

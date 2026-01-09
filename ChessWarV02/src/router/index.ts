@@ -12,6 +12,12 @@ const router = createRouter({
   routes: [
     {
       path: '/',
+      name: 'connexion',
+      component: LoginView,
+      alias: '/connexion',
+    },
+    {
+      path: '/tableau-de-bord',
       name: 'dashboard',
       component: HomeView,
     },
@@ -29,11 +35,6 @@ const router = createRouter({
       path: '/profil',
       name: 'profil',
       component: ProfileView,
-    },
-    {
-      path: '/connexion',
-      name: 'connexion',
-      component: LoginView,
     },
     {
       path: '/inscription',

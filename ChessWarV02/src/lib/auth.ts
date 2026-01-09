@@ -54,6 +54,16 @@ const setSession = (userId: string): void => {
   localStorage.setItem(SESSION_KEY, JSON.stringify(session))
 }
 
+export const ensureAuthStorage = (): void => {
+  if (!hasStorage()) return
+  if (!localStorage.getItem(USERS_KEY)) {
+    localStorage.setItem(USERS_KEY, JSON.stringify([]))
+  }
+  if (!localStorage.getItem(SESSION_KEY)) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(null))
+  }
+}
+
 const syncProfile = (user: AuthUser): void => {
   const data = getDashboardData()
   const nextProfile = {

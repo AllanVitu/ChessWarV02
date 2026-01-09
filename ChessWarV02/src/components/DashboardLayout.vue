@@ -36,7 +36,7 @@ const handleLogout = () => {
 
       <div class="nav-group">
         <p class="nav-title">General</p>
-        <RouterLink to="/" class="nav-link" exact-active-class="nav-link--active">
+        <RouterLink to="/tableau-de-bord" class="nav-link" exact-active-class="nav-link--active">
           <span class="nav-dot"></span>
           Vue d'ensemble
         </RouterLink>

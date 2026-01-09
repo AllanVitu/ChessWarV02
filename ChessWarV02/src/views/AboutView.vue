@@ -10,7 +10,7 @@ import { RouterLink } from 'vue-router'
       <p>
         Interface de tableau de bord pour les echecs, avec une base locale compatible hebergement statique.
       </p>
-      <RouterLink class="link" to="/">Retour au tableau de bord</RouterLink>
+      <RouterLink class="link" to="/tableau-de-bord">Retour au tableau de bord</RouterLink>
     </div>
   </div>
 </template>

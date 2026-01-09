@@ -21,7 +21,7 @@ const handleLogin = async () => {
   isError.value = !result.ok
 
   if (result.ok) {
-    await router.push('/')
+    await router.push('/tableau-de-bord')
   }
 }
 </script>

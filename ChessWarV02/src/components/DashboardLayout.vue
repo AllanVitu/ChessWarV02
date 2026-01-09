@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, useRouter } from 'vue-router'
+import logoUrl from '@/assets/logo.svg'
 import { getDashboardData } from '@/lib/localDb'
 import { clearSession } from '@/lib/auth'
 
@@ -27,9 +28,11 @@ const handleLogout = () => {
   <div class="app-shell">
     <aside class="sidebar reveal">
       <div class="brand">
-        <div class="brand-mark">V</div>
+        <div class="brand-mark">
+          <img class="brand-logo" :src="logoUrl" alt="WarChess" />
+        </div>
         <div>
-          <p class="brand-title">VertexChess</p>
+          <p class="brand-title">WarChess</p>
           <p class="brand-sub">Operations Arena</p>
         </div>
       </div>
@@ -52,14 +55,14 @@ const handleLogout = () => {
           <span class="nav-dot"></span>
           Tournois
         </button>
-        <button class="nav-link nav-link--disabled" type="button" disabled>
-          <span class="nav-dot"></span>
-          Analyse
-        </button>
       </div>
 
       <div class="nav-group">
         <p class="nav-title">Rapports</p>
+        <RouterLink to="/profil/analyse" class="nav-link" active-class="nav-link--active">
+          <span class="nav-dot"></span>
+          Analyse du profil
+        </RouterLink>
         <button class="nav-link nav-link--disabled" type="button" disabled>
           <span class="nav-dot"></span>
           Carte des menaces
@@ -76,6 +79,10 @@ const handleLogout = () => {
 
       <div class="nav-group">
         <p class="nav-title">Parametres</p>
+        <RouterLink to="/parametres" class="nav-link" active-class="nav-link--active">
+          <span class="nav-dot"></span>
+          Parametres
+        </RouterLink>
         <RouterLink to="/profil" class="nav-link" active-class="nav-link--active">
           <span class="nav-dot"></span>
           Profil & securite

@@ -19,8 +19,8 @@ type SessionState = {
   lastLogin: string
 }
 
-const USERS_KEY = 'vertexchess.users.v1'
-const SESSION_KEY = 'vertexchess.session.v1'
+const USERS_KEY = 'warchess.users.v1'
+const SESSION_KEY = 'warchess.session.v1'
 
 const hasStorage = () => typeof window !== 'undefined' && typeof localStorage !== 'undefined'
 

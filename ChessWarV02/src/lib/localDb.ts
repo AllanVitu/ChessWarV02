@@ -32,7 +32,7 @@ export type DashboardDb = {
   goals: GoalProgress[]
 }
 
-const STORAGE_KEY = 'vertexchess.dashboard.v1'
+const STORAGE_KEY = 'warchess.dashboard.v1'
 
 const defaultDb: DashboardDb = {
   profile: {
@@ -43,7 +43,7 @@ const defaultDb: DashboardDb = {
     motto: "Chaque coup ecrit l'histoire.",
     location: 'Paris, FR',
     lastSeen: "Aujourd'hui 09:42",
-    email: 'k.murphy@vertexchess.app',
+    email: 'k.murphy@warchess.app',
   },
   games: [
     {

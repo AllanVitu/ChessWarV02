@@ -60,7 +60,7 @@ const handleLogin = async () => {
     </div>
 
     <div class="panel auth-side">
-      <h2>Console VertexChess</h2>
+      <h2>Console WarChess</h2>
       <p class="subhead">
         Des analyses IA, un suivi Elo et un centre de match concu pour les joueurs competitifs.
       </p>

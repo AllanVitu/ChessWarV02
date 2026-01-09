@@ -7,10 +7,26 @@ body {
   overflow-x: hidden;
 }
 
+body {
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url('./logo.svg') no-repeat 72% 10%;
+  background-size: clamp(260px, 40vw, 720px);
+  opacity: 0.1;
+  pointer-events: none;
+  z-index: 0;
+}
+
 #app {
   min-height: 100vh;
   position: relative;
   isolation: isolate;
+  z-index: 1;
 }
 
 #app::before,
@@ -24,17 +40,17 @@ body {
 }
 
 #app::before {
-  width: 520px;
-  height: 520px;
-  left: -120px;
-  top: 10%;
-  background: radial-gradient(circle at center, rgba(110, 160, 255, 0.28), transparent 70%);
+  width: 680px;
+  height: 680px;
+  left: -180px;
+  top: 6%;
+  background: radial-gradient(circle at center, rgba(127, 168, 129, 0.25), transparent 70%);
 }
 
 #app::after {
-  width: 480px;
-  height: 480px;
-  right: -140px;
-  bottom: 5%;
-  background: radial-gradient(circle at center, rgba(53, 209, 181, 0.2), transparent 70%);
+  width: 640px;
+  height: 640px;
+  right: -200px;
+  bottom: 4%;
+  background: radial-gradient(circle at center, rgba(211, 176, 122, 0.22), transparent 70%);
 }

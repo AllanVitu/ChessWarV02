@@ -14,7 +14,7 @@ export type MatchRecord = {
   difficulty?: DifficultyKey
 }
 
-const STORAGE_KEY = 'vertexchess.matches.v1'
+const STORAGE_KEY = 'warchess.matches.v1'
 
 const defaultMatches: MatchRecord[] = [
   {

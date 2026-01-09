@@ -6,7 +6,7 @@ import { RouterLink } from 'vue-router'
   <div class="about-page">
     <div class="panel">
       <p class="eyebrow">A propos</p>
-      <h1>VertexChess</h1>
+      <h1>WarChess</h1>
       <p>
         Interface de tableau de bord pour les echecs, avec une base locale compatible hebergement statique.
       </p>

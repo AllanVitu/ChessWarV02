@@ -1,26 +1,27 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #0b0f1a;
-  --bg-soft: #10172a;
-  --panel: rgba(16, 23, 38, 0.88);
-  --panel-strong: rgba(20, 30, 50, 0.98);
-  --panel-border: rgba(120, 140, 180, 0.22);
-  --text: #e6edf7;
-  --text-muted: #a6b1c6;
-  --text-faint: #7b869d;
-  --accent: #35d1b5;
-  --accent-strong: #24e5cc;
-  --accent-2: #ffb86b;
-  --accent-3: #6ea0ff;
-  --danger: #ff7b7b;
-  --success: #4be3a0;
-  --shadow: 0 24px 60px rgba(4, 9, 22, 0.45);
-  --radius-lg: 24px;
-  --radius: 18px;
-  --radius-sm: 12px;
-  --font-sans: 'Space Grotesk', 'Avenir Next', 'Trebuchet MS', sans-serif;
-  --font-display: 'Fraunces', 'Georgia', serif;
+  --bg: #f6f0e6;
+  --bg-soft: #efe6d8;
+  --panel: rgba(255, 255, 255, 0.86);
+  --panel-strong: rgba(255, 255, 255, 0.96);
+  --panel-soft: rgba(255, 255, 255, 0.7);
+  --panel-border: rgba(140, 130, 110, 0.22);
+  --text: #2c2b28;
+  --text-muted: #6f6a5e;
+  --text-faint: #9a9383;
+  --accent: #4f8f5b;
+  --accent-strong: #3f7b50;
+  --accent-2: #d3b07a;
+  --accent-3: #7fa881;
+  --danger: #c76262;
+  --success: #4f8f5b;
+  --shadow: 0 28px 80px rgba(88, 78, 60, 0.18);
+  --radius-lg: 28px;
+  --radius: 22px;
+  --radius-sm: 14px;
+  --font-sans: 'Manrope', 'Avenir Next', 'Trebuchet MS', sans-serif;
+  --font-display: 'Cormorant Garamond', 'Georgia', serif;
 }
 
 *,
@@ -34,13 +35,13 @@
 body {
   min-height: 100vh;
   background:
-    radial-gradient(1200px 800px at 20% -10%, rgba(52, 109, 255, 0.18), transparent 60%),
-    radial-gradient(900px 700px at 90% 10%, rgba(53, 209, 181, 0.2), transparent 55%),
-    radial-gradient(1200px 1000px at 50% 100%, rgba(255, 184, 107, 0.12), transparent 60%),
-    #0b0f1a;
+    radial-gradient(1200px 900px at 12% -18%, rgba(127, 168, 129, 0.28), transparent 60%),
+    radial-gradient(1100px 900px at 88% 6%, rgba(211, 176, 122, 0.25), transparent 58%),
+    radial-gradient(1000px 900px at 50% 110%, rgba(127, 168, 129, 0.2), transparent 60%),
+    #f6f0e6;
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.6;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

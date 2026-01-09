@@ -1,5 +1,5 @@
-﻿<script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import {
@@ -10,7 +10,7 @@ import {
   type MatchRecord,
 } from '@/lib/matchesDb'
 
-const matches = ref<MatchRecord[]>(getMatches())
+const matches = ref<MatchRecord[]>([])
 const formMessage = ref('')
 const formError = ref(false)
 
@@ -52,7 +52,11 @@ const actionLabel = (status: MatchRecord['status']) => {
 
 const totalMatches = computed(() => matches.value.length)
 
-const handleCreateMatch = () => {
+onMounted(async () => {
+  matches.value = await getMatches()
+})
+
+const handleCreateMatch = async () => {
   formMessage.value = ''
   formError.value = false
 
@@ -77,7 +81,7 @@ const handleCreateMatch = () => {
     difficulty: form.mode === 'IA' ? form.difficulty : undefined,
   }
 
-  matches.value = addMatch(match)
+  matches.value = await addMatch(match)
   form.opponent = ''
   formMessage.value = 'Match cree avec succes.'
   formError.value = false
@@ -211,3 +215,4 @@ const handleCreateMatch = () => {
     </section>
   </DashboardLayout>
 </template>
+

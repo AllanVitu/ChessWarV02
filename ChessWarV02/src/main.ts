@@ -7,7 +7,7 @@ import App from './App.vue'
 import router from './router'
 import { ensureDatabaseReady } from './lib/database'
 
-ensureDatabaseReady()
+void ensureDatabaseReady()
 
 const app = createApp(App)
 

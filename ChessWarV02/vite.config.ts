@@ -10,6 +10,10 @@ const resolveBase = () => {
     return explicit.endsWith('/') ? explicit : `${explicit}/`
   }
 
+  if (process.env.NETLIFY) {
+    return '/'
+  }
+
   const repo = process.env.GITHUB_REPOSITORY?.split('/')[1]
   if (!repo || repo.endsWith('.github.io')) {
     return '/'

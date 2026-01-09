@@ -1,8 +1,8 @@
-﻿<script setup lang="ts">
-import { computed, ref } from 'vue'
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
-import { getMatchById, type DifficultyKey } from '@/lib/matchesDb'
+import { getMatchById, type DifficultyKey, type MatchRecord } from '@/lib/matchesDb'
 import {
   applyMove,
   createInitialBoard,
@@ -15,13 +15,27 @@ import {
 
 const route = useRoute()
 const matchId = computed(() => (route.params.id ? String(route.params.id) : ''))
-const match = computed(() => (matchId.value ? getMatchById(matchId.value) : null))
+const match = ref<MatchRecord | null>(null)
 
 const mode = computed(() => match.value?.mode ?? 'IA')
 const opponent = computed(() => match.value?.opponent ?? 'IA Sparring')
 const timeControl = computed(() => match.value?.timeControl ?? '10+0')
 
-const difficulty = ref<DifficultyKey>(match.value?.difficulty ?? 'intermediaire')
+const difficulty = ref<DifficultyKey>('intermediaire')
+
+watch(
+  matchId,
+  async () => {
+    if (!matchId.value) {
+      match.value = null
+      difficulty.value = 'intermediaire'
+      return
+    }
+    match.value = await getMatchById(matchId.value)
+    difficulty.value = match.value?.difficulty ?? 'intermediaire'
+  },
+  { immediate: true },
+)
 
 const sidePreference = computed(() => match.value?.side ?? 'Aleatoire')
 const playerSide = computed<Side>(() => {
@@ -265,3 +279,4 @@ const squares = computed(() =>
     </section>
   </DashboardLayout>
 </template>
+

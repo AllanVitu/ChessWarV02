@@ -1,4 +1,6 @@
-﻿export type MatchMode = 'JcJ' | 'IA'
+import { apiFetch, getSessionToken } from './api'
+
+export type MatchMode = 'JcJ' | 'IA'
 export type MatchStatus = 'planifie' | 'en_cours' | 'termine'
 export type DifficultyKey = 'facile' | 'intermediaire' | 'difficile' | 'maitre'
 
@@ -13,8 +15,6 @@ export type MatchRecord = {
   side: 'Blancs' | 'Noirs' | 'Aleatoire'
   difficulty?: DifficultyKey
 }
-
-const STORAGE_KEY = 'warchess.matches.v1'
 
 const defaultMatches: MatchRecord[] = [
   {
@@ -51,36 +51,62 @@ const defaultMatches: MatchRecord[] = [
   },
 ]
 
-const hasStorage = () => typeof window !== 'undefined' && typeof localStorage !== 'undefined'
+let matchesCache: MatchRecord[] | null = null
+let matchesPromise: Promise<MatchRecord[]> | null = null
 
-const safeParse = <T>(raw: string | null, fallback: T): T => {
-  if (!raw) return fallback
-  try {
-    return JSON.parse(raw) as T
-  } catch {
-    return fallback
-  }
+export const clearMatchesCache = (): void => {
+  matchesCache = null
+  matchesPromise = null
 }
 
-export const getMatches = (): MatchRecord[] => {
-  if (!hasStorage()) return defaultMatches
-  const stored = safeParse<MatchRecord[]>(localStorage.getItem(STORAGE_KEY), [])
-  if (stored.length) return stored
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultMatches))
-  return defaultMatches
+export const getMatches = async (): Promise<MatchRecord[]> => {
+  if (matchesCache) return matchesCache
+  if (!getSessionToken()) {
+    matchesCache = defaultMatches
+    return defaultMatches
+  }
+
+  if (!matchesPromise) {
+    matchesPromise = apiFetch<{ ok: boolean; matches?: MatchRecord[] }>('matches-get')
+      .then((response) => (response.ok && response.matches?.length ? response.matches : defaultMatches))
+      .catch(() => defaultMatches)
+      .then((next) => {
+        matchesCache = next
+        return next
+      })
+  }
+
+  return matchesPromise
 }
 
 export const saveMatches = (matches: MatchRecord[]): void => {
-  if (!hasStorage()) return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(matches))
+  matchesCache = matches
 }
 
-export const addMatch = (match: MatchRecord): MatchRecord[] => {
-  const next = [...getMatches(), match]
-  saveMatches(next)
-  return next
+export const addMatch = async (match: MatchRecord): Promise<MatchRecord[]> => {
+  if (!getSessionToken()) {
+    const next = [...(await getMatches()), match]
+    matchesCache = next
+    return next
+  }
+
+  try {
+    const response = await apiFetch<{ ok: boolean; matches?: MatchRecord[] }>('matches-add', {
+      method: 'POST',
+      body: JSON.stringify({ match }),
+    })
+
+    const next = response.ok && response.matches?.length ? response.matches : [...(await getMatches()), match]
+    matchesCache = next
+    return next
+  } catch {
+    const next = [...(await getMatches()), match]
+    matchesCache = next
+    return next
+  }
 }
 
-export const getMatchById = (matchId: string): MatchRecord | null => {
-  return getMatches().find((match) => match.id === matchId) ?? null
+export const getMatchById = async (matchId: string): Promise<MatchRecord | null> => {
+  const matches = await getMatches()
+  return matches.find((match) => match.id === matchId) ?? null
 }

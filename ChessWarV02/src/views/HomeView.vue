@@ -1,91 +1,38 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import DashboardLayout from '@/components/DashboardLayout.vue'
-import { getDashboardData } from '@/lib/localDb'
+import { getDashboardData, type DashboardDb, type DashboardProfile } from '@/lib/localDb'
 
-const dashboard = getDashboardData()
-
-const quickStats = [
-  { label: 'Taux de victoire', value: '62%', change: '+4,2%', detail: '30 dernieres parties' },
-  { label: 'Precision moyenne', value: '88%', change: '+1,6%', detail: 'Tendance saison' },
-  { label: "Serie d'entrainement", value: '12 jours', change: '+3', detail: 'Rythme actuel' },
-  { label: 'Taux de gaffes', value: '1,8%', change: '-0,4%', detail: 'Plus bas = mieux' },
-]
-
-const engineMetrics = [
-  { label: 'Evaluation', value: '+1,2', note: 'Aux blancs de jouer' },
-  { label: 'Meilleure ligne', value: 'e4 e5 Nf3', note: 'Profondeur 3 demi-coups' },
-  { label: 'Menaces', value: '2 actives', note: 'Securite du roi' },
-]
-
-const evalBars = [24, 46, 38, 62, 48, 70, 56, 44]
-
-const trendHighlights = [
-  { label: 'Pic Elo', value: '2188', note: '+46 ce mois' },
-  { label: 'Meilleure ouverture', value: 'Ruy Lopez', note: '71% de score' },
-  { label: 'Indice de risque', value: 'Faible', note: '0,9 gaffes' },
-]
-
-const sessions = [
-  { title: 'Sprint tactique', time: '11:00', length: '15 min' },
-  { title: "Laboratoire d'ouverture", time: '14:30', length: '30 min' },
-  { title: 'Revue de finale', time: '19:00', length: '40 min' },
-]
-
-const leaderboard = [
-  { name: 'I. Alvarez', rating: 2548, delta: '+12' },
-  { name: 'C. Russo', rating: 2492, delta: '+8' },
-  { name: 'T. Holm', rating: 2451, delta: '+5' },
-  { name: 'J. Park', rating: 2422, delta: '+4' },
-]
-
-const resultLabels: Record<string, string> = {
-  win: 'Victoire',
-  loss: 'Defaite',
-  draw: 'Nul',
+const dashboard = ref<DashboardDb | null>(null)
+const fallbackProfile: DashboardProfile = {
+  id: '',
+  name: 'Invite',
+  title: '',
+  rating: 0,
+  motto: '',
+  location: '',
+  lastSeen: '',
+  email: '',
 }
 
-const boardFiles = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-const boardRanks = [8, 7, 6, 5, 4, 3, 2, 1]
-
-const boardState = [
-  ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-  ['p', 'p', 'p', '', '', 'p', 'p', 'p'],
-  ['', '', '', 'p', '', '', '', ''],
-  ['', '', '', '', 'p', '', '', ''],
-  ['', '', 'P', '', 'P', '', '', ''],
-  ['', '', '', 'N', '', 'N', '', ''],
-  ['P', 'P', '', 'P', '', 'P', 'P', 'P'],
-  ['R', '', 'B', 'Q', 'K', 'B', '', 'R'],
-]
-
-const lastMoveSquares = new Set(['e2', 'e4'])
-const focusSquare = 'f7'
-
-const squares = boardRanks.flatMap((rank, rowIndex) =>
-  boardFiles.map((file, colIndex) => {
-    const piece = boardState[rowIndex][colIndex]
-    const squareId = `${file}${rank}`
-    const isDark = (rowIndex + colIndex) % 2 === 1
-    const tone = piece ? (piece === piece.toUpperCase() ? 'light' : 'dark') : ''
-
-    return {
-      id: squareId,
-      dark: isDark,
-      piece,
-      tone,
-      label: piece ? piece.toUpperCase() : '',
-      isLastMove: lastMoveSquares.has(squareId),
-      isFocus: squareId === focusSquare,
-    }
-  }),
+const profile = computed(() => dashboard.value?.profile ?? fallbackProfile)
+const games = computed(() => dashboard.value?.games ?? [])
+const goals = computed(() => dashboard.value?.goals ?? [])
+const greetingTitle = computed(() =>
+  dashboard.value ? `Bonjour, ${dashboard.value.profile.name}` : 'Bonjour',
 )
+const greetingSubtitle = computed(() => dashboard.value?.profile.motto ?? 'Analyse en cours.')
+
+onMounted(async () => {
+  dashboard.value = await getDashboardData()
+})
 </script>
 
 <template>
   <DashboardLayout
     eyebrow="Bon retour"
-    :title="`Bonjour, ${dashboard.profile.name}`"
-    :subtitle="dashboard.profile.motto"
+    :title="greetingTitle"
+    :subtitle="greetingSubtitle"
   >
     <section class="content-grid">
       <div class="left-column">
@@ -229,7 +176,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="game in dashboard.games" :key="game.id">
+                <tr v-for="game in games" :key="game.id">
                   <td>{{ game.id }}</td>
                   <td>{{ game.opponent }}</td>
                   <td>
@@ -256,7 +203,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
         <div class="panel rating-card reveal">
           <div class="rating-header">
             <p class="panel-title">Score Elo</p>
-            <p class="rating-meta">{{ dashboard.profile.location }}</p>
+            <p class="rating-meta">{{ profile.location }}</p>
           </div>
 
           <div class="rating-ring">
@@ -278,7 +225,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
               />
             </svg>
             <div class="ring-center">
-              <p class="ring-score">{{ dashboard.profile.rating }}</p>
+              <p class="ring-score">{{ profile.rating }}</p>
               <p class="ring-label">Classement rapide</p>
             </div>
           </div>
@@ -290,7 +237,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
             </div>
             <div>
               <p class="metric-label">Derniere activite</p>
-              <p class="metric-value">{{ dashboard.profile.lastSeen }}</p>
+              <p class="metric-value">{{ profile.lastSeen }}</p>
             </div>
           </div>
         </div>
@@ -305,7 +252,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
           </div>
 
           <div class="progress-list">
-            <div v-for="goal in dashboard.goals" :key="goal.label" class="progress-item">
+            <div v-for="goal in goals" :key="goal.label" class="progress-item">
               <div class="progress-labels">
                 <span>{{ goal.label }}</span>
                 <span>{{ goal.progress }}%</span>
@@ -363,3 +310,4 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
     </section>
   </DashboardLayout>
 </template>
+

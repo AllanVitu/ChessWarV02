@@ -1,19 +1,20 @@
-﻿<script setup lang="ts">
-import { reactive, ref } from 'vue'
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue'
 import DashboardLayout from '@/components/DashboardLayout.vue'
-import { getDashboardData, saveDashboardData } from '@/lib/localDb'
-import { getCurrentUser, loginUser, updatePassword } from '@/lib/auth'
+import { getDashboardData, saveDashboardData, type DashboardDb } from '@/lib/localDb'
+import { getCurrentUser, updatePassword } from '@/lib/auth'
 
-const dashboard = ref(getDashboardData())
+const dashboard = ref<DashboardDb | null>(null)
 const profileForm = reactive({
-  name: dashboard.value.profile.name,
-  title: dashboard.value.profile.title,
-  motto: dashboard.value.profile.motto,
-  location: dashboard.value.profile.location,
+  name: '',
+  title: '',
+  motto: '',
+  location: '',
 })
 
 const profileMessage = ref('')
 const profileError = ref(false)
+const profileEmail = computed(() => dashboard.value?.profile.email ?? '')
 
 const passwordForm = reactive({
   current: '',
@@ -24,12 +25,22 @@ const passwordForm = reactive({
 const passwordMessage = ref('')
 const passwordError = ref(false)
 
-const saveProfile = () => {
+onMounted(async () => {
+  const data = await getDashboardData()
+  dashboard.value = data
+  profileForm.name = data.profile.name
+  profileForm.title = data.profile.title
+  profileForm.motto = data.profile.motto
+  profileForm.location = data.profile.location
+})
+
+const saveProfile = async () => {
+  if (!dashboard.value) return
   dashboard.value.profile = {
     ...dashboard.value.profile,
     ...profileForm,
   }
-  saveDashboardData(dashboard.value)
+  dashboard.value = await saveDashboardData(dashboard.value)
   profileMessage.value = 'Profil mis a jour.'
   profileError.value = false
 }
@@ -50,21 +61,14 @@ const savePassword = async () => {
     return
   }
 
-  const user = getCurrentUser()
+  const user = await getCurrentUser()
   if (!user) {
     passwordMessage.value = 'Veuillez vous connecter pour modifier le mot de passe.'
     passwordError.value = true
     return
   }
 
-  const authCheck = await loginUser(user.email, passwordForm.current)
-  if (!authCheck.ok) {
-    passwordMessage.value = 'Mot de passe actuel incorrect.'
-    passwordError.value = true
-    return
-  }
-
-  const update = await updatePassword(user.id, passwordForm.next)
+  const update = await updatePassword(passwordForm.current, passwordForm.next)
   passwordMessage.value = update.message
   passwordError.value = !update.ok
   if (update.ok) {
@@ -113,7 +117,7 @@ const savePassword = async () => {
 
           <label class="form-field">
             <span class="form-label">Email</span>
-            <input class="form-input" type="email" :value="dashboard.profile.email" disabled />
+            <input class="form-input" type="email" :value="profileEmail" disabled />
           </label>
 
           <button class="button-primary" type="submit">Enregistrer</button>
@@ -158,3 +162,4 @@ const savePassword = async () => {
     </section>
   </DashboardLayout>
 </template>
+

@@ -29,6 +29,14 @@ See [Vite Configuration Reference](https://vite.dev/config/).
 npm install
 ```
 
+## Neon + Netlify (BDD)
+
+1) Creez une base Neon et executez `database/schema.sql` dans le SQL Editor.
+2) Dans Netlify, ajoutez la variable `DATABASE_URL` (connection string Neon).
+3) Build command: `npm run build`, Publish directory: `dist`.
+
+Pour le dev local avec Netlify Functions, utilisez `netlify dev` (optionnel).
+
 ### Compile and Hot-Reload for Development
 
 ```sh

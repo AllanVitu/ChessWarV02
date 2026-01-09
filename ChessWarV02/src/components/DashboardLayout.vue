@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import logoUrl from '@/assets/logo.svg'
-import { getDashboardData } from '@/lib/localDb'
+import { getDashboardData, type DashboardDb } from '@/lib/localDb'
 import { clearSession } from '@/lib/auth'
 
 type DashboardLayoutProps = {
@@ -16,11 +17,17 @@ const props = withDefaults(defineProps<DashboardLayoutProps>(), {
 })
 
 const router = useRouter()
-const dashboard = getDashboardData()
+const dashboard = ref<DashboardDb | null>(null)
+const profileName = computed(() => dashboard.value?.profile.name ?? 'Invite')
+const profileTitle = computed(() => dashboard.value?.profile.title ?? 'Compte local')
 
-const handleLogout = () => {
-  clearSession()
-  router.push('/connexion')
+onMounted(async () => {
+  dashboard.value = await getDashboardData()
+})
+
+const handleLogout = async () => {
+  await clearSession()
+  await router.push('/connexion')
 }
 </script>
 
@@ -159,8 +166,8 @@ const handleLogout = () => {
           <div class="user-pill">
             <div class="avatar">KM</div>
             <div>
-              <p class="user-name">{{ dashboard.profile.name }}</p>
-              <p class="user-meta">{{ dashboard.profile.title }}</p>
+              <p class="user-name">{{ profileName }}</p>
+              <p class="user-meta">{{ profileTitle }}</p>
             </div>
           </div>
         </div>

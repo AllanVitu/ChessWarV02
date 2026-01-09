@@ -1,3 +1,5 @@
+import { apiFetch, getSessionToken } from './api'
+
 export type GameResult = 'win' | 'loss' | 'draw'
 
 export type GameRecord = {
@@ -31,8 +33,6 @@ export type DashboardDb = {
   games: GameRecord[]
   goals: GoalProgress[]
 }
-
-const STORAGE_KEY = 'warchess.dashboard.v1'
 
 const defaultDb: DashboardDb = {
   profile: {
@@ -90,41 +90,63 @@ const defaultDb: DashboardDb = {
   ],
 }
 
-const mergeDefaults = (data: Partial<DashboardDb>): DashboardDb => ({
-  profile: { ...defaultDb.profile, ...data.profile },
-  games: data.games?.length ? data.games : defaultDb.games,
-  goals: data.goals?.length ? data.goals : defaultDb.goals,
-})
+let dashboardCache: DashboardDb | null = null
+let dashboardPromise: Promise<DashboardDb> | null = null
 
-const safeParse = (raw: string | null): DashboardDb | null => {
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as DashboardDb
-  } catch {
-    return null
+const mapDashboard = (payload?: DashboardDb | null): DashboardDb => {
+  if (!payload) return defaultDb
+  return {
+    profile: { ...defaultDb.profile, ...payload.profile },
+    games: payload.games?.length ? payload.games : defaultDb.games,
+    goals: payload.goals?.length ? payload.goals : defaultDb.goals,
   }
 }
 
-export const getDashboardData = (): DashboardDb => {
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+export const clearDashboardCache = (): void => {
+  dashboardCache = null
+  dashboardPromise = null
+}
+
+export const getDashboardData = async (): Promise<DashboardDb> => {
+  if (dashboardCache) return dashboardCache
+  if (!getSessionToken()) {
+    dashboardCache = defaultDb
     return defaultDb
   }
 
-  const parsed = safeParse(localStorage.getItem(STORAGE_KEY))
-  if (parsed) {
-    const merged = mergeDefaults(parsed)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
-    return merged
+  if (!dashboardPromise) {
+    dashboardPromise = apiFetch<{ ok: boolean; dashboard?: DashboardDb }>('dashboard-get')
+      .then((response) => {
+        if (!response.ok) return defaultDb
+        return mapDashboard(response.dashboard)
+      })
+      .catch(() => defaultDb)
+      .then((next) => {
+        dashboardCache = next
+        return next
+      })
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultDb))
-  return defaultDb
+  return dashboardPromise
 }
 
-export const saveDashboardData = (next: DashboardDb): void => {
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-    return
+export const saveDashboardData = async (next: DashboardDb): Promise<DashboardDb> => {
+  dashboardCache = next
+
+  if (!getSessionToken()) {
+    return next
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  try {
+    const response = await apiFetch<{ ok: boolean; dashboard?: DashboardDb }>('dashboard-save', {
+      method: 'POST',
+      body: JSON.stringify({ profile: next.profile }),
+    })
+
+    const saved = response.ok ? mapDashboard(response.dashboard) : next
+    dashboardCache = saved
+    return saved
+  } catch {
+    return next
+  }
 }

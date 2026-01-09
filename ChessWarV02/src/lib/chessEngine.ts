@@ -37,13 +37,16 @@ const getSide = (piece: string): Side => (isWhite(piece) ? 'white' : 'black')
 
 const inBounds = (row: number, col: number) => row >= 0 && row < 8 && col >= 0 && col < 8
 
-const toSquare = (row: number, col: number) => `${FILES[col]}${8 - row}`
+const toSquare = (row: number, col: number) => `${FILES[col] ?? ''}${8 - row}`
 
 const toCoords = (square: string) => {
-  const file = square[0]
+  const file = square[0] ?? ''
   const rank = Number(square[1])
-  return { row: 8 - rank, col: FILES.indexOf(file) }
+  const col = FILES.indexOf(file)
+  return { row: 8 - rank, col: col === -1 ? 0 : col }
 }
+
+const getSquare = (board: string[][], row: number, col: number) => board[row]?.[col] ?? ''
 
 const scoreBoard = (board: string[][]): number => {
   let score = 0
@@ -80,7 +83,7 @@ const pushMove = (
 }
 
 const getMovesForPiece = (board: string[][], row: number, col: number): Move[] => {
-  const piece = board[row][col]
+  const piece = getSquare(board, row, col)
   if (!piece) return []
 
   const side = getSide(piece)
@@ -92,17 +95,17 @@ const getMovesForPiece = (board: string[][], row: number, col: number): Move[] =
     const startRow = side === 'white' ? 6 : 1
     const nextRow = row + direction
 
-    if (inBounds(nextRow, col) && board[nextRow][col] === '') {
+    if (inBounds(nextRow, col) && getSquare(board, nextRow, col) === '') {
       pushMove(moves, row, col, nextRow, col, piece)
       const doubleRow = row + direction * 2
-      if (row === startRow && board[doubleRow][col] === '') {
+      if (row === startRow && getSquare(board, doubleRow, col) === '') {
         pushMove(moves, row, col, doubleRow, col, piece)
       }
     }
 
     for (const captureCol of [col - 1, col + 1]) {
       if (!inBounds(nextRow, captureCol)) continue
-      const target = board[nextRow][captureCol]
+      const target = getSquare(board, nextRow, captureCol)
       if (target && getSide(target) !== side) {
         pushMove(moves, row, col, nextRow, captureCol, piece, target)
       }
@@ -112,7 +115,7 @@ const getMovesForPiece = (board: string[][], row: number, col: number): Move[] =
   }
 
   if (lower === 'n') {
-    const jumps = [
+    const jumps: Array<[number, number]> = [
       [-2, -1],
       [-2, 1],
       [-1, -2],
@@ -127,7 +130,7 @@ const getMovesForPiece = (board: string[][], row: number, col: number): Move[] =
       const r = row + dr
       const c = col + dc
       if (!inBounds(r, c)) continue
-      const target = board[r][c]
+      const target = getSquare(board, r, c)
       if (!target || getSide(target) !== side) {
         pushMove(moves, row, col, r, c, piece, target || undefined)
       }
@@ -141,7 +144,7 @@ const getMovesForPiece = (board: string[][], row: number, col: number): Move[] =
       let r = row + dr
       let c = col + dc
       while (inBounds(r, c)) {
-        const target = board[r][c]
+        const target = getSquare(board, r, c)
         if (!target) {
           pushMove(moves, row, col, r, c, piece)
         } else {
@@ -191,7 +194,7 @@ const getMovesForPiece = (board: string[][], row: number, col: number): Move[] =
   }
 
   if (lower === 'k') {
-    const steps = [
+    const steps: Array<[number, number]> = [
       [-1, -1],
       [-1, 0],
       [-1, 1],
@@ -206,7 +209,7 @@ const getMovesForPiece = (board: string[][], row: number, col: number): Move[] =
       const r = row + dr
       const c = col + dc
       if (!inBounds(r, c)) continue
-      const target = board[r][c]
+      const target = getSquare(board, r, c)
       if (!target || getSide(target) !== side) {
         pushMove(moves, row, col, r, c, piece, target || undefined)
       }
@@ -220,7 +223,7 @@ export const getLegalMoves = (board: string[][], side: Side): Move[] => {
   const moves: Move[] = []
   for (let row = 0; row < 8; row += 1) {
     for (let col = 0; col < 8; col += 1) {
-      const piece = board[row][col]
+      const piece = getSquare(board, row, col)
       if (!piece) continue
       if (getSide(piece) !== side) continue
       moves.push(...getMovesForPiece(board, row, col))
@@ -234,11 +237,16 @@ export const applyMove = (board: string[][], move: Move): string[][] => {
   const from = toCoords(move.from)
   const to = toCoords(move.to)
   const piece = move.piece
-  next[from.row][from.col] = ''
-  next[to.row][to.col] = piece
+  const fromRow = next[from.row]
+  const toRow = next[to.row]
+  if (!fromRow || !toRow) {
+    return next
+  }
+  fromRow[from.col] = ''
+  toRow[to.col] = piece
 
   if (piece.toLowerCase() === 'p' && (to.row === 0 || to.row === 7)) {
-    next[to.row][to.col] = piece === piece.toUpperCase() ? 'Q' : 'q'
+    toRow[to.col] = piece === piece.toUpperCase() ? 'Q' : 'q'
   }
 
   return next
@@ -255,13 +263,13 @@ export const getAiMove = (
   if (!moves.length) return null
 
   if (difficulty === 'facile') {
-    return moves[Math.floor(Math.random() * moves.length)]
+    return moves[Math.floor(Math.random() * moves.length)] ?? null
   }
 
   if (difficulty === 'intermediaire') {
     const captures = moves.filter((move) => move.capture)
     if (!captures.length) {
-      return moves[Math.floor(Math.random() * moves.length)]
+      return moves[Math.floor(Math.random() * moves.length)] ?? null
     }
 
     const sorted = [...captures].sort((a, b) => {
@@ -270,7 +278,7 @@ export const getAiMove = (
       return valueB - valueA
     })
 
-    return sorted[0]
+    return sorted[0] ?? null
   }
 
   const scored = moves.map((move) => {
@@ -282,9 +290,9 @@ export const getAiMove = (
   scored.sort((a, b) => b.score - a.score)
 
   if (difficulty === 'difficile') {
-    return scored[0].move
+    return scored[0]?.move ?? null
   }
 
   const top = scored.slice(0, 3)
-  return top[Math.floor(Math.random() * top.length)].move
+  return top[Math.floor(Math.random() * top.length)]?.move ?? null
 }

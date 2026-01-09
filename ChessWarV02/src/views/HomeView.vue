@@ -26,6 +26,82 @@ const greetingSubtitle = computed(() => dashboard.value?.profile.motto ?? 'Analy
 onMounted(async () => {
   dashboard.value = await getDashboardData()
 })
+
+const quickStats = [
+  { label: 'Taux de victoire', value: '62%', change: '+4,2%', detail: '30 dernieres parties' },
+  { label: 'Precision moyenne', value: '88%', change: '+1,6%', detail: 'Tendance saison' },
+  { label: "Serie d'entrainement", value: '12 jours', change: '+3', detail: 'Rythme actuel' },
+  { label: 'Taux de gaffes', value: '1,8%', change: '-0,4%', detail: 'Plus bas = mieux' },
+]
+
+const engineMetrics = [
+  { label: 'Evaluation', value: '+1,2', note: 'Aux blancs de jouer' },
+  { label: 'Meilleure ligne', value: 'e4 e5 Nf3', note: 'Profondeur 3 demi-coups' },
+  { label: 'Menaces', value: '2 actives', note: 'Securite du roi' },
+]
+
+const evalBars = [24, 46, 38, 62, 48, 70, 56, 44]
+
+const trendHighlights = [
+  { label: 'Pic Elo', value: '2188', note: '+46 ce mois' },
+  { label: 'Meilleure ouverture', value: 'Ruy Lopez', note: '71% de score' },
+  { label: 'Indice de risque', value: 'Faible', note: '0,9 gaffes' },
+]
+
+const sessions = [
+  { title: 'Sprint tactique', time: '11:00', length: '15 min' },
+  { title: "Laboratoire d'ouverture", time: '14:30', length: '30 min' },
+  { title: 'Revue de finale', time: '19:00', length: '40 min' },
+]
+
+const leaderboard = [
+  { name: 'I. Alvarez', rating: 2548, delta: '+12' },
+  { name: 'C. Russo', rating: 2492, delta: '+8' },
+  { name: 'T. Holm', rating: 2451, delta: '+5' },
+  { name: 'J. Park', rating: 2422, delta: '+4' },
+]
+
+const resultLabels: Record<string, string> = {
+  win: 'Victoire',
+  loss: 'Defaite',
+  draw: 'Nul',
+}
+
+const boardFiles = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+const boardRanks = [8, 7, 6, 5, 4, 3, 2, 1]
+
+const boardState = [
+  ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+  ['p', 'p', 'p', '', '', 'p', 'p', 'p'],
+  ['', '', '', 'p', '', '', '', ''],
+  ['', '', '', '', 'p', '', '', ''],
+  ['', '', 'P', '', 'P', '', '', ''],
+  ['', '', '', 'N', '', 'N', '', ''],
+  ['P', 'P', '', 'P', '', 'P', 'P', 'P'],
+  ['R', '', 'B', 'Q', 'K', 'B', '', 'R'],
+]
+
+const lastMoveSquares = new Set(['e2', 'e4'])
+const focusSquare = 'f7'
+
+const squares = boardRanks.flatMap((rank, rowIndex) =>
+  boardFiles.map((file, colIndex) => {
+    const piece = boardState[rowIndex]?.[colIndex] ?? ''
+    const squareId = `${file}${rank}`
+    const isDark = (rowIndex + colIndex) % 2 === 1
+    const tone = piece ? (piece === piece.toUpperCase() ? 'light' : 'dark') : ''
+
+    return {
+      id: squareId,
+      dark: isDark,
+      piece,
+      tone,
+      label: piece ? piece.toUpperCase() : '',
+      isLastMove: lastMoveSquares.has(squareId),
+      isFocus: squareId === focusSquare,
+    }
+  }),
+)
 </script>
 
 <template>

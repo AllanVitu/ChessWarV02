@@ -140,7 +140,7 @@ const handleAiMove = () => {
 const squares = computed(() =>
   boardRanks.flatMap((rank, rowIndex) =>
     boardFiles.map((file, colIndex) => {
-      const piece = board.value[rowIndex][colIndex]
+      const piece = board.value[rowIndex]?.[colIndex] ?? ''
       const squareId = `${file}${rank}`
       const isDark = (rowIndex + colIndex) % 2 === 1
       const tone = piece ? (piece === piece.toUpperCase() ? 'light' : 'dark') : ''

@@ -1,10 +1,10 @@
 <?php
 
 return [
-  'db_host' => getenv('DB_HOST') ?: 'localhost',
-  'db_port' => getenv('DB_PORT') ?: '5432',
-  'db_name' => getenv('DB_NAME') ?: 'CHANGE_ME',
-  'db_user' => getenv('DB_USER') ?: 'CHANGE_ME',
-  'db_pass' => getenv('DB_PASSWORD') ?: 'CHANGE_ME',
-  'db_sslmode' => getenv('DB_SSLMODE') ?: '',
+  'db_host' => 'localhost',
+  'db_port' => '5432',
+  'db_name' => 'vial4802_ChessWar',
+  'db_user' => 'TON_USER',
+  'db_pass' => 'TON_MDP',
+  'db_sslmode' => '',
 ];

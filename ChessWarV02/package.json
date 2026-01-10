@@ -23,6 +23,9 @@
     "vue": "^3.5.26",
     "vue-router": "^4.6.4"
   },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "4.55.1"
+  },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "@tsconfig/node24": "^24.0.3",

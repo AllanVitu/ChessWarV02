@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { json } from './_shared/response'
+import { json, options } from './_shared/response'
 import { sql } from './_shared/db'
 import { ensureDashboardSeed, ensureMatchesSeed } from './_shared/seed'
 
@@ -11,6 +11,9 @@ const formatLastSeen = () => {
 }
 
 export const handler = async (event: { httpMethod: string; body?: string }) => {
+  if (event.httpMethod === 'OPTIONS') {
+    return options()
+  }
   if (event.httpMethod !== 'POST') {
     return json(405, { ok: false, message: 'Methode non autorisee.' })
   }

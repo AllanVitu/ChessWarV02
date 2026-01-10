@@ -1,4 +1,4 @@
-import { json } from './_shared/response'
+import { json, options } from './_shared/response'
 import { sql } from './_shared/db'
 import { requireUserId } from './_shared/auth'
 
@@ -7,6 +7,9 @@ export const handler = async (event: {
   headers: Record<string, string | undefined>
   body?: string
 }) => {
+  if (event.httpMethod === 'OPTIONS') {
+    return options()
+  }
   if (event.httpMethod !== 'POST') {
     return json(405, { ok: false, message: 'Methode non autorisee.' })
   }

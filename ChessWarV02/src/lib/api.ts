@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE || '/.netlify/functions'
+const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
 const TOKEN_KEY = 'warchess.session.token'
 

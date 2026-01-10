@@ -37,6 +37,14 @@ npm install
 
 Pour le dev local avec Netlify Functions, utilisez `netlify dev` (optionnel).
 
+## O2Switch (PostgreSQL + PHP)
+
+1) Creez une base PostgreSQL dans cPanel et notez host, port, user, password.
+2) Importez `database/schema-o2switch-postgres.sql` via phpPgAdmin.
+3) Mettez les identifiants dans `public/api/_shared/config.php` (ou via variables d'environnement).
+4) Deployez le contenu de `dist` sur la racine du domaine.
+5) L'API est exposee sur `/api/*` (ex: `/api/auth-login`).
+
 ### Compile and Hot-Reload for Development
 
 ```sh

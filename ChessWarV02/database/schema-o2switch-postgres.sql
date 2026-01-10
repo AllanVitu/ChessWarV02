@@ -32,18 +32,19 @@ CREATE TABLE IF NOT EXISTS goals (
 );
 
 CREATE TABLE IF NOT EXISTS games (
-  id TEXT PRIMARY KEY,
+  id TEXT NOT NULL,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   opponent TEXT NOT NULL,
   result TEXT NOT NULL,
   opening TEXT NOT NULL,
   date TEXT NOT NULL,
   moves INTEGER NOT NULL,
-  accuracy INTEGER NOT NULL
+  accuracy INTEGER NOT NULL,
+  PRIMARY KEY (user_id, id)
 );
 
 CREATE TABLE IF NOT EXISTS matches (
-  id TEXT PRIMARY KEY,
+  id TEXT NOT NULL,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   mode TEXT NOT NULL,
   opponent TEXT NOT NULL,
@@ -52,7 +53,8 @@ CREATE TABLE IF NOT EXISTS matches (
   last_move TEXT NOT NULL,
   time_control TEXT NOT NULL,
   side TEXT NOT NULL,
-  difficulty TEXT
+  difficulty TEXT,
+  PRIMARY KEY (user_id, id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);

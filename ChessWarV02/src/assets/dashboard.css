@@ -1253,6 +1253,7 @@ td {
   display: grid;
   grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
   gap: 24px;
+  align-items: start;
 }
 
 .match-create,
@@ -1264,6 +1265,9 @@ td {
 .match-create {
   justify-items: center;
   padding: 16px 14px;
+  align-content: start;
+  align-self: start;
+  height: fit-content;
 }
 
 .match-create .panel-header {

@@ -6,6 +6,7 @@ import { getMatchById, type DifficultyKey, type MatchRecord } from '@/lib/matche
 import {
   applyMove,
   createInitialBoard,
+  evaluateBoard,
   formatMove,
   getAiMove,
   getLegalMoves,
@@ -17,9 +18,14 @@ const route = useRoute()
 const matchId = computed(() => (route.params.id ? String(route.params.id) : ''))
 const match = ref<MatchRecord | null>(null)
 
-const mode = computed(() => match.value?.mode ?? 'IA')
+const mode = computed(() => {
+  const raw = match.value?.mode ?? 'IA'
+  return raw === 'JcJ' ? 'Local' : raw
+})
 const opponent = computed(() => match.value?.opponent ?? 'IA Sparring')
 const timeControl = computed(() => match.value?.timeControl ?? '10+0')
+const sideLabel = computed(() => (mode.value === 'Local' ? 'Camp joueur 1' : 'Votre couleur'))
+const opponentLabel = computed(() => (mode.value === 'Local' ? 'Joueur 2' : 'Adversaire'))
 
 const difficulty = ref<DifficultyKey>('intermediaire')
 
@@ -56,6 +62,10 @@ const selectedSquare = ref<string | null>(null)
 const lastMove = ref<{ from: string; to: string } | null>(null)
 const moveHistory = ref<{ ply: number; side: Side; notation: string }[]>([])
 const aiThinking = ref(false)
+const analysis = ref<{ score: number; bestMove: Move | null }>({
+  score: 0,
+  bestMove: null,
+})
 
 const boardFiles = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 const boardRanks = [8, 7, 6, 5, 4, 3, 2, 1]
@@ -72,6 +82,26 @@ const targetSquares = computed(() => new Set(movesFromSelected.value.map((move) 
 const canUserMove = computed(() => {
   if (mode.value !== 'IA') return true
   return sideToMove.value === playerSide.value
+})
+
+const evaluationValue = computed(() => {
+  const score = analysis.value.score
+  const formatted = score.toFixed(1)
+  return `${score >= 0 ? '+' : ''}${formatted}`
+})
+
+const evaluationNote = computed(() => {
+  const score = analysis.value.score
+  if (score >= 1.5) return 'Avantage blancs'
+  if (score <= -1.5) return 'Avantage noirs'
+  if (score >= 0.3) return 'Leger avantage blancs'
+  if (score <= -0.3) return 'Leger avantage noirs'
+  return 'Position equilibree'
+})
+
+const suggestedLine = computed(() => {
+  const move = analysis.value.bestMove
+  return move ? formatMove(move) : 'Aucun coup disponible'
 })
 
 const isOwnedBySide = (piece: string, side: Side) => {
@@ -92,6 +122,13 @@ const applyAndRecord = (move: Move) => {
   lastMove.value = { from: move.from, to: move.to }
   selectedSquare.value = null
   sideToMove.value = sideToMove.value === 'white' ? 'black' : 'white'
+}
+
+const updateAnalysis = () => {
+  analysis.value = {
+    score: evaluateBoard(board.value),
+    bestMove: getAiMove(board.value, sideToMove.value, difficulty.value),
+  }
 }
 
 const triggerAiMove = () => {
@@ -137,6 +174,8 @@ const handleAiMove = () => {
   triggerAiMove()
 }
 
+watch([board, sideToMove, difficulty], updateAnalysis, { immediate: true })
+
 const squares = computed(() =>
   boardRanks.flatMap((rank, rowIndex) =>
     boardFiles.map((file, colIndex) => {
@@ -176,7 +215,7 @@ const squares = computed(() =>
             <p class="panel-title">Plateau</p>
             <h3 class="panel-headline">Tour: {{ sideToMove === 'white' ? 'Blancs' : 'Noirs' }}</h3>
           </div>
-          <span class="badge-soft">{{ mode === 'IA' ? 'IA active' : 'JcJ' }}</span>
+          <span class="badge-soft">{{ mode === 'IA' ? 'IA active' : 'Local' }}</span>
         </div>
 
         <div class="board">
@@ -213,11 +252,11 @@ const squares = computed(() =>
 
         <div class="game-info">
           <div>
-            <p class="metric-label">Votre couleur</p>
+            <p class="metric-label">{{ sideLabel }}</p>
             <p class="metric-value">{{ playerSide === 'white' ? 'Blancs' : 'Noirs' }}</p>
           </div>
           <div>
-            <p class="metric-label">Adversaire</p>
+            <p class="metric-label">{{ opponentLabel }}</p>
             <p class="metric-value">{{ opponent }}</p>
           </div>
           <div>
@@ -262,6 +301,22 @@ const squares = computed(() =>
           <button class="button-primary" type="button" :disabled="aiThinking" @click="handleAiMove">
             {{ aiThinking ? 'IA en cours...' : 'Jouer le coup IA' }}
           </button>
+        </div>
+
+        <div class="panel-subsection game-analysis">
+          <p class="panel-title">Analyse IA</p>
+          <div class="analysis-grid">
+            <div class="metric-card">
+              <p class="metric-label">Evaluation</p>
+              <p class="metric-value">{{ evaluationValue }}</p>
+              <p class="metric-note">{{ evaluationNote }}</p>
+            </div>
+            <div class="metric-card">
+              <p class="metric-label">Ligne suggeree</p>
+              <p class="metric-value">{{ suggestedLine }}</p>
+              <p class="metric-note">Proposition issue du moteur local.</p>
+            </div>
+          </div>
         </div>
 
         <div class="panel-subsection">

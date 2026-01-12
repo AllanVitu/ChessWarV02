@@ -29,6 +29,12 @@ const difficultyLabels: Record<DifficultyKey, string> = {
   maitre: 'Maitre',
 }
 
+const modeLabels: Record<MatchMode, string> = {
+  IA: 'IA',
+  Local: 'Local',
+  JcJ: 'Local',
+}
+
 const statusLabels = {
   planifie: 'Planifie',
   en_cours: 'En cours',
@@ -60,14 +66,9 @@ const handleCreateMatch = async () => {
   formMessage.value = ''
   formError.value = false
 
-  if (form.mode === 'JcJ' && !form.opponent.trim()) {
-    formMessage.value = 'Veuillez saisir un adversaire.'
-    formError.value = true
-    return
-  }
-
   const id = `M-${Math.floor(1000 + Math.random() * 9000)}`
-  const opponent = form.mode === 'IA' ? aiNames[form.difficulty] : form.opponent.trim()
+  const opponent =
+    form.mode === 'IA' ? aiNames[form.difficulty] : form.opponent.trim() || 'Joueur 2'
 
   const match: MatchRecord = {
     id,
@@ -110,10 +111,10 @@ const handleCreateMatch = async () => {
             <div class="segmented">
               <button
                 type="button"
-                :class="['segmented-button', form.mode === 'JcJ' && 'segmented-button--active']"
-                @click="form.mode = 'JcJ'"
+                :class="['segmented-button', form.mode === 'Local' && 'segmented-button--active']"
+                @click="form.mode = 'Local'"
               >
-                JcJ
+                Local
               </button>
               <button
                 type="button"
@@ -125,9 +126,14 @@ const handleCreateMatch = async () => {
             </div>
           </div>
 
-          <label v-if="form.mode === 'JcJ'" class="form-field">
-            <span class="form-label">Adversaire</span>
-            <input v-model="form.opponent" class="form-input" type="text" placeholder="Pseudo ou email" />
+          <label v-if="form.mode === 'Local'" class="form-field">
+            <span class="form-label">Joueur 2</span>
+            <input
+              v-model="form.opponent"
+              class="form-input"
+              type="text"
+              placeholder="Nom du second joueur"
+            />
           </label>
 
           <div v-else class="form-field">
@@ -196,7 +202,7 @@ const handleCreateMatch = async () => {
             </div>
 
             <div class="match-meta">
-              <span>{{ match.mode }}</span>
+              <span>{{ modeLabels[match.mode] }}</span>
               <span>Cadence {{ match.timeControl }}</span>
               <span v-if="match.difficulty">IA {{ difficultyLabels[match.difficulty] }}</span>
               <span>{{ match.side }}</span>

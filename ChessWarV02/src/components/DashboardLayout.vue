@@ -20,6 +20,14 @@ const router = useRouter()
 const dashboard = ref<DashboardDb | null>(null)
 const profileName = computed(() => dashboard.value?.profile.name ?? 'Invite')
 const profileTitle = computed(() => dashboard.value?.profile.title ?? 'Compte local')
+const profileAvatar = computed(() => dashboard.value?.profile.avatarUrl ?? '')
+const profileInitials = computed(() => {
+  const name = profileName.value.trim()
+  if (!name) return '??'
+  const parts = name.split(' ').filter(Boolean)
+  const initials = parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '')
+  return initials.join('') || '??'
+})
 
 onMounted(async () => {
   dashboard.value = await getDashboardData()
@@ -100,14 +108,6 @@ const handleLogout = async () => {
         </button>
       </div>
 
-      <div class="sidebar-card">
-        <p class="card-title">Acces Pro au laboratoire</p>
-        <p class="card-text">
-          Synchronisez ouvertures, puzzles, et revues de match sur tous vos appareils.
-        </p>
-        <button class="button-primary" type="button">Passer Pro</button>
-      </div>
-
       <button class="logout" type="button" @click="handleLogout">Se deconnecter</button>
     </aside>
 
@@ -164,7 +164,10 @@ const handleLogout = async () => {
           </div>
 
           <div class="user-pill">
-            <div class="avatar">KM</div>
+            <div class="avatar">
+              <img v-if="profileAvatar" :src="profileAvatar" alt="Avatar" />
+              <span v-else>{{ profileInitials }}</span>
+            </div>
             <div>
               <p class="user-name">{{ profileName }}</p>
               <p class="user-meta">{{ profileTitle }}</p>

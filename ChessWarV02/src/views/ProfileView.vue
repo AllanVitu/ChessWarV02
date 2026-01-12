@@ -10,11 +10,18 @@ const profileForm = reactive({
   title: '',
   motto: '',
   location: '',
+  avatarUrl: '',
 })
 
 const profileMessage = ref('')
 const profileError = ref(false)
 const profileEmail = computed(() => dashboard.value?.profile.email ?? '')
+const avatarInitials = computed(() => {
+  const name = profileForm.name.trim()
+  if (!name) return '?'
+  const parts = name.split(' ').filter(Boolean)
+  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('') || '?'
+})
 
 const passwordForm = reactive({
   current: '',
@@ -32,7 +39,21 @@ onMounted(async () => {
   profileForm.title = data.profile.title
   profileForm.motto = data.profile.motto
   profileForm.location = data.profile.location
+  profileForm.avatarUrl = data.profile.avatarUrl
 })
+
+const handleAvatarUpload = (event: Event) => {
+  const input = event.target as HTMLInputElement | null
+  const file = input?.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    if (typeof reader.result === 'string') {
+      profileForm.avatarUrl = reader.result
+    }
+  }
+  reader.readAsDataURL(file)
+}
 
 const saveProfile = async () => {
   if (!dashboard.value) return
@@ -114,6 +135,33 @@ const savePassword = async () => {
             <span class="form-label">Localisation</span>
             <input v-model="profileForm.location" class="form-input" type="text" />
           </label>
+
+          <div class="form-field">
+            <span class="form-label">Avatar</span>
+            <div class="avatar-field">
+              <div class="avatar-preview">
+                <img v-if="profileForm.avatarUrl" :src="profileForm.avatarUrl" alt="Avatar profil" />
+                <span v-else>{{ avatarInitials }}</span>
+              </div>
+              <div class="avatar-controls">
+                <input
+                  v-model="profileForm.avatarUrl"
+                  class="form-input"
+                  type="url"
+                  placeholder="https://"
+                />
+                <input
+                  class="form-input avatar-file"
+                  type="file"
+                  accept="image/*"
+                  @change="handleAvatarUpload"
+                />
+                <button class="button-ghost" type="button" @click="profileForm.avatarUrl = ''">
+                  Retirer l'avatar
+                </button>
+              </div>
+            </div>
+          </div>
 
           <label class="form-field">
             <span class="form-label">Email</span>

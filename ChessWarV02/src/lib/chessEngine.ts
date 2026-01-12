@@ -60,6 +60,8 @@ const scoreBoard = (board: string[][]): number => {
   return score
 }
 
+export const evaluateBoard = (board: string[][]): number => scoreBoard(board)
+
 const scoreForSide = (board: string[][], side: Side): number => {
   const score = scoreBoard(board)
   return side === 'white' ? score : -score

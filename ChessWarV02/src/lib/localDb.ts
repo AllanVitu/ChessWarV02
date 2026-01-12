@@ -21,6 +21,7 @@ export type DashboardProfile = {
   location: string
   lastSeen: string
   email: string
+  avatarUrl: string
 }
 
 export type GoalProgress = {
@@ -44,6 +45,7 @@ const defaultDb: DashboardDb = {
     location: 'Paris, FR',
     lastSeen: "Aujourd'hui 09:42",
     email: 'k.murphy@warchess.app',
+    avatarUrl: '',
   },
   games: [
     {

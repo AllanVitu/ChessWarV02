@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { getDashboardData, type DashboardDb, type DashboardProfile } from '@/lib/localDb'
+import { buildTrendPaths, getProfileAiAnalysis } from '@/lib/profileAnalysis'
 
 const dashboard = ref<DashboardDb | null>(null)
 const fallbackProfile: DashboardProfile = {
@@ -13,6 +14,7 @@ const fallbackProfile: DashboardProfile = {
   location: '',
   lastSeen: '',
   email: '',
+  avatarUrl: '',
 }
 
 const profile = computed(() => dashboard.value?.profile ?? fallbackProfile)
@@ -42,11 +44,8 @@ const engineMetrics = [
 
 const evalBars = [24, 46, 38, 62, 48, 70, 56, 44]
 
-const trendHighlights = [
-  { label: 'Pic Elo', value: '2188', note: '+46 ce mois' },
-  { label: 'Meilleure ouverture', value: 'Ruy Lopez', note: '71% de score' },
-  { label: 'Indice de risque', value: 'Faible', note: '0,9 gaffes' },
-]
+const analysis = getProfileAiAnalysis()
+const trendPaths = computed(() => buildTrendPaths(analysis.trend, 520, 180, 20))
 
 const sessions = [
   { title: 'Sprint tactique', time: '11:00', length: '15 min' },
@@ -191,7 +190,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
         <div class="panel trend-card reveal delay-2">
           <div class="panel-header">
             <div>
-              <p class="panel-title">Tendance de performance</p>
+              <p class="panel-title">Analyse IA du profil</p>
               <h3 class="panel-headline">Vitesse de classement</h3>
             </div>
             <button class="range-pill" type="button">Hebdomadaire</button>
@@ -209,20 +208,20 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
               </linearGradient>
             </defs>
             <path
-              d="M20 140 C 70 120, 110 150, 160 120 C 210 90, 260 120, 310 105 C 360 90, 410 70, 460 80 C 490 85, 505 92, 510 100"
+              :d="trendPaths.line"
               fill="none"
               stroke="url(#trendLine)"
               stroke-width="3"
               stroke-linecap="round"
             />
             <path
-              d="M20 140 C 70 120, 110 150, 160 120 C 210 90, 260 120, 310 105 C 360 90, 410 70, 460 80 C 490 85, 505 92, 510 100 L510 170 L20 170 Z"
+              :d="trendPaths.area"
               fill="url(#trendFill)"
             />
           </svg>
 
           <div class="trend-footer">
-            <div v-for="item in trendHighlights" :key="item.label" class="trend-item">
+            <div v-for="item in analysis.trendHighlights" :key="item.label" class="trend-item">
               <p class="trend-label">{{ item.label }}</p>
               <p class="trend-value">{{ item.value }}</p>
               <p class="trend-note">{{ item.note }}</p>

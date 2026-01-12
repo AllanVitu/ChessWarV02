@@ -6,8 +6,11 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { ensureDatabaseReady } from './lib/database'
+import { applyPreferences, loadPreferences } from './lib/preferences'
 
 void ensureDatabaseReady()
+
+applyPreferences(loadPreferences())
 
 const app = createApp(App)
 

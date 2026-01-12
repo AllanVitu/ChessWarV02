@@ -66,7 +66,7 @@ const handleLogin = async () => {
       </p>
       <ul class="auth-list">
         <li>Evaluation en direct et courbes de rythme.</li>
-        <li>Creation rapide de matchs JcJ ou IA.</li>
+        <li>Creation rapide de matchs locaux ou IA.</li>
         <li>Sessions d'entrainement planifiees.</li>
       </ul>
     </div>

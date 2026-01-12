@@ -1,37 +1,8 @@
 <script setup lang="ts">
 import DashboardLayout from '@/components/DashboardLayout.vue'
+import { getProfileAiAnalysis } from '@/lib/profileAnalysis'
 
-const keyMetrics = [
-  { label: 'Elo moyen', value: '2124', detail: '+38 sur 30 jours' },
-  { label: 'Precision', value: '86%', detail: '+3.1% recent' },
-  { label: 'Ouvertures jouees', value: '14', detail: 'Top 3 stables' },
-  { label: 'Stabilite', value: '78%', detail: 'Moins de gaffes' },
-]
-
-const focusAreas = [
-  { label: 'Finales techniques', progress: 68 },
-  { label: 'Conversions tactiques', progress: 74 },
-  { label: 'Gestion du temps', progress: 52 },
-  { label: "Preparation d'ouverture", progress: 61 },
-]
-
-const highlights = [
-  { title: 'Ouvertures solides', detail: '74% sur Ruy Lopez', tag: 'Fort' },
-  { title: 'Pression au centre', detail: '62% de controle', tag: 'Stable' },
-  { title: 'Finales propres', detail: '1.2 gaffe / 10', tag: 'Regulier' },
-]
-
-const alerts = [
-  { title: 'Zeitnot recurrent', detail: 'Pic sous 2 min', tag: 'A corriger' },
-  { title: 'Defenses passives', detail: 'Pieces en retard', tag: 'Vigilance' },
-  { title: 'Echanges precipites', detail: 'Taux 38%', tag: 'A surveiller' },
-]
-
-const rivals = [
-  { name: 'I. Alvarez', note: 'Tactique agressive', delta: '+12' },
-  { name: 'C. Russo', note: 'Jeu positionnel', delta: '+8' },
-  { name: 'T. Holm', note: 'Finales solides', delta: '+5' },
-]
+const analysis = getProfileAiAnalysis()
 </script>
 
 <template>
@@ -53,7 +24,7 @@ const rivals = [
           </div>
 
           <div class="stats-grid">
-            <div v-for="metric in keyMetrics" :key="metric.label" class="panel stat-card">
+            <div v-for="metric in analysis.keyMetrics" :key="metric.label" class="panel stat-card">
               <p class="stat-label">{{ metric.label }}</p>
               <p class="stat-value">{{ metric.value }}</p>
               <div class="stat-meta">
@@ -73,7 +44,7 @@ const rivals = [
           </div>
 
           <div class="progress-list">
-            <div v-for="focus in focusAreas" :key="focus.label" class="progress-item">
+            <div v-for="focus in analysis.focusAreas" :key="focus.label" class="progress-item">
               <div class="progress-labels">
                 <span>{{ focus.label }}</span>
                 <span>{{ focus.progress }}%</span>
@@ -94,7 +65,7 @@ const rivals = [
           </div>
 
           <div class="session-list">
-            <div v-for="item in highlights" :key="item.title" class="session-item">
+            <div v-for="item in analysis.highlights" :key="item.title" class="session-item">
               <div>
                 <p class="session-title">{{ item.title }}</p>
                 <p class="session-time">{{ item.detail }}</p>
@@ -115,12 +86,29 @@ const rivals = [
           </div>
 
           <div class="session-list">
-            <div v-for="item in alerts" :key="item.title" class="session-item">
+            <div v-for="item in analysis.alerts" :key="item.title" class="session-item">
               <div>
                 <p class="session-title">{{ item.title }}</p>
                 <p class="session-time">{{ item.detail }}</p>
               </div>
               <span class="badge-soft">{{ item.tag }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-title">Analyse IA</p>
+              <h3 class="panel-headline">Lecture automatique</h3>
+            </div>
+          </div>
+
+          <div class="hero-metrics">
+            <div v-for="signal in analysis.aiSignals" :key="signal.label" class="metric-card">
+              <p class="metric-label">{{ signal.label }}</p>
+              <p class="metric-value">{{ signal.value }}</p>
+              <p class="metric-note">{{ signal.note }}</p>
             </div>
           </div>
         </div>
@@ -134,7 +122,7 @@ const rivals = [
           </div>
 
           <div class="leaderboard-list">
-            <div v-for="rival in rivals" :key="rival.name" class="leaderboard-item">
+            <div v-for="rival in analysis.rivals" :key="rival.name" class="leaderboard-item">
               <div class="leaderboard-user">
                 <div class="leaderboard-avatar">{{ rival.name.slice(0, 1) }}</div>
                 <div>

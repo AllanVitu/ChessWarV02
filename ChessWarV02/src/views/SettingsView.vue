@@ -1,5 +1,18 @@
 <script setup lang="ts">
+import { reactive, watch } from 'vue'
 import DashboardLayout from '@/components/DashboardLayout.vue'
+import { applyPreferences, loadPreferences, savePreferences } from '@/lib/preferences'
+
+const preferences = reactive(loadPreferences())
+
+watch(
+  preferences,
+  (next) => {
+    savePreferences(next)
+    applyPreferences(next)
+  },
+  { deep: true },
+)
 
 const notificationSettings = [
   {
@@ -54,6 +67,24 @@ const privacySettings = [
         </div>
 
         <form class="form-stack">
+          <div class="setting-list">
+            <label class="setting-item">
+              <div>
+                <p class="setting-label">Mode sombre</p>
+                <p class="setting-hint">Palette adaptee pour un confort visuel nocturne.</p>
+              </div>
+              <input v-model="preferences.darkMode" class="setting-toggle" type="checkbox" />
+            </label>
+
+            <label class="setting-item">
+              <div>
+                <p class="setting-label">Interface simplifiee</p>
+                <p class="setting-hint">Masque les panneaux secondaires et epure l'ecran.</p>
+              </div>
+              <input v-model="preferences.simplifiedUi" class="setting-toggle" type="checkbox" />
+            </label>
+          </div>
+
           <label class="form-field">
             <span class="form-label">Langue</span>
             <select class="form-input">

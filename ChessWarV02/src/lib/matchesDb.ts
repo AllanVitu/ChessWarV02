@@ -1,6 +1,6 @@
 import { apiFetch, getSessionToken } from './api'
 
-export type MatchMode = 'JcJ' | 'IA'
+export type MatchMode = 'Local' | 'IA' | 'JcJ'
 export type MatchStatus = 'planifie' | 'en_cours' | 'termine'
 export type DifficultyKey = 'facile' | 'intermediaire' | 'difficile' | 'maitre'
 
@@ -30,7 +30,7 @@ const defaultMatches: MatchRecord[] = [
   },
   {
     id: 'M-1038',
-    mode: 'JcJ',
+    mode: 'Local',
     opponent: 'L. Vernet',
     status: 'planifie',
     createdAt: '09 Jan 21:00',

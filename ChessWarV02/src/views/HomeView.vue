@@ -199,12 +199,12 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
           <svg class="trend-chart" viewBox="0 0 520 180" aria-hidden="true">
             <defs>
               <linearGradient id="trendLine" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#7fa881" />
-                <stop offset="100%" stop-color="#4f8f5b" />
+                <stop offset="0%" stop-color="#9b5cff" />
+                <stop offset="100%" stop-color="#7b2cff" />
               </linearGradient>
               <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="rgba(127, 168, 129, 0.35)" />
-                <stop offset="100%" stop-color="rgba(127, 168, 129, 0)" />
+                <stop offset="0%" stop-color="rgba(155, 92, 255, 0.35)" />
+                <stop offset="100%" stop-color="rgba(155, 92, 255, 0)" />
               </linearGradient>
             </defs>
             <path
@@ -285,8 +285,8 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
             <svg viewBox="0 0 120 120" aria-hidden="true">
               <defs>
               <linearGradient id="ratingGradient" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stop-color="#7fa881" />
-                  <stop offset="100%" stop-color="#4f8f5b" />
+                  <stop offset="0%" stop-color="#9b5cff" />
+                  <stop offset="100%" stop-color="#7b2cff" />
               </linearGradient>
               </defs>
               <circle cx="60" cy="60" r="46" pathLength="100" class="ring-track" />

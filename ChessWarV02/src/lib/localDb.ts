@@ -35,6 +35,8 @@ export type DashboardDb = {
   goals: GoalProgress[]
 }
 
+const STORAGE_KEY = 'warchess.dashboard'
+
 const defaultDb: DashboardDb = {
   profile: {
     id: 'player-01',
@@ -95,6 +97,25 @@ const defaultDb: DashboardDb = {
 let dashboardCache: DashboardDb | null = null
 let dashboardPromise: Promise<DashboardDb> | null = null
 
+const readStorage = (): DashboardDb | null => {
+  if (typeof window === 'undefined') return null
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY)
+    return stored ? (JSON.parse(stored) as DashboardDb) : null
+  } catch {
+    return null
+  }
+}
+
+const writeStorage = (payload: DashboardDb): void => {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+  } catch {
+    // Ignore storage failures (quota, private mode).
+  }
+}
+
 const mapDashboard = (payload?: DashboardDb | null): DashboardDb => {
   if (!payload) return defaultDb
   return {
@@ -111,18 +132,25 @@ export const clearDashboardCache = (): void => {
 
 export const getDashboardData = async (): Promise<DashboardDb> => {
   if (dashboardCache) return dashboardCache
+  const stored = readStorage()
+  const storedMapped = mapDashboard(stored)
+  const storedAvatar = stored?.profile?.avatarUrl ?? ''
   if (!getSessionToken()) {
-    dashboardCache = defaultDb
-    return defaultDb
+    dashboardCache = storedMapped
+    return storedMapped
   }
 
   if (!dashboardPromise) {
     dashboardPromise = apiFetch<{ ok: boolean; dashboard?: DashboardDb }>('dashboard-get')
       .then((response) => {
-        if (!response.ok) return defaultDb
-        return mapDashboard(response.dashboard)
+        if (!response.ok) return storedMapped
+        const mapped = mapDashboard(response.dashboard)
+        if (storedAvatar && !mapped.profile.avatarUrl) {
+          mapped.profile.avatarUrl = storedAvatar
+        }
+        return mapped
       })
-      .catch(() => defaultDb)
+      .catch(() => storedMapped)
       .then((next) => {
         dashboardCache = next
         return next
@@ -134,6 +162,7 @@ export const getDashboardData = async (): Promise<DashboardDb> => {
 
 export const saveDashboardData = async (next: DashboardDb): Promise<DashboardDb> => {
   dashboardCache = next
+  writeStorage(next)
 
   if (!getSessionToken()) {
     return next
@@ -146,7 +175,11 @@ export const saveDashboardData = async (next: DashboardDb): Promise<DashboardDb>
     })
 
     const saved = response.ok ? mapDashboard(response.dashboard) : next
+    if (response.ok && next.profile.avatarUrl && !saved.profile.avatarUrl) {
+      saved.profile.avatarUrl = next.profile.avatarUrl
+    }
     dashboardCache = saved
+    writeStorage(saved)
     return saved
   } catch {
     return next

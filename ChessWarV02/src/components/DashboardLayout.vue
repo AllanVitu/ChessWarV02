@@ -66,10 +66,6 @@ const handleLogout = async () => {
           <span class="nav-dot"></span>
           Partie
         </RouterLink>
-        <button class="nav-link nav-link--disabled" type="button" disabled>
-          <span class="nav-dot"></span>
-          Tournois
-        </button>
       </div>
 
       <div class="nav-group">
@@ -78,18 +74,6 @@ const handleLogout = async () => {
           <span class="nav-dot"></span>
           Analyse du profil
         </RouterLink>
-        <button class="nav-link nav-link--disabled" type="button" disabled>
-          <span class="nav-dot"></span>
-          Carte des menaces
-        </button>
-        <button class="nav-link nav-link--disabled" type="button" disabled>
-          <span class="nav-dot"></span>
-          Laboratoire d'ouverture
-        </button>
-        <button class="nav-link nav-link--disabled" type="button" disabled>
-          <span class="nav-dot"></span>
-          Tableau d'equipe
-        </button>
       </div>
 
       <div class="nav-group">

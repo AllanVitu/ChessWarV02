@@ -10,12 +10,12 @@
   --text: #2c2b28;
   --text-muted: #6f6a5e;
   --text-faint: #9a9383;
-  --accent: #4f8f5b;
-  --accent-strong: #3f7b50;
-  --accent-2: #d3b07a;
-  --accent-3: #7fa881;
+  --accent: #7b2cff;
+  --accent-strong: #5d0fff;
+  --accent-2: #c184ff;
+  --accent-3: #9b5cff;
   --danger: #c76262;
-  --success: #4f8f5b;
+  --success: #7b2cff;
   --shadow: 0 28px 80px rgba(88, 78, 60, 0.18);
   --radius-lg: 28px;
   --radius: 22px;
@@ -34,12 +34,12 @@
   --text: #f3ede3;
   --text-muted: #c1b6a4;
   --text-faint: #8f8575;
-  --accent: #79c48b;
-  --accent-strong: #4f9b64;
-  --accent-2: #c9a36a;
-  --accent-3: #8cc99a;
+  --accent: #a77bff;
+  --accent-strong: #7d45ff;
+  --accent-2: #d5b3ff;
+  --accent-3: #be93ff;
   --danger: #d06c6c;
-  --success: #79c48b;
+  --success: #a77bff;
   --shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
 }
 
@@ -54,9 +54,9 @@
 body {
   min-height: 100vh;
   background:
-    radial-gradient(1200px 900px at 12% -18%, rgba(127, 168, 129, 0.28), transparent 60%),
-    radial-gradient(1100px 900px at 88% 6%, rgba(211, 176, 122, 0.25), transparent 58%),
-    radial-gradient(1000px 900px at 50% 110%, rgba(127, 168, 129, 0.2), transparent 60%),
+    radial-gradient(1200px 900px at 12% -18%, rgba(155, 92, 255, 0.28), transparent 60%),
+    radial-gradient(1100px 900px at 88% 6%, rgba(193, 132, 255, 0.25), transparent 58%),
+    radial-gradient(1000px 900px at 50% 110%, rgba(155, 92, 255, 0.2), transparent 60%),
     #f6f0e6;
   color: var(--text);
   font-family: var(--font-sans);
@@ -68,9 +68,9 @@ body {
 
 .theme-dark body {
   background:
-    radial-gradient(1200px 900px at 12% -18%, rgba(121, 196, 139, 0.16), transparent 60%),
-    radial-gradient(1100px 900px at 88% 6%, rgba(201, 163, 106, 0.12), transparent 58%),
-    radial-gradient(1000px 900px at 50% 110%, rgba(121, 196, 139, 0.12), transparent 60%),
+    radial-gradient(1200px 900px at 12% -18%, rgba(167, 123, 255, 0.18), transparent 60%),
+    radial-gradient(1100px 900px at 88% 6%, rgba(181, 128, 255, 0.12), transparent 58%),
+    radial-gradient(1000px 900px at 50% 110%, rgba(167, 123, 255, 0.12), transparent 60%),
     #15110d;
 }
 

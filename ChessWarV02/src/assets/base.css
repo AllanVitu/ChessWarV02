@@ -1,22 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #f6f0e6;
-  --bg-soft: #efe6d8;
-  --panel: rgba(255, 255, 255, 0.86);
-  --panel-strong: rgba(255, 255, 255, 0.96);
-  --panel-soft: rgba(255, 255, 255, 0.7);
-  --panel-border: rgba(140, 130, 110, 0.22);
-  --text: #2c2b28;
-  --text-muted: #6f6a5e;
-  --text-faint: #9a9383;
-  --accent: #7b2cff;
-  --accent-strong: #5d0fff;
-  --accent-2: #c184ff;
-  --accent-3: #9b5cff;
-  --danger: #c76262;
-  --success: #7b2cff;
-  --shadow: 0 28px 80px rgba(88, 78, 60, 0.18);
+  --bg: #0b0f0c;
+  --bg-soft: #121916;
+  --panel: rgba(18, 22, 20, 0.62);
+  --panel-strong: rgba(22, 28, 24, 0.78);
+  --panel-soft: rgba(18, 22, 20, 0.42);
+  --panel-border: rgba(255, 255, 255, 0.18);
+  --text: #f4f7f4;
+  --text-muted: rgba(244, 247, 244, 0.72);
+  --text-faint: rgba(244, 247, 244, 0.52);
+  --accent: #22c55e;
+  --accent-strong: #16a34a;
+  --accent-2: #86efac;
+  --accent-3: #4ade80;
+  --danger: #f87171;
+  --success: #22c55e;
+  --shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
   --radius-lg: 28px;
   --radius: 22px;
   --radius-sm: 14px;
@@ -25,22 +25,22 @@
 }
 
 .theme-dark {
-  --bg: #15110d;
-  --bg-soft: #1e1914;
-  --panel: rgba(22, 20, 17, 0.88);
-  --panel-strong: rgba(28, 24, 20, 0.96);
-  --panel-soft: rgba(28, 24, 20, 0.7);
-  --panel-border: rgba(255, 255, 255, 0.08);
-  --text: #f3ede3;
-  --text-muted: #c1b6a4;
-  --text-faint: #8f8575;
-  --accent: #a77bff;
-  --accent-strong: #7d45ff;
-  --accent-2: #d5b3ff;
-  --accent-3: #be93ff;
-  --danger: #d06c6c;
-  --success: #a77bff;
-  --shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
+  --bg: #060907;
+  --bg-soft: #0c120f;
+  --panel: rgba(12, 16, 14, 0.7);
+  --panel-strong: rgba(14, 20, 16, 0.84);
+  --panel-soft: rgba(12, 16, 14, 0.5);
+  --panel-border: rgba(255, 255, 255, 0.14);
+  --text: #f1f6f2;
+  --text-muted: rgba(241, 246, 242, 0.68);
+  --text-faint: rgba(241, 246, 242, 0.45);
+  --accent: #34d399;
+  --accent-strong: #1dbb6a;
+  --accent-2: #9ef0c4;
+  --accent-3: #5eeead;
+  --danger: #f97373;
+  --success: #34d399;
+  --shadow: 0 28px 80px rgba(0, 0, 0, 0.6);
 }
 
 *,
@@ -54,10 +54,8 @@
 body {
   min-height: 100vh;
   background:
-    radial-gradient(1200px 900px at 12% -18%, rgba(155, 92, 255, 0.28), transparent 60%),
-    radial-gradient(1100px 900px at 88% 6%, rgba(193, 132, 255, 0.25), transparent 58%),
-    radial-gradient(1000px 900px at 50% 110%, rgba(155, 92, 255, 0.2), transparent 60%),
-    #f6f0e6;
+    linear-gradient(160deg, rgba(7, 10, 8, 0.62), rgba(6, 9, 7, 0.78)),
+    url('/new_imgs/fond_app.png') center / cover fixed no-repeat;
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 16px;
@@ -68,10 +66,8 @@ body {
 
 .theme-dark body {
   background:
-    radial-gradient(1200px 900px at 12% -18%, rgba(167, 123, 255, 0.18), transparent 60%),
-    radial-gradient(1100px 900px at 88% 6%, rgba(181, 128, 255, 0.12), transparent 58%),
-    radial-gradient(1000px 900px at 50% 110%, rgba(167, 123, 255, 0.12), transparent 60%),
-    #15110d;
+    linear-gradient(160deg, rgba(5, 8, 6, 0.7), rgba(5, 8, 6, 0.85)),
+    url('/new_imgs/fond_app.png') center / cover fixed no-repeat;
 }
 
 button,

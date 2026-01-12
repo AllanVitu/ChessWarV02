@@ -68,6 +68,14 @@ const actionLabel = (status: MatchRecord['status']) => {
 }
 
 const totalMatches = computed(() => matches.value.length)
+const previewOpponent = computed(() =>
+  form.mode === 'IA' ? aiNames[form.difficulty] : form.opponent.trim() || 'Joueur 2',
+)
+const previewMode = computed(() => modeLabels[form.mode])
+const previewDifficulty = computed(() => difficultyLabels[form.difficulty])
+const previewSide = computed(() =>
+  form.side === 'Aleatoire' ? 'Couleur aleatoire' : `Couleur ${form.side.toLowerCase()}`,
+)
 
 onMounted(async () => {
   matches.value = await getMatches()
@@ -114,6 +122,31 @@ const handleCreateMatch = async () => {
             <h3 class="panel-headline">Configurer une partie</h3>
           </div>
           <span class="badge-soft">{{ totalMatches }} matchs</span>
+        </div>
+
+        <div class="match-preview">
+          <div class="match-preview-row">
+            <div class="match-preview-player">
+              <div class="match-avatar">J1</div>
+              <div>
+                <p class="match-opponent">Joueur 1</p>
+                <p class="match-id">{{ previewSide }}</p>
+              </div>
+            </div>
+            <span class="vs-pill">VS</span>
+            <div class="match-preview-player">
+              <div class="match-avatar">{{ getInitials(previewOpponent) }}</div>
+              <div>
+                <p class="match-opponent">{{ previewOpponent }}</p>
+                <p class="match-id">{{ previewMode }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="match-preview-meta">
+            <span class="preview-pill">Cadence {{ form.timeControl }}</span>
+            <span v-if="form.mode === 'IA'" class="preview-pill">IA {{ previewDifficulty }}</span>
+          </div>
         </div>
 
         <form class="form-stack" @submit.prevent="handleCreateMatch">

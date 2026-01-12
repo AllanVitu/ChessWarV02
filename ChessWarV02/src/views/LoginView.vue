@@ -27,8 +27,9 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <div class="auth-page">
-    <div class="panel auth-card">
+  <div class="auth-page auth-page--solo">
+    <div class="auth-orbit">
+      <div class="panel auth-card auth-card--orbit">
       <p class="eyebrow">Connexion</p>
       <h1>Reprendre votre partie</h1>
       <p class="subhead">Accedez a votre tableau de bord et vos matchs en cours.</p>
@@ -57,18 +58,7 @@ const handleLogin = async () => {
         <RouterLink to="/mot-de-passe-oublie">Mot de passe oublie ?</RouterLink>
         <RouterLink to="/inscription">Creer un compte</RouterLink>
       </div>
-    </div>
-
-    <div class="panel auth-side">
-      <h2>Console WarChess</h2>
-      <p class="subhead">
-        Des analyses IA, un suivi Elo et un centre de match concu pour les joueurs competitifs.
-      </p>
-      <ul class="auth-list">
-        <li>Evaluation en direct et courbes de rythme.</li>
-        <li>Creation rapide de matchs locaux ou IA.</li>
-        <li>Sessions d'entrainement planifiees.</li>
-      </ul>
+      </div>
     </div>
   </div>
 </template>

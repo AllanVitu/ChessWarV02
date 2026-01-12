@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { getMatchById, type DifficultyKey, type MatchRecord } from '@/lib/matchesDb'
 import {
@@ -15,6 +15,7 @@ import {
 } from '@/lib/chessEngine'
 
 const route = useRoute()
+const router = useRouter()
 const matchId = computed(() => (route.params.id ? String(route.params.id) : ''))
 const match = ref<MatchRecord | null>(null)
 
@@ -66,6 +67,7 @@ const analysis = ref<{ score: number; bestMove: Move | null }>({
   score: 0,
   bestMove: null,
 })
+let aiTimeout: ReturnType<typeof setTimeout> | null = null
 
 const boardFiles = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 const boardRanks = [8, 7, 6, 5, 4, 3, 2, 1]
@@ -170,12 +172,16 @@ const triggerAiMove = () => {
   if (aiThinking.value) return
   if (!aiSide.value || sideToMove.value !== aiSide.value) return
   aiThinking.value = true
-  setTimeout(() => {
+  if (aiTimeout) {
+    clearTimeout(aiTimeout)
+  }
+  aiTimeout = setTimeout(() => {
     const move = getAiMove(board.value, sideToMove.value, difficulty.value)
     if (move) {
       applyAndRecord(move)
     }
     aiThinking.value = false
+    aiTimeout = null
   }, 500)
 }
 
@@ -207,6 +213,32 @@ const handleSquareClick = (squareId: string, piece: string) => {
 
 const handleAiMove = () => {
   triggerAiMove()
+}
+
+const resetMatch = () => {
+  if (aiTimeout) {
+    clearTimeout(aiTimeout)
+    aiTimeout = null
+  }
+  board.value = createInitialBoard()
+  sideToMove.value = 'white'
+  selectedSquare.value = null
+  lastMove.value = null
+  moveHistory.value = []
+  aiThinking.value = false
+  updateAnalysis()
+}
+
+const handleAbandon = async () => {
+  await router.push('/tableau-de-bord')
+}
+
+const handleDraw = async () => {
+  await router.push('/tableau-de-bord')
+}
+
+const handleReset = () => {
+  resetMatch()
 }
 
 watch([board, sideToMove, difficulty], updateAnalysis, { immediate: true })
@@ -275,27 +307,46 @@ const squares = computed(() =>
           </div>
         </div>
 
-        <div class="board">
-          <button
-            v-for="square in squares"
-            :key="square.id"
-            type="button"
-            :class="[
-              'square',
-              square.dark ? 'square--dark' : 'square--light',
-              square.isLast ? 'square--last' : '',
-              square.isSelected ? 'square--selected' : '',
-              square.isTarget ? 'square--target' : '',
-            ]"
-            @click="handleSquareClick(square.id, square.piece)"
-          >
-            <span
-              v-if="square.piece"
-              :class="['piece', square.tone === 'light' ? 'piece--light' : 'piece--dark']"
+        <div class="board-row">
+          <div class="board">
+            <button
+              v-for="square in squares"
+              :key="square.id"
+              type="button"
+              :class="[
+                'square',
+                square.dark ? 'square--dark' : 'square--light',
+                square.isLast ? 'square--last' : '',
+                square.isSelected ? 'square--selected' : '',
+                square.isTarget ? 'square--target' : '',
+              ]"
+              @click="handleSquareClick(square.id, square.piece)"
             >
-              {{ square.symbol }}
-            </span>
-          </button>
+              <span
+                v-if="square.piece"
+                :class="['piece', square.tone === 'light' ? 'piece--light' : 'piece--dark']"
+              >
+                {{ square.symbol }}
+              </span>
+            </button>
+          </div>
+
+          <div class="match-actions">
+            <div>
+              <p class="panel-title">Actions</p>
+              <h3 class="panel-headline">Fin de match</h3>
+              <p class="panel-sub">Gerez la partie en cours en un clic.</p>
+            </div>
+            <button class="button-ghost match-action" type="button" @click="handleAbandon">
+              Abandonner
+            </button>
+            <button class="button-ghost match-action" type="button" @click="handleDraw">
+              Match Nul
+            </button>
+            <button class="button-primary match-action" type="button" @click="handleReset">
+              Reinitialiser
+            </button>
+          </div>
         </div>
       </div>
 

@@ -28,8 +28,9 @@ const handleRegister = async () => {
 </script>
 
 <template>
-  <div class="auth-page">
-    <div class="panel auth-card">
+  <div class="auth-page auth-page--solo">
+    <div class="auth-orbit">
+      <div class="panel auth-card auth-card--orbit">
       <p class="eyebrow">Inscription</p>
       <h1>Creer votre compte</h1>
       <p class="subhead">Rejoignez l'arene et configurez votre profil de jeu.</p>
@@ -62,18 +63,7 @@ const handleRegister = async () => {
       <div class="auth-links">
         <RouterLink to="/connexion">Deja un compte ? Se connecter</RouterLink>
       </div>
-    </div>
-
-    <div class="panel auth-side">
-      <h2>Configuration rapide</h2>
-      <p class="subhead">
-        Choisissez votre style de jeu et recevez des analyses personnalisees.
-      </p>
-      <ul class="auth-list">
-        <li>Profil Elo et historique de parties.</li>
-        <li>Objectifs d'entrainement personnalises.</li>
-        <li>IA multi-niveaux pour progresser.</li>
-      </ul>
+      </div>
     </div>
   </div>
 </template>

@@ -50,6 +50,17 @@ const aiNames: Record<DifficultyKey, string> = {
 
 const formattedNow = () => new Date().toISOString().slice(0, 16).replace('T', ' ')
 
+const getInitials = (name: string) => {
+  const trimmed = name.trim()
+  if (!trimmed) return '?'
+  return trimmed
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || '?'
+}
+
 const actionLabel = (status: MatchRecord['status']) => {
   if (status === 'planifie') return 'Lancer'
   if (status === 'en_cours') return 'Reprendre'
@@ -192,9 +203,12 @@ const handleCreateMatch = async () => {
         <div class="match-cards">
           <article v-for="match in matches" :key="match.id" class="match-card">
             <div class="match-row">
-              <div>
-                <p class="match-id">{{ match.id }}</p>
-                <p class="match-opponent">{{ match.opponent }}</p>
+              <div class="match-ident">
+                <div class="match-avatar">{{ getInitials(match.opponent) }}</div>
+                <div>
+                  <p class="match-id">{{ match.id }}</p>
+                  <p class="match-opponent">{{ match.opponent }}</p>
+                </div>
               </div>
               <span :class="['match-status', `match-status--${match.status}`]">
                 {{ statusLabels[match.status] }}

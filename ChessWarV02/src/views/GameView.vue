@@ -69,6 +69,20 @@ const analysis = ref<{ score: number; bestMove: Move | null }>({
 
 const boardFiles = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 const boardRanks = [8, 7, 6, 5, 4, 3, 2, 1]
+const pieceSymbols: Record<string, string> = {
+  p: '♟',
+  r: '♜',
+  n: '♞',
+  b: '♝',
+  q: '♛',
+  k: '♚',
+  P: '♙',
+  R: '♖',
+  N: '♘',
+  B: '♗',
+  Q: '♕',
+  K: '♔',
+}
 
 const legalMoves = computed(() => getLegalMoves(board.value, sideToMove.value))
 
@@ -83,6 +97,27 @@ const canUserMove = computed(() => {
   if (mode.value !== 'IA') return true
   return sideToMove.value === playerSide.value
 })
+
+const whiteLabel = computed(() => {
+  if (mode.value === 'Local') return 'Joueur 1'
+  return playerSide.value === 'white' ? 'Vous' : opponent.value
+})
+
+const blackLabel = computed(() => {
+  if (mode.value === 'Local') return 'Joueur 2'
+  return playerSide.value === 'black' ? 'Vous' : opponent.value
+})
+
+const initialsFrom = (label: string) => {
+  const clean = label.trim()
+  if (!clean) return '?'
+  return clean
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || '?'
+}
 
 const evaluationValue = computed(() => {
   const score = analysis.value.score
@@ -190,7 +225,7 @@ const squares = computed(() =>
       return {
         id: squareId,
         piece,
-        label: piece ? piece.toUpperCase() : '',
+        symbol: pieceSymbols[piece] ?? '',
         dark: isDark,
         tone,
         isSelected,
@@ -218,6 +253,28 @@ const squares = computed(() =>
           <span class="badge-soft">{{ mode === 'IA' ? 'IA active' : 'Local' }}</span>
         </div>
 
+        <div class="player-strip">
+          <div
+            :class="['player-chip', sideToMove === 'white' && 'player-chip--active']"
+          >
+            <div class="player-avatar">{{ initialsFrom(whiteLabel) }}</div>
+            <div>
+              <p class="player-name">{{ whiteLabel }}</p>
+              <p class="player-meta">Blancs</p>
+            </div>
+          </div>
+          <span class="vs-pill">VS</span>
+          <div
+            :class="['player-chip', sideToMove === 'black' && 'player-chip--active']"
+          >
+            <div class="player-avatar">{{ initialsFrom(blackLabel) }}</div>
+            <div>
+              <p class="player-name">{{ blackLabel }}</p>
+              <p class="player-meta">Noirs</p>
+            </div>
+          </div>
+        </div>
+
         <div class="board">
           <button
             v-for="square in squares"
@@ -236,7 +293,7 @@ const squares = computed(() =>
               v-if="square.piece"
               :class="['piece', square.tone === 'light' ? 'piece--light' : 'piece--dark']"
             >
-              {{ square.label }}
+              {{ square.symbol }}
             </span>
           </button>
         </div>

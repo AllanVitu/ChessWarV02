@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { getDashboardData, type DashboardDb, type DashboardProfile } from '@/lib/localDb'
 import { buildTrendPaths, getProfileAiAnalysis } from '@/lib/profileAnalysis'
@@ -68,6 +69,20 @@ const resultLabels: Record<string, string> = {
 
 const boardFiles = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 const boardRanks = [8, 7, 6, 5, 4, 3, 2, 1]
+const pieceSymbols: Record<string, string> = {
+  p: '♟',
+  r: '♜',
+  n: '♞',
+  b: '♝',
+  q: '♛',
+  k: '♚',
+  P: '♙',
+  R: '♖',
+  N: '♘',
+  B: '♗',
+  Q: '♕',
+  K: '♔',
+}
 
 const boardState = [
   ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
@@ -95,7 +110,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
       dark: isDark,
       piece,
       tone,
-      label: piece ? piece.toUpperCase() : '',
+      symbol: pieceSymbols[piece] ?? '',
       isLastMove: lastMoveSquares.has(squareId),
       isFocus: squareId === focusSquare,
     }
@@ -121,7 +136,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
               </p>
             </div>
             <div class="hero-actions">
-              <button class="button-primary" type="button">Nouvelle partie</button>
+              <RouterLink class="button-primary" to="/matchs">Nouvelle partie</RouterLink>
               <button class="button-ghost" type="button">Analyser</button>
             </div>
           </div>
@@ -145,7 +160,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
                     square.tone === 'light' ? 'piece--light' : 'piece--dark',
                   ]"
                 >
-                  {{ square.label }}
+                  {{ square.symbol }}
                 </span>
               </div>
             </div>

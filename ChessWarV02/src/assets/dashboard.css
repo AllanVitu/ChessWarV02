@@ -1116,6 +1116,24 @@ td {
 .auth-page--solo {
   grid-template-columns: minmax(0, 1fr);
   justify-items: center;
+  position: relative;
+  isolation: isolate;
+}
+
+.auth-page--solo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('/new_imgs/fond_app.png') center / cover no-repeat;
+  z-index: -2;
+}
+
+.auth-page--solo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, rgba(20, 16, 30, 0.35), rgba(10, 8, 16, 0.55));
+  z-index: -1;
 }
 
 .auth-orbit {
@@ -1163,6 +1181,11 @@ td {
   position: relative;
   z-index: 1;
   width: min(480px, 100%);
+  background: rgba(28, 24, 40, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 24px 50px rgba(12, 10, 20, 0.45);
+  backdrop-filter: blur(18px) saturate(140%);
+  color: #f7f4ff;
 }
 
 .auth-card--orbit::before {
@@ -1172,6 +1195,37 @@ td {
   border-radius: 32px;
   border: 1px solid rgba(166, 94, 255, 0.18);
   pointer-events: none;
+}
+
+.auth-card--orbit .eyebrow {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.auth-card--orbit .subhead {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.auth-card--orbit .form-label {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.auth-card--orbit .form-input {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #f7f4ff;
+}
+
+.auth-card--orbit .form-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.auth-card--orbit .form-input:focus {
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
+}
+
+.auth-card--orbit .auth-links a {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 @keyframes orbit-spin {

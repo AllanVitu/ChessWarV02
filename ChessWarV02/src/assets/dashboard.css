@@ -1251,7 +1251,7 @@ td {
 
 .match-layout {
   display: grid;
-  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
   gap: 24px;
 }
 
@@ -1263,21 +1263,23 @@ td {
 
 .match-create {
   justify-items: center;
+  padding: 16px 14px;
 }
 
 .match-create .panel-header {
   width: 100%;
-  max-width: 320px;
+  max-width: 300px;
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: 6px;
+  margin-bottom: 10px;
 }
 
 .match-create .match-preview,
 .match-create .form-stack {
   width: 100%;
-  max-width: 320px;
+  max-width: 300px;
 }
 
 .match-create .form-field,
@@ -1291,12 +1293,21 @@ td {
 }
 
 .match-create .form-stack {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  align-items: center;
+  align-items: stretch;
 }
 
 .match-create .form-field {
   text-align: center;
+}
+
+.match-create .form-field--full {
+  grid-column: 1 / -1;
+}
+
+.match-create .form-field--half {
+  grid-column: span 1;
 }
 
 .match-create .form-label {
@@ -1321,7 +1332,9 @@ td {
 }
 
 .match-create .button-primary {
-  width: 100%;
+  grid-column: 1 / -1;
+  width: min(220px, 100%);
+  justify-self: center;
 }
 
 .match-cards {
@@ -1340,8 +1353,8 @@ td {
 
 .match-preview {
   display: grid;
-  gap: 10px;
-  padding: 10px;
+  gap: 8px;
+  padding: 10px 8px;
   border-radius: 16px;
   background: var(--panel-soft);
   border: 1px solid rgba(155, 92, 255, 0.18);
@@ -1351,14 +1364,14 @@ td {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .match-preview-player {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 8px;
+  padding: 8px 6px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.65);
   border: 1px solid rgba(155, 92, 255, 0.18);

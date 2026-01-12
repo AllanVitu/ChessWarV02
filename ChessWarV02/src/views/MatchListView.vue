@@ -150,7 +150,7 @@ const handleCreateMatch = async () => {
         </div>
 
         <form class="form-stack" @submit.prevent="handleCreateMatch">
-          <div class="form-field">
+          <div class="form-field form-field--full">
             <span class="form-label">Mode</span>
             <div class="segmented">
               <button
@@ -170,7 +170,7 @@ const handleCreateMatch = async () => {
             </div>
           </div>
 
-          <label v-if="form.mode === 'Local'" class="form-field">
+          <label v-if="form.mode === 'Local'" class="form-field form-field--full">
             <span class="form-label">Joueur 2</span>
             <input
               v-model="form.opponent"
@@ -180,7 +180,7 @@ const handleCreateMatch = async () => {
             />
           </label>
 
-          <div v-else class="form-field">
+          <div v-else class="form-field form-field--full">
             <span class="form-label">Difficulte IA</span>
             <div class="segmented">
               <button
@@ -198,7 +198,7 @@ const handleCreateMatch = async () => {
             </div>
           </div>
 
-          <label class="form-field">
+          <label class="form-field form-field--half">
             <span class="form-label">Cadence</span>
             <select v-model="form.timeControl" class="form-input">
               <option value="3+2">3+2 Blitz</option>
@@ -208,7 +208,7 @@ const handleCreateMatch = async () => {
             </select>
           </label>
 
-          <label class="form-field">
+          <label class="form-field form-field--half">
             <span class="form-label">Couleur</span>
             <select v-model="form.side" class="form-input">
               <option value="Aleatoire">Aleatoire</option>

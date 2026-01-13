@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import DashboardLayout from '@/components/DashboardLayout.vue'
-import { applyPreferences, loadPreferences, savePreferences } from '@/lib/preferences'
+import {
+  applyPreferences,
+  getDefaultPreferences,
+  loadPreferences,
+  savePreferences,
+} from '@/lib/preferences'
 
 const preferences = reactive(loadPreferences())
+const statusMessage = ref('')
 
 watch(
   preferences,
@@ -14,41 +20,60 @@ watch(
   { deep: true },
 )
 
+const languageOptions = ['Francais', 'English', 'Espanol'] as const
+const timezoneOptions = ['Europe/Paris', 'Europe/London', 'America/Montreal'] as const
+const cadenceOptions = ['10+0 Rapide', '5+0 Blitz', '15+10 Classique'] as const
+const boardThemeOptions = ['Theme botanique', 'Theme sable', 'Theme contraste'] as const
+
 const notificationSettings = [
   {
+    key: 'matchAlerts',
     label: 'Alertes de match',
     hint: 'Rappels pour les parties planifiees.',
-    enabled: true,
   },
   {
+    key: 'matchResults',
     label: 'Resultats de partie',
     hint: 'Resume automatique apres chaque match.',
-    enabled: true,
   },
   {
+    key: 'tacticalTips',
     label: 'Conseils tactiques',
     hint: 'Suggestions basees sur vos parties.',
-    enabled: false,
   },
-]
+] as const
 
 const privacySettings = [
   {
+    key: 'publicProfile',
     label: 'Profil public',
     hint: 'Afficher votre nom et votre Elo.',
-    enabled: true,
   },
   {
+    key: 'visibleHistory',
     label: 'Historique visible',
     hint: 'Autoriser les autres a voir vos matchs.',
-    enabled: false,
   },
   {
+    key: 'sharedStats',
     label: 'Statistiques partagees',
     hint: 'Afficher les tendances globales.',
-    enabled: true,
   },
-]
+] as const
+
+const handleSave = () => {
+  savePreferences(preferences)
+  applyPreferences(preferences)
+  statusMessage.value = 'Parametres enregistres.'
+}
+
+const handleReset = () => {
+  const defaults = getDefaultPreferences()
+  Object.assign(preferences, defaults)
+  savePreferences(preferences)
+  applyPreferences(preferences)
+  statusMessage.value = 'Parametres reinitialises.'
+}
 </script>
 
 <template>
@@ -87,37 +112,37 @@ const privacySettings = [
 
           <label class="form-field">
             <span class="form-label">Langue</span>
-            <select class="form-input">
-              <option>Francais</option>
-              <option>English</option>
-              <option>Espanol</option>
+            <select v-model="preferences.language" class="form-input">
+              <option v-for="option in languageOptions" :key="option" :value="option">
+                {{ option }}
+              </option>
             </select>
           </label>
 
           <label class="form-field">
             <span class="form-label">Fuseau horaire</span>
-            <select class="form-input">
-              <option>Europe/Paris</option>
-              <option>Europe/London</option>
-              <option>America/Montreal</option>
+            <select v-model="preferences.timezone" class="form-input">
+              <option v-for="option in timezoneOptions" :key="option" :value="option">
+                {{ option }}
+              </option>
             </select>
           </label>
 
           <label class="form-field">
             <span class="form-label">Cadence favorite</span>
-            <select class="form-input">
-              <option>10+0 Rapide</option>
-              <option>5+0 Blitz</option>
-              <option>15+10 Classique</option>
+            <select v-model="preferences.cadence" class="form-input">
+              <option v-for="option in cadenceOptions" :key="option" :value="option">
+                {{ option }}
+              </option>
             </select>
           </label>
 
           <label class="form-field">
             <span class="form-label">Affichage plateau</span>
-            <select class="form-input">
-              <option>Theme botanique</option>
-              <option>Theme sable</option>
-              <option>Theme contraste</option>
+            <select v-model="preferences.boardTheme" class="form-input">
+              <option v-for="option in boardThemeOptions" :key="option" :value="option">
+                {{ option }}
+              </option>
             </select>
           </label>
         </form>
@@ -137,7 +162,7 @@ const privacySettings = [
               <p class="setting-label">{{ item.label }}</p>
               <p class="setting-hint">{{ item.hint }}</p>
             </div>
-            <input class="setting-toggle" type="checkbox" :checked="item.enabled" />
+            <input v-model="preferences.notifications[item.key]" class="setting-toggle" type="checkbox" />
           </label>
         </div>
       </div>
@@ -156,7 +181,7 @@ const privacySettings = [
               <p class="setting-label">{{ item.label }}</p>
               <p class="setting-hint">{{ item.hint }}</p>
             </div>
-            <input class="setting-toggle" type="checkbox" :checked="item.enabled" />
+            <input v-model="preferences.privacy[item.key]" class="setting-toggle" type="checkbox" />
           </label>
         </div>
       </div>
@@ -174,9 +199,13 @@ const privacySettings = [
         </p>
 
         <div class="settings-actions">
-          <button class="button-ghost" type="button">Reinitialiser</button>
-          <button class="button-primary" type="button">Enregistrer</button>
+          <button class="button-ghost" type="button" @click="handleReset">Reinitialiser</button>
+          <button class="button-primary" type="button" @click="handleSave">Enregistrer</button>
         </div>
+
+        <p v-if="statusMessage" class="form-message form-message--success">
+          {{ statusMessage }}
+        </p>
       </div>
     </section>
   </DashboardLayout>

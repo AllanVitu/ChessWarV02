@@ -55,7 +55,7 @@ body {
   min-height: 100vh;
   background:
     linear-gradient(160deg, rgba(7, 10, 8, 0.62), rgba(6, 9, 7, 0.78)),
-    url('/new_imgs/fond_app.png') center / cover fixed no-repeat;
+    url('/new_imgs/fond_app.jpg') center / cover fixed no-repeat;
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 16px;
@@ -67,7 +67,7 @@ body {
 .theme-dark body {
   background:
     linear-gradient(160deg, rgba(5, 8, 6, 0.7), rgba(5, 8, 6, 0.85)),
-    url('/new_imgs/fond_app.png') center / cover fixed no-repeat;
+    url('/new_imgs/fond_app.jpg') center / cover fixed no-repeat;
 }
 
 button,

@@ -15,7 +15,7 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: url('./logo.svg') no-repeat 72% 10%;
+  background: url('./brand-wordmark.png') no-repeat 72% 10%;
   background-size: clamp(260px, 40vw, 720px);
   opacity: 0.05;
   pointer-events: none;

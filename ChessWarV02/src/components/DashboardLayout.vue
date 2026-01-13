@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import logoUrl from '@/assets/logo.svg'
+import logoUrl from '@/assets/brand-icon.png'
 import { getDashboardData, type DashboardDb } from '@/lib/localDb'
 import { clearSession } from '@/lib/auth'
 

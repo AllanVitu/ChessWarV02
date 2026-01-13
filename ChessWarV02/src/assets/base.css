@@ -3,10 +3,10 @@
 :root {
   --bg: #0b0f0c;
   --bg-soft: #121916;
-  --panel: rgba(18, 22, 20, 0.62);
-  --panel-strong: rgba(22, 28, 24, 0.78);
-  --panel-soft: rgba(18, 22, 20, 0.42);
-  --panel-border: rgba(255, 255, 255, 0.18);
+  --panel: rgba(18, 22, 20, 0.38);
+  --panel-strong: rgba(22, 28, 24, 0.52);
+  --panel-soft: rgba(18, 22, 20, 0.18);
+  --panel-border: rgba(255, 255, 255, 0.12);
   --text: #f4f7f4;
   --text-muted: rgba(244, 247, 244, 0.72);
   --text-faint: rgba(244, 247, 244, 0.52);
@@ -27,10 +27,10 @@
 .theme-dark {
   --bg: #060907;
   --bg-soft: #0c120f;
-  --panel: rgba(12, 16, 14, 0.7);
-  --panel-strong: rgba(14, 20, 16, 0.84);
-  --panel-soft: rgba(12, 16, 14, 0.5);
-  --panel-border: rgba(255, 255, 255, 0.14);
+  --panel: rgba(12, 16, 14, 0.42);
+  --panel-strong: rgba(14, 20, 16, 0.58);
+  --panel-soft: rgba(12, 16, 14, 0.22);
+  --panel-border: rgba(255, 255, 255, 0.12);
   --text: #f1f6f2;
   --text-muted: rgba(241, 246, 242, 0.68);
   --text-faint: rgba(241, 246, 242, 0.45);

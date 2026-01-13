@@ -276,77 +276,79 @@ const squares = computed(() =>
     :subtitle="`Mode ${mode} - ${opponent} - Cadence ${timeControl}`"
   >
     <section class="game-layout">
-      <div class="panel game-board">
-        <div class="panel-header">
-          <div>
-            <p class="panel-title">Plateau</p>
-            <h3 class="panel-headline">Tour: {{ sideToMove === 'white' ? 'Blancs' : 'Noirs' }}</h3>
-          </div>
-          <span class="badge-soft">{{ mode === 'IA' ? 'IA active' : 'Local' }}</span>
-        </div>
-
-        <div class="player-strip">
-          <div
-            :class="['player-chip', sideToMove === 'white' && 'player-chip--active']"
-          >
-            <div class="player-avatar">{{ initialsFrom(whiteLabel) }}</div>
+      <div class="game-stack">
+        <div class="panel game-board">
+          <div class="panel-header">
             <div>
-              <p class="player-name">{{ whiteLabel }}</p>
-              <p class="player-meta">Blancs</p>
+              <p class="panel-title">Plateau</p>
+              <h3 class="panel-headline">Tour: {{ sideToMove === 'white' ? 'Blancs' : 'Noirs' }}</h3>
             </div>
+            <span class="badge-soft">{{ mode === 'IA' ? 'IA active' : 'Local' }}</span>
           </div>
-          <span class="vs-pill">VS</span>
-          <div
-            :class="['player-chip', sideToMove === 'black' && 'player-chip--active']"
-          >
-            <div class="player-avatar">{{ initialsFrom(blackLabel) }}</div>
-            <div>
-              <p class="player-name">{{ blackLabel }}</p>
-              <p class="player-meta">Noirs</p>
-            </div>
-          </div>
-        </div>
 
-        <div class="board-row">
-          <div class="board">
-            <button
-              v-for="square in squares"
-              :key="square.id"
-              type="button"
-              :class="[
-                'square',
-                square.dark ? 'square--dark' : 'square--light',
-                square.isLast ? 'square--last' : '',
-                square.isSelected ? 'square--selected' : '',
-                square.isTarget ? 'square--target' : '',
-              ]"
-              @click="handleSquareClick(square.id, square.piece)"
+          <div class="player-strip">
+            <div
+              :class="['player-chip', sideToMove === 'white' && 'player-chip--active']"
             >
-              <span
-                v-if="square.piece"
-                :class="['piece', square.tone === 'light' ? 'piece--light' : 'piece--dark']"
-              >
-                {{ square.symbol }}
-              </span>
-            </button>
+              <div class="player-avatar">{{ initialsFrom(whiteLabel) }}</div>
+              <div>
+                <p class="player-name">{{ whiteLabel }}</p>
+                <p class="player-meta">Blancs</p>
+              </div>
+            </div>
+            <span class="vs-pill">VS</span>
+            <div
+              :class="['player-chip', sideToMove === 'black' && 'player-chip--active']"
+            >
+              <div class="player-avatar">{{ initialsFrom(blackLabel) }}</div>
+              <div>
+                <p class="player-name">{{ blackLabel }}</p>
+                <p class="player-meta">Noirs</p>
+              </div>
+            </div>
           </div>
 
-          <div class="match-actions">
-            <div>
-              <p class="panel-title">Actions</p>
-              <h3 class="panel-headline">Fin de match</h3>
-              <p class="panel-sub">Gerez la partie en cours en un clic.</p>
+          <div class="board-wrap">
+            <div class="board">
+              <button
+                v-for="square in squares"
+                :key="square.id"
+                type="button"
+                :class="[
+                  'square',
+                  square.dark ? 'square--dark' : 'square--light',
+                  square.isLast ? 'square--last' : '',
+                  square.isSelected ? 'square--selected' : '',
+                  square.isTarget ? 'square--target' : '',
+                ]"
+                @click="handleSquareClick(square.id, square.piece)"
+              >
+                <span
+                  v-if="square.piece"
+                  :class="['piece', square.tone === 'light' ? 'piece--light' : 'piece--dark']"
+                >
+                  {{ square.symbol }}
+                </span>
+              </button>
             </div>
-            <button class="button-ghost match-action" type="button" @click="handleAbandon">
-              Abandonner
-            </button>
-            <button class="button-ghost match-action" type="button" @click="handleDraw">
-              Match Nul
-            </button>
-            <button class="button-primary match-action" type="button" @click="handleReset">
-              Reinitialiser
-            </button>
           </div>
+        </div>
+
+        <div class="panel game-actions">
+          <div>
+            <p class="panel-title">Actions</p>
+            <h3 class="panel-headline">Fin de match</h3>
+            <p class="panel-sub">Gerez la partie en cours en un clic.</p>
+          </div>
+          <button class="button-ghost game-action" type="button" @click="handleAbandon">
+            Abandonner
+          </button>
+          <button class="button-ghost game-action" type="button" @click="handleDraw">
+            Match Nul
+          </button>
+          <button class="button-primary game-action" type="button" @click="handleReset">
+            Reinitialiser
+          </button>
         </div>
       </div>
 

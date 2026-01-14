@@ -29,6 +29,7 @@ const isSelf = computed(() => friendStatus.value === 'self')
 const isFriends = computed(() => friendStatus.value === 'friends')
 const isOutgoing = computed(() => friendStatus.value === 'outgoing')
 const isIncoming = computed(() => friendStatus.value === 'incoming')
+const isOnline = computed(() => profile.value?.isOnline ?? false)
 
 const initials = computed(() => {
   const name = profile.value?.name?.trim() ?? ''
@@ -164,6 +165,12 @@ const handleLaunchMatch = async () => {
     return
   }
 
+  if (!isOnline.value) {
+    matchMessage.value = 'Ce joueur est hors ligne.'
+    matchError.value = true
+    return
+  }
+
   try {
     const response = await createMatchInvite(profile.value.id)
     matchMessage.value = response.message
@@ -208,6 +215,10 @@ watch(userId, loadProfile, { immediate: true })
             <span class="stat-chip-label">Elo</span>
             <span class="stat-chip-value">{{ profile.rating }}</span>
           </div>
+          <div :class="['stat-chip', isOnline ? 'stat-chip--online' : 'stat-chip--offline']">
+            <span class="stat-chip-label">Statut</span>
+            <span class="stat-chip-value">{{ isOnline ? 'En ligne' : 'Hors ligne' }}</span>
+          </div>
           <div class="stat-chip">
             <span class="stat-chip-label">Localisation</span>
             <span class="stat-chip-value">{{ profile.location || 'Non renseignee' }}</span>
@@ -245,10 +256,10 @@ watch(userId, loadProfile, { immediate: true })
           <button
             class="button-primary"
             type="button"
-            :disabled="!isFriends"
+            :disabled="!isFriends || !isOnline"
             @click="handleLaunchMatch"
           >
-            Lancer un match
+            {{ isOnline ? 'Lancer un match' : 'Indisponible' }}
           </button>
         </div>
 

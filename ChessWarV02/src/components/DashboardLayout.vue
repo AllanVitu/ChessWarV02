@@ -72,6 +72,10 @@ const hasNewFriend = computed(() => friendRequests.value.some((request) => reque
 const hasNewMatch = computed(() => matchInvites.value.some((invite) => invite.isNew))
 const handledMatches = new Set<string>()
 let redirectingMatch = false
+const matchReadyToast = ref<MatchReadyNotification | null>(null)
+const matchReadyCountdown = ref(0)
+const matchReadyDelay = 5
+let matchReadyTimer: ReturnType<typeof setInterval> | null = null
 
 const resetSearch = () => {
   searchResults.value = []
@@ -193,13 +197,81 @@ const markMatchRead = async () => {
   }
 }
 
+const stopMatchReadyTimer = () => {
+  if (matchReadyTimer) {
+    clearInterval(matchReadyTimer)
+    matchReadyTimer = null
+  }
+}
+
+const playMatchReadyAlert = () => {
+  try {
+    if ('vibrate' in navigator) {
+      navigator.vibrate([120, 60, 120])
+    }
+  } catch {
+    // Ignore vibration failures.
+  }
+
+  try {
+    const AudioContextCtor =
+      window.AudioContext ||
+      (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextCtor) return
+    const context = new AudioContextCtor()
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    oscillator.type = 'triangle'
+    oscillator.frequency.value = 880
+    gain.gain.value = 0.06
+    oscillator.connect(gain)
+    gain.connect(context.destination)
+    oscillator.start()
+    setTimeout(() => {
+      oscillator.stop()
+      context.close().catch(() => {})
+    }, 200)
+  } catch {
+    // Ignore audio failures.
+  }
+}
+
+const cancelMatchReady = () => {
+  stopMatchReadyTimer()
+  matchReadyToast.value = null
+  matchReadyCountdown.value = 0
+  redirectingMatch = false
+}
+
+const joinMatchReady = async () => {
+  if (!matchReadyToast.value || redirectingMatch) return
+
+  const matchId = matchReadyToast.value.matchId
+  stopMatchReadyTimer()
+  matchReadyToast.value = null
+  matchReadyCountdown.value = 0
+  redirectingMatch = true
+
+  const current = router.currentRoute.value
+  const currentId = typeof current.params.id === 'string' ? current.params.id : ''
+  if (!(current.name === 'jeu' && currentId === matchId)) {
+    clearMatchesCache()
+    matchOpen.value = false
+    await router.push(`/jeu/${matchId}`)
+  }
+
+  redirectingMatch = false
+}
+
 const handleMatchReady = async (items: MatchReadyNotification[]) => {
   if (!items.length || redirectingMatch) return
   const next = items.find((item) => !handledMatches.has(item.matchId))
   if (!next) return
 
-  redirectingMatch = true
   handledMatches.add(next.matchId)
+  matchReadyToast.value = next
+  matchReadyCountdown.value = matchReadyDelay
+  playMatchReadyAlert()
 
   try {
     await markNotificationsRead('match-ready')
@@ -207,15 +279,14 @@ const handleMatchReady = async (items: MatchReadyNotification[]) => {
     // Ignore read failures.
   }
 
-  const current = router.currentRoute.value
-  const currentId = typeof current.params.id === 'string' ? current.params.id : ''
-  if (!(current.name === 'jeu' && currentId === next.matchId)) {
-    clearMatchesCache()
-    matchOpen.value = false
-    await router.push(`/jeu/${next.matchId}`)
-  }
-
-  redirectingMatch = false
+  stopMatchReadyTimer()
+  matchReadyTimer = setInterval(() => {
+    if (matchReadyCountdown.value <= 1) {
+      void joinMatchReady()
+      return
+    }
+    matchReadyCountdown.value -= 1
+  }, 1000)
 }
 
 const toggleFriendPanel = async () => {
@@ -333,6 +404,7 @@ onBeforeUnmount(() => {
   if (searchTimer) {
     clearTimeout(searchTimer)
   }
+  stopMatchReadyTimer()
   if (notificationsStream) {
     notificationsStream.close()
     notificationsStream = null
@@ -368,6 +440,7 @@ const handleLogout = async () => {
     notificationsStream.close()
     notificationsStream = null
   }
+  stopMatchReadyTimer()
   await clearSession()
   await router.push('/connexion')
 }
@@ -375,6 +448,21 @@ const handleLogout = async () => {
 
 <template>
   <div class="app-shell">
+    <div class="toast-stack" aria-live="polite" aria-atomic="true">
+      <div v-if="matchReadyToast" class="toast-card">
+        <div class="toast-main">
+          <p class="toast-title">Match accepte</p>
+          <p class="toast-sub">
+            {{ matchReadyToast.from.name }} a accepte votre invitation - {{ matchReadyToast.timeControl }}.
+          </p>
+          <p class="toast-timer">Redirection dans {{ matchReadyCountdown }}s</p>
+        </div>
+        <div class="toast-actions">
+          <button class="button-primary" type="button" @click="joinMatchReady">Rejoindre</button>
+          <button class="button-ghost" type="button" @click="cancelMatchReady">Annuler</button>
+        </div>
+      </div>
+    </div>
     <aside class="sidebar reveal">
       <div class="brand">
         <div class="brand-mark">
@@ -481,7 +569,16 @@ const handleLogout = async () => {
                   <span class="search-name">{{ user.name }}</span>
                   <span class="search-sub">{{ user.title || 'Profil public' }}</span>
                 </span>
-                <span class="search-meta">Elo {{ user.rating }}</span>
+                <span class="search-meta">
+                  <span
+                    :class="[
+                      'presence-dot',
+                      user.isOnline ? 'presence-dot--online' : 'presence-dot--offline',
+                    ]"
+                    aria-hidden="true"
+                  ></span>
+                  {{ user.isOnline ? 'En ligne' : 'Hors ligne' }} · Elo {{ user.rating }}
+                </span>
               </button>
               <p v-if="!searchLoading && searchMessage" class="search-status">{{ searchMessage }}</p>
             </div>

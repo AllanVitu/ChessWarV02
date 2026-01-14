@@ -83,7 +83,7 @@ function fetch_notifications_payload(string $user_id): array
   }
 
   $match_ready = [];
-  if (table_exists('match_invites')) {
+  if (table_exists('match_invites') && column_exists('match_invites', 'requester_seen_at')) {
     $rows = db_fetch_all(
       'SELECT mi.id, mi.match_id, mi.time_control, mi.responded_at, mi.requester_seen_at,
               u.id AS user_id, u.display_name, p.name, p.title, p.rating

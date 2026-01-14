@@ -44,8 +44,13 @@ ensure_dashboard_seed($user['id'], $user['email'], $user['display_name'], $last_
 ensure_matches_seed($user['id']);
 
 db_query(
-  'UPDATE profiles SET last_seen = :last_seen WHERE user_id = :user_id',
-  ['last_seen' => $last_seen, 'user_id' => $user['id']]
+  column_exists('profiles', 'last_seen_at')
+    ? 'UPDATE profiles SET last_seen = :last_seen, last_seen_at = now() WHERE user_id = :user_id'
+    : 'UPDATE profiles SET last_seen = :last_seen WHERE user_id = :user_id',
+  [
+    'last_seen' => $last_seen,
+    'user_id' => $user['id'],
+  ]
 );
 
 json_response(200, [

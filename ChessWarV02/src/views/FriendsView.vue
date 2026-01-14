@@ -186,13 +186,26 @@ onMounted(() => {
               </div>
               <div class="friend-chips">
                 <span class="friend-chip">Elo {{ friend.rating }}</span>
+                <span
+                  :class="[
+                    'friend-chip',
+                    friend.isOnline ? 'friend-chip--online' : 'friend-chip--offline',
+                  ]"
+                >
+                  {{ friend.isOnline ? 'En ligne' : 'Hors ligne' }}
+                </span>
                 <span class="friend-chip">{{ friend.location || 'Localisation inconnue' }}</span>
                 <span class="friend-chip">{{ friend.lastSeen || 'Derniere activite inconnue' }}</span>
               </div>
               <div class="friend-actions">
                 <RouterLink class="button-ghost" :to="`/joueur/${friend.id}`">Voir</RouterLink>
-                <button class="button-primary" type="button" @click="handleInviteMatch(friend)">
-                  Inviter
+                <button
+                  class="button-primary"
+                  type="button"
+                  :disabled="!friend.isOnline"
+                  @click="handleInviteMatch(friend)"
+                >
+                  {{ friend.isOnline ? 'Inviter' : 'Indisponible' }}
                 </button>
                 <button class="button-ghost" type="button" @click="handleRemoveFriend(friend)">
                   Retirer

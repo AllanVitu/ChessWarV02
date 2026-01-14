@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   motto TEXT NOT NULL,
   location TEXT NOT NULL,
   last_seen TEXT NOT NULL,
+  last_seen_at TIMESTAMPTZ,
   email TEXT NOT NULL
 );
 
@@ -110,6 +111,14 @@ CREATE TABLE IF NOT EXISTS match_moves (
   UNIQUE (match_id, ply)
 );
 
+CREATE TABLE IF NOT EXISTS match_messages (
+  id BIGSERIAL PRIMARY KEY,
+  match_id UUID NOT NULL REFERENCES match_rooms(match_id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
 CREATE INDEX IF NOT EXISTS idx_matches_user_id ON matches(user_id);
@@ -122,3 +131,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_match_invites_pair ON match_invites(reque
 CREATE INDEX IF NOT EXISTS idx_match_rooms_white ON match_rooms(white_id);
 CREATE INDEX IF NOT EXISTS idx_match_rooms_black ON match_rooms(black_id);
 CREATE INDEX IF NOT EXISTS idx_match_moves_match ON match_moves(match_id);
+CREATE INDEX IF NOT EXISTS idx_match_messages_match ON match_messages(match_id);

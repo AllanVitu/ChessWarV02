@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/defaults.php';
+require_once __DIR__ . '/helpers.php';
 
 function ensure_dashboard_seed(string $user_id, string $email, string $display_name, string $last_seen): void
 {
@@ -13,19 +14,28 @@ function ensure_dashboard_seed(string $user_id, string $email, string $display_n
   );
 
   if (!$profile) {
+    $columns = 'user_id, name, title, rating, motto, location, last_seen, email';
+    $values = ':user_id, :name, :title, :rating, :motto, :location, :last_seen, :email';
+    $params = [
+      'user_id' => $user_id,
+      'name' => $display_name,
+      'title' => $default_profile['title'],
+      'rating' => $default_profile['rating'],
+      'motto' => $default_profile['motto'],
+      'location' => $default_profile['location'],
+      'last_seen' => $last_seen,
+      'email' => $email,
+    ];
+
+    if (column_exists('profiles', 'last_seen_at')) {
+      $columns .= ', last_seen_at';
+      $values .= ', :last_seen_at';
+      $params['last_seen_at'] = (new DateTime('now'))->format('c');
+    }
+
     db_query(
-      'INSERT INTO profiles (user_id, name, title, rating, motto, location, last_seen, email)
-       VALUES (:user_id, :name, :title, :rating, :motto, :location, :last_seen, :email)',
-      [
-        'user_id' => $user_id,
-        'name' => $display_name,
-        'title' => $default_profile['title'],
-        'rating' => $default_profile['rating'],
-        'motto' => $default_profile['motto'],
-        'location' => $default_profile['location'],
-        'last_seen' => $last_seen,
-        'email' => $email,
-      ]
+      sprintf('INSERT INTO profiles (%s) VALUES (%s)', $columns, $values),
+      $params
     );
   }
 

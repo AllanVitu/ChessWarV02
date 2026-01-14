@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/helpers.php';
 
 function request_headers(): array
 {
@@ -57,5 +58,10 @@ function require_user_id(): ?string
     ['token' => $token]
   );
 
-  return $session['user_id'] ?? null;
+  $user_id = $session['user_id'] ?? null;
+  if ($user_id) {
+    touch_last_seen($user_id);
+  }
+
+  return $user_id;
 }

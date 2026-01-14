@@ -1,9 +1,19 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { getMatchById, type DifficultyKey, type MatchRecord } from '@/lib/matchesDb'
-import { addMatchMove, getMatchRoom, openMatchStream, type MatchOnlineState, type OnlineMove } from '@/lib/matchOnline'
+import {
+  addMatchMessage,
+  addMatchMove,
+  finishMatch,
+  getMatchRoom,
+  openMatchStream,
+  type MatchOnlineState,
+  type OnlineMessage,
+  type OnlineMove,
+} from '@/lib/matchOnline'
+import { createMatchInvite } from '@/lib/notifications'
 import {
   applyMove,
   createInitialBoard,
@@ -20,12 +30,24 @@ const router = useRouter()
 const matchId = computed(() => (route.params.id ? String(route.params.id) : ''))
 const match = ref<MatchRecord | null>(null)
 const onlineMoves = ref<OnlineMove[]>([])
+const onlineMessages = ref<OnlineMessage[]>([])
 const onlineSide = ref<'white' | 'black'>('white')
 const onlineSideToMove = ref<'white' | 'black'>('white')
+const onlineWhiteId = ref<string | null>(null)
+const onlineBlackId = ref<string | null>(null)
+const onlineStatus = ref('active')
 const onlineLoading = ref(false)
 const onlineError = ref('')
 const onlinePending = ref(false)
 let onlineStream: EventSource | null = null
+const chatInput = ref('')
+const chatPending = ref(false)
+const chatError = ref('')
+const chatListRef = ref<HTMLDivElement | null>(null)
+const rematchNotice = ref('')
+const rematchNoticeError = ref(false)
+const finishNotice = ref('')
+const finishNoticeError = ref(false)
 
 const mode = computed<MatchRecord['mode']>(() => match.value?.mode ?? 'IA')
 const isOnline = computed(() => mode.value === 'JcJ')
@@ -38,6 +60,7 @@ const onlineNote = computed(() => {
   if (!isOnline.value) return ''
   if (onlineLoading.value) return 'Connexion au match en ligne...'
   if (onlinePending.value) return 'Envoi du coup...'
+  if (onlineStatus.value !== 'active') return 'Match termine. Vous pouvez proposer une revanche.'
   return sideToMove.value === playerSide.value ? 'A vous de jouer.' : "En attente du coup adverse."
 })
 
@@ -48,10 +71,21 @@ watch(
   async () => {
     stopOnlineStream()
     onlineMoves.value = []
+    onlineMessages.value = []
     onlineError.value = ''
     onlinePending.value = false
     onlineSide.value = 'white'
     onlineSideToMove.value = 'white'
+    onlineWhiteId.value = null
+    onlineBlackId.value = null
+    onlineStatus.value = 'active'
+    chatInput.value = ''
+    chatPending.value = false
+    chatError.value = ''
+    rematchNotice.value = ''
+    rematchNoticeError.value = false
+    finishNotice.value = ''
+    finishNoticeError.value = false
     if (!matchId.value) {
       match.value = null
       difficulty.value = 'intermediaire'
@@ -78,6 +112,12 @@ const playerSide = computed<Side>(() => {
 const aiSide = computed(() => {
   if (mode.value !== 'IA') return null
   return playerSide.value === 'white' ? 'black' : 'white'
+})
+
+const matchEnded = computed(() => isOnline.value && onlineStatus.value !== 'active')
+const opponentId = computed(() => {
+  if (!isOnline.value) return ''
+  return playerSide.value === 'white' ? onlineBlackId.value ?? '' : onlineWhiteId.value ?? ''
 })
 
 const board = ref(createInitialBoard())
@@ -126,7 +166,12 @@ const targetSquares = computed(() => new Set(movesFromSelected.value.map((move) 
 
 const canUserMove = computed(() => {
   if (isOnline.value) {
-    return !onlineLoading.value && !onlinePending.value && sideToMove.value === playerSide.value
+    return (
+      onlineStatus.value === 'active' &&
+      !onlineLoading.value &&
+      !onlinePending.value &&
+      sideToMove.value === playerSide.value
+    )
   }
   if (mode.value !== 'IA') return true
   return sideToMove.value === playerSide.value
@@ -181,8 +226,12 @@ const applyOnlineMoves = (moves: OnlineMove[]) => {
 
 const applyOnlineState = (state: MatchOnlineState) => {
   onlineMoves.value = state.moves ?? []
+  onlineMessages.value = state.messages ?? []
   onlineSide.value = state.yourSide
   onlineSideToMove.value = state.sideToMove
+  onlineWhiteId.value = state.whiteId ?? null
+  onlineBlackId.value = state.blackId ?? null
+  onlineStatus.value = state.status ?? 'active'
   sideToMove.value = state.sideToMove
   onlinePending.value = false
   applyOnlineMoves(onlineMoves.value)
@@ -290,6 +339,7 @@ const triggerAiMove = () => {
 
 const submitOnlineMove = async (move: Move) => {
   if (!matchId.value) return
+  if (onlineStatus.value !== 'active') return
   onlinePending.value = true
   onlineError.value = ''
   try {
@@ -303,6 +353,68 @@ const submitOnlineMove = async (move: Move) => {
     onlineError.value = (error as Error).message
   } finally {
     onlinePending.value = false
+  }
+}
+
+const formatChatTime = (value: string) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+const handleSendChat = async () => {
+  if (!matchId.value || !isOnline.value) return
+  const next = chatInput.value.trim()
+  if (!next) return
+
+  chatPending.value = true
+  chatError.value = ''
+  try {
+    const state = await addMatchMessage(matchId.value, next)
+    applyOnlineState(state)
+    chatInput.value = ''
+    await nextTick()
+    if (chatListRef.value) {
+      chatListRef.value.scrollTop = chatListRef.value.scrollHeight
+    }
+  } catch (error) {
+    chatError.value = (error as Error).message
+  } finally {
+    chatPending.value = false
+  }
+}
+
+const handleRematch = async () => {
+  if (!opponentId.value) {
+    rematchNotice.value = 'Adversaire introuvable.'
+    rematchNoticeError.value = true
+    return
+  }
+
+  rematchNotice.value = ''
+  rematchNoticeError.value = false
+  try {
+    const response = await createMatchInvite(opponentId.value, timeControl.value, 'Aleatoire')
+    rematchNotice.value = response.message
+    rematchNoticeError.value = !response.ok
+  } catch (error) {
+    rematchNotice.value = (error as Error).message
+    rematchNoticeError.value = true
+  }
+}
+
+const handleFinishMatch = async (result: 'resign' | 'draw') => {
+  if (!matchId.value || !isOnline.value) return
+  finishNotice.value = ''
+  finishNoticeError.value = false
+  try {
+    const state = await finishMatch(matchId.value, result)
+    applyOnlineState(state)
+    finishNotice.value = result === 'draw' ? 'Match nul enregistre.' : 'Match termine.'
+  } catch (error) {
+    finishNotice.value = (error as Error).message
+    finishNoticeError.value = true
   }
 }
 
@@ -356,10 +468,20 @@ const resetMatch = () => {
 }
 
 const handleAbandon = async () => {
+  if (isOnline.value) {
+    if (matchEnded.value) return
+    await handleFinishMatch('resign')
+    return
+  }
   await router.push('/tableau-de-bord')
 }
 
 const handleDraw = async () => {
+  if (isOnline.value) {
+    if (matchEnded.value) return
+    await handleFinishMatch('draw')
+    return
+  }
   await router.push('/tableau-de-bord')
 }
 
@@ -371,7 +493,21 @@ const handleReset = () => {
   resetMatch()
 }
 
+const handleLeaveMatch = async () => {
+  await router.push('/tableau-de-bord')
+}
+
 watch([board, sideToMove, difficulty], updateAnalysis, { immediate: true })
+
+watch(
+  () => onlineMessages.value.length,
+  async () => {
+    await nextTick()
+    if (chatListRef.value) {
+      chatListRef.value.scrollTop = chatListRef.value.scrollHeight
+    }
+  },
+)
 
 onBeforeUnmount(() => {
   stopOnlineStream()
@@ -481,15 +617,41 @@ const squares = computed(() =>
             <h3 class="panel-headline">Fin de match</h3>
             <p class="panel-sub">Gerez la partie en cours en un clic.</p>
           </div>
-          <button class="button-ghost game-action" type="button" @click="handleAbandon">
+          <button class="button-ghost game-action" type="button" :disabled="matchEnded" @click="handleAbandon">
             Abandonner
           </button>
-          <button class="button-ghost game-action" type="button" @click="handleDraw">
+          <button class="button-ghost game-action" type="button" :disabled="matchEnded" @click="handleDraw">
             Match Nul
           </button>
           <button class="button-primary game-action" type="button" :disabled="isOnline" @click="handleReset">
             Reinitialiser
           </button>
+
+          <p
+            v-if="finishNotice"
+            :class="['form-message', finishNoticeError ? 'form-message--error' : 'form-message--success']"
+          >
+            {{ finishNotice }}
+          </p>
+
+          <div v-if="isOnline && matchEnded" class="game-rematch">
+            <p class="panel-title">Revanche</p>
+            <p class="panel-sub">Proposez une nouvelle partie a votre adversaire.</p>
+            <div class="game-rematch-actions">
+              <button class="button-primary" type="button" @click="handleRematch">
+                Proposer une revanche
+              </button>
+              <button class="button-ghost" type="button" @click="handleLeaveMatch">
+                Retour au tableau
+              </button>
+            </div>
+            <p
+              v-if="rematchNotice"
+              :class="['form-message', rematchNoticeError ? 'form-message--error' : 'form-message--success']"
+            >
+              {{ rematchNotice }}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -580,6 +742,38 @@ const squares = computed(() =>
               <span class="move-notation">{{ move.notation }}</span>
             </div>
           </div>
+        </div>
+
+        <div v-if="isOnline" class="panel-subsection match-chat">
+          <p class="panel-title">Chat</p>
+          <div ref="chatListRef" class="chat-list">
+            <div v-if="!onlineMessages.length" class="empty-state">Aucun message.</div>
+            <div v-for="message in onlineMessages" :key="message.id" class="chat-item">
+              <div class="chat-row">
+                <span class="chat-name">{{ message.userName }}</span>
+                <span class="chat-time">{{ formatChatTime(message.createdAt) }}</span>
+              </div>
+              <p class="chat-text">{{ message.message }}</p>
+            </div>
+          </div>
+          <div class="chat-input-row">
+            <input
+              v-model="chatInput"
+              type="text"
+              placeholder="Ecrire un message..."
+              :disabled="chatPending || onlineLoading"
+              @keydown.enter.prevent="handleSendChat"
+            />
+            <button
+              class="button-primary"
+              type="button"
+              :disabled="chatPending || onlineLoading || !chatInput.trim()"
+              @click="handleSendChat"
+            >
+              {{ chatPending ? 'Envoi...' : 'Envoyer' }}
+            </button>
+          </div>
+          <p v-if="chatError" class="form-message form-message--error">{{ chatError }}</p>
         </div>
       </div>
     </section>

@@ -52,7 +52,7 @@ if ($mark_matches && table_exists('match_invites')) {
   );
 }
 
-if ($mark_ready && table_exists('match_invites')) {
+if ($mark_ready && table_exists('match_invites') && column_exists('match_invites', 'requester_seen_at')) {
   db_query(
     'UPDATE match_invites
      SET requester_seen_at = now()

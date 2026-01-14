@@ -13,14 +13,25 @@ export type OnlineMove = {
   createdAt: string
 }
 
+export type OnlineMessage = {
+  id: number | string
+  userId: string
+  userName: string
+  message: string
+  createdAt: string
+}
+
 export type MatchOnlineState = {
   matchId: string
+  whiteId?: string | null
+  blackId?: string | null
   status: string
   sideToMove: OnlineSide
   lastMove: string
   moveCount: number
   yourSide: OnlineSide
   moves: OnlineMove[]
+  messages?: OnlineMessage[]
 }
 
 export const getMatchRoom = async (matchId: string): Promise<MatchOnlineState> => {
@@ -49,6 +60,36 @@ export const addMatchMove = async (
 
   if (!response.ok || !response.match) {
     throw new Error('Impossible de jouer le coup.')
+  }
+  return response.match
+}
+
+export const addMatchMessage = async (
+  matchId: string,
+  message: string,
+): Promise<MatchOnlineState> => {
+  const response = await apiFetch<{ ok: boolean; match?: MatchOnlineState }>('match-message-add', {
+    method: 'POST',
+    body: JSON.stringify({ matchId, message }),
+  })
+
+  if (!response.ok || !response.match) {
+    throw new Error("Impossible d'envoyer le message.")
+  }
+  return response.match
+}
+
+export const finishMatch = async (
+  matchId: string,
+  result: 'resign' | 'draw',
+): Promise<MatchOnlineState> => {
+  const response = await apiFetch<{ ok: boolean; match?: MatchOnlineState }>('match-finish', {
+    method: 'POST',
+    body: JSON.stringify({ matchId, result }),
+  })
+
+  if (!response.ok || !response.match) {
+    throw new Error('Impossible de terminer le match.')
   }
   return response.match
 }

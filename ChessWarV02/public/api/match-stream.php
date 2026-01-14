@@ -66,6 +66,7 @@ flush();
 $last_payload = '';
 $last_ping = time();
 $started_at = time();
+$last_seen_touch = $started_at;
 
 while (time() - $started_at < 25) {
   if (connection_aborted()) {
@@ -91,6 +92,11 @@ while (time() - $started_at < 25) {
     echo ": ping\n\n";
     $last_ping = time();
     flush();
+  }
+
+  if (time() - $last_seen_touch >= 10) {
+    touch_last_seen($user_id);
+    $last_seen_touch = time();
   }
 
   usleep(2000000);

@@ -27,11 +27,14 @@ if (!is_valid_uuid($target_id)) {
 }
 
 $profile = db_fetch_one(
-  'SELECT u.id, u.display_name, p.name, p.title, p.rating, p.motto, p.location, p.last_seen
-   FROM users u
-   LEFT JOIN profiles p ON p.user_id = u.id
-   WHERE u.id = :id
-   LIMIT 1',
+  sprintf(
+    'SELECT u.id, u.display_name, p.name, p.title, p.rating, p.motto, p.location, p.last_seen, %s
+     FROM users u
+     LEFT JOIN profiles p ON p.user_id = u.id
+     WHERE u.id = :id
+     LIMIT 1',
+    column_exists('profiles', 'last_seen_at') ? 'p.last_seen_at' : 'NULL AS last_seen_at'
+  ),
   ['id' => $target_id]
 );
 
@@ -46,6 +49,10 @@ if ($name === '') {
 }
 
 $status = friend_status($user_id, $target_id);
+$is_online = false;
+if (column_exists('profiles', 'last_seen_at')) {
+  $is_online = is_recent_timestamp($profile['last_seen_at'] ?? null);
+}
 
 json_response(200, [
   'ok' => true,
@@ -57,6 +64,7 @@ json_response(200, [
     'motto' => $profile['motto'] ?? '',
     'location' => $profile['location'] ?? '',
     'lastSeen' => $profile['last_seen'] ?? '',
+    'isOnline' => $is_online,
   ],
   'friendStatus' => $status,
 ]);

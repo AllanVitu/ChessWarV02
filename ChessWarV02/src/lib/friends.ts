@@ -7,6 +7,7 @@ export type FriendProfile = {
   rating: number
   location: string
   lastSeen: string
+  isOnline?: boolean
 }
 
 export type FriendRequestItem = {

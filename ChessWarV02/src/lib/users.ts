@@ -8,6 +8,7 @@ export type UserSearchItem = {
   title: string
   rating: number
   location: string
+  isOnline?: boolean
 }
 
 export type PublicProfile = {
@@ -18,6 +19,7 @@ export type PublicProfile = {
   motto: string
   location: string
   lastSeen: string
+  isOnline?: boolean
   friendStatus: FriendStatus
 }
 

@@ -67,6 +67,12 @@ try {
     exit;
   }
 
+  if (($room['status'] ?? 'active') !== 'active') {
+    $pdo->rollBack();
+    json_response(409, ['ok' => false, 'message' => 'Match termine.']);
+    exit;
+  }
+
   if (!is_match_player($user_id, $room)) {
     $pdo->rollBack();
     json_response(403, ['ok' => false, 'message' => 'Acces refuse.']);

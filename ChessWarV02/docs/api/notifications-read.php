@@ -20,6 +20,7 @@ $type = strtolower(trim((string) ($payload['type'] ?? 'all')));
 
 $mark_friends = in_array($type, ['friend', 'friends', 'all'], true);
 $mark_matches = in_array($type, ['match', 'matches', 'all'], true);
+$mark_ready = in_array($type, ['match-ready', 'matchready', 'ready', 'match-accepted', 'accepted'], true);
 
 if ($mark_friends && table_exists('friend_requests')) {
   db_query(
@@ -47,6 +48,20 @@ if ($mark_matches && table_exists('match_invites')) {
     [
       'user_id' => $user_id,
       'status' => 'pending',
+    ]
+  );
+}
+
+if ($mark_ready && table_exists('match_invites')) {
+  db_query(
+    'UPDATE match_invites
+     SET requester_seen_at = now()
+     WHERE requester_id = :user_id
+       AND status = :status
+       AND requester_seen_at IS NULL',
+    [
+      'user_id' => $user_id,
+      'status' => 'accepted',
     ]
   );
 }

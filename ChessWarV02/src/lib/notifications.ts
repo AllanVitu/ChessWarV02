@@ -27,9 +27,24 @@ export type MatchInviteNotification = {
   }
 }
 
+export type MatchReadyNotification = {
+  id: string
+  matchId: string
+  timeControl: string
+  acceptedAt: string
+  isNew: boolean
+  from: {
+    id: string
+    name: string
+    title: string
+    rating: number
+  }
+}
+
 export type NotificationsPayload = {
   friendRequests: FriendRequestNotification[]
   matchInvites: MatchInviteNotification[]
+  matchReady: MatchReadyNotification[]
 }
 
 type MatchInviteResponse = {
@@ -44,6 +59,7 @@ export const getNotifications = async (): Promise<NotificationsPayload> => {
     ok: boolean
     friendRequests?: FriendRequestNotification[]
     matchInvites?: MatchInviteNotification[]
+    matchReady?: MatchReadyNotification[]
   }>('notifications-get')
 
   return {
@@ -54,6 +70,10 @@ export const getNotifications = async (): Promise<NotificationsPayload> => {
     matchInvites: (response.matchInvites ?? []).map((invite) => ({
       ...invite,
       isNew: invite.isNew ?? false,
+    })),
+    matchReady: (response.matchReady ?? []).map((ready) => ({
+      ...ready,
+      isNew: ready.isNew ?? false,
     })),
   }
 }
@@ -83,7 +103,9 @@ export const respondMatchInvite = async (
   })
 }
 
-export const markNotificationsRead = async (type: 'friends' | 'matches' | 'all' = 'all') => {
+export const markNotificationsRead = async (
+  type: 'friends' | 'matches' | 'match-ready' | 'all' = 'all',
+) => {
   return apiFetch<{ ok: boolean; message: string }>('notifications-read', {
     method: 'POST',
     body: JSON.stringify({ type }),
@@ -110,6 +132,10 @@ export const openNotificationsStream = (
         matchInvites: (data.matchInvites ?? []).map((invite) => ({
           ...invite,
           isNew: invite.isNew ?? false,
+        })),
+        matchReady: (data.matchReady ?? []).map((ready) => ({
+          ...ready,
+          isNew: ready.isNew ?? false,
         })),
       })
     } catch {

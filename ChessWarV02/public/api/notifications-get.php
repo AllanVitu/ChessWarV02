@@ -23,4 +23,5 @@ json_response(200, [
   'ok' => true,
   'friendRequests' => $payload['friendRequests'],
   'matchInvites' => $payload['matchInvites'],
+  'matchReady' => $payload['matchReady'],
 ]);

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { getMatchById, type DifficultyKey, type MatchRecord } from '@/lib/matchesDb'
+import { addMatchMove, getMatchRoom, openMatchStream, type MatchOnlineState, type OnlineMove } from '@/lib/matchOnline'
 import {
   applyMove,
   createInitialBoard,
@@ -18,21 +19,39 @@ const route = useRoute()
 const router = useRouter()
 const matchId = computed(() => (route.params.id ? String(route.params.id) : ''))
 const match = ref<MatchRecord | null>(null)
+const onlineMoves = ref<OnlineMove[]>([])
+const onlineSide = ref<'white' | 'black'>('white')
+const onlineSideToMove = ref<'white' | 'black'>('white')
+const onlineLoading = ref(false)
+const onlineError = ref('')
+const onlinePending = ref(false)
+let onlineStream: EventSource | null = null
 
-const mode = computed(() => {
-  const raw = match.value?.mode ?? 'IA'
-  return raw === 'JcJ' ? 'Local' : raw
-})
+const mode = computed<MatchRecord['mode']>(() => match.value?.mode ?? 'IA')
+const isOnline = computed(() => mode.value === 'JcJ')
+const modeLabel = computed(() => (mode.value === 'JcJ' ? 'En ligne' : mode.value))
 const opponent = computed(() => match.value?.opponent ?? 'IA Sparring')
 const timeControl = computed(() => match.value?.timeControl ?? '10+0')
 const sideLabel = computed(() => (mode.value === 'Local' ? 'Camp joueur 1' : 'Votre couleur'))
 const opponentLabel = computed(() => (mode.value === 'Local' ? 'Joueur 2' : 'Adversaire'))
+const onlineNote = computed(() => {
+  if (!isOnline.value) return ''
+  if (onlineLoading.value) return 'Connexion au match en ligne...'
+  if (onlinePending.value) return 'Envoi du coup...'
+  return sideToMove.value === playerSide.value ? 'A vous de jouer.' : "En attente du coup adverse."
+})
 
 const difficulty = ref<DifficultyKey>('intermediaire')
 
 watch(
   matchId,
   async () => {
+    stopOnlineStream()
+    onlineMoves.value = []
+    onlineError.value = ''
+    onlinePending.value = false
+    onlineSide.value = 'white'
+    onlineSideToMove.value = 'white'
     if (!matchId.value) {
       match.value = null
       difficulty.value = 'intermediaire'
@@ -40,12 +59,16 @@ watch(
     }
     match.value = await getMatchById(matchId.value)
     difficulty.value = match.value?.difficulty ?? 'intermediaire'
+    if (match.value?.mode === 'JcJ') {
+      await loadOnlineMatch()
+    }
   },
   { immediate: true },
 )
 
 const sidePreference = computed(() => match.value?.side ?? 'Aleatoire')
 const playerSide = computed<Side>(() => {
+  if (isOnline.value) return onlineSide.value
   if (sidePreference.value === 'Blancs') return 'white'
   if (sidePreference.value === 'Noirs') return 'black'
   const seed = Number.parseInt(matchId.value.slice(-1) || '0', 10)
@@ -71,6 +94,12 @@ let aiTimeout: ReturnType<typeof setTimeout> | null = null
 
 const boardFiles = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 const boardRanks = [8, 7, 6, 5, 4, 3, 2, 1]
+const squareToCoords = (square: string) => {
+  const file = square[0] ?? ''
+  const rank = Number(square[1])
+  const col = boardFiles.indexOf(file)
+  return { row: 8 - rank, col: col === -1 ? 0 : col }
+}
 const pieceSymbols: Record<string, string> = {
   p: '♟',
   r: '♜',
@@ -96,6 +125,9 @@ const movesFromSelected = computed(() => {
 const targetSquares = computed(() => new Set(movesFromSelected.value.map((move) => move.to)))
 
 const canUserMove = computed(() => {
+  if (isOnline.value) {
+    return !onlineLoading.value && !onlinePending.value && sideToMove.value === playerSide.value
+  }
   if (mode.value !== 'IA') return true
   return sideToMove.value === playerSide.value
 })
@@ -119,6 +151,77 @@ const initialsFrom = (label: string) => {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('') || '?'
+}
+
+const applyOnlineMoves = (moves: OnlineMove[]) => {
+  let nextBoard = createInitialBoard()
+  const history: { ply: number; side: Side; notation: string }[] = []
+  let last: { from: string; to: string } | null = null
+
+  for (const move of moves) {
+    const coords = squareToCoords(move.from)
+    const piece = nextBoard[coords.row]?.[coords.col] ?? ''
+    if (!piece) {
+      continue
+    }
+    nextBoard = applyMove(nextBoard, { from: move.from, to: move.to, piece })
+    history.push({
+      ply: move.ply,
+      side: move.side === 'white' ? 'white' : 'black',
+      notation: move.notation,
+    })
+    last = { from: move.from, to: move.to }
+  }
+
+  board.value = nextBoard
+  moveHistory.value = history
+  lastMove.value = last
+  selectedSquare.value = null
+}
+
+const applyOnlineState = (state: MatchOnlineState) => {
+  onlineMoves.value = state.moves ?? []
+  onlineSide.value = state.yourSide
+  onlineSideToMove.value = state.sideToMove
+  sideToMove.value = state.sideToMove
+  onlinePending.value = false
+  applyOnlineMoves(onlineMoves.value)
+}
+
+const stopOnlineStream = () => {
+  if (onlineStream) {
+    onlineStream.close()
+    onlineStream = null
+  }
+}
+
+const loadOnlineMatch = async () => {
+  if (!matchId.value) return
+  onlineLoading.value = true
+  onlineError.value = ''
+  try {
+    const state = await getMatchRoom(matchId.value)
+    applyOnlineState(state)
+    stopOnlineStream()
+    onlineStream = openMatchStream(
+      matchId.value,
+      (payload) => {
+        applyOnlineState(payload)
+        if (onlineError.value) {
+          onlineError.value = ''
+        }
+      },
+      () => {
+        if (!onlineError.value) {
+          onlineError.value = 'Connexion temps reel interrompue.'
+        }
+      },
+    )
+  } catch (error) {
+    onlineError.value = (error as Error).message
+  } finally {
+    onlineLoading.value = false
+  }
 }
 
 const evaluationValue = computed(() => {
@@ -185,6 +288,24 @@ const triggerAiMove = () => {
   }, 500)
 }
 
+const submitOnlineMove = async (move: Move) => {
+  if (!matchId.value) return
+  onlinePending.value = true
+  onlineError.value = ''
+  try {
+    const state = await addMatchMove(matchId.value, {
+      from: move.from,
+      to: move.to,
+      notation: formatMove(move),
+    })
+    applyOnlineState(state)
+  } catch (error) {
+    onlineError.value = (error as Error).message
+  } finally {
+    onlinePending.value = false
+  }
+}
+
 const handleSquareClick = (squareId: string, piece: string) => {
   if (!canUserMove.value) return
 
@@ -204,6 +325,11 @@ const handleSquareClick = (squareId: string, piece: string) => {
     if (piece && isOwnedBySide(piece, sideToMove.value)) {
       selectedSquare.value = squareId
     }
+    return
+  }
+
+  if (isOnline.value) {
+    void submitOnlineMove(move)
     return
   }
 
@@ -238,10 +364,22 @@ const handleDraw = async () => {
 }
 
 const handleReset = () => {
+  if (isOnline.value) {
+    onlineError.value = 'Action indisponible en multijoueur.'
+    return
+  }
   resetMatch()
 }
 
 watch([board, sideToMove, difficulty], updateAnalysis, { immediate: true })
+
+onBeforeUnmount(() => {
+  stopOnlineStream()
+  if (aiTimeout) {
+    clearTimeout(aiTimeout)
+    aiTimeout = null
+  }
+})
 
 const squares = computed(() =>
   boardRanks.flatMap((rank, rowIndex) =>
@@ -273,7 +411,7 @@ const squares = computed(() =>
   <DashboardLayout
     eyebrow="Partie"
     :title="`Match ${matchId || 'Libre'}`"
-    :subtitle="`Mode ${mode} - ${opponent} - Cadence ${timeControl}`"
+    :subtitle="`Mode ${modeLabel} - ${opponent} - Cadence ${timeControl}`"
   >
     <section class="game-layout">
       <div class="game-stack">
@@ -283,8 +421,11 @@ const squares = computed(() =>
               <p class="panel-title">Plateau</p>
               <h3 class="panel-headline">Tour: {{ sideToMove === 'white' ? 'Blancs' : 'Noirs' }}</h3>
             </div>
-            <span class="badge-soft">{{ mode === 'IA' ? 'IA active' : 'Local' }}</span>
+            <span class="badge-soft">{{ mode === 'IA' ? 'IA active' : mode === 'JcJ' ? 'En ligne' : 'Local' }}</span>
           </div>
+
+          <p v-if="onlineNote" class="form-message form-message--success">{{ onlineNote }}</p>
+          <p v-if="onlineError" class="form-message form-message--error">{{ onlineError }}</p>
 
           <div class="player-strip">
             <div
@@ -346,7 +487,7 @@ const squares = computed(() =>
           <button class="button-ghost game-action" type="button" @click="handleDraw">
             Match Nul
           </button>
-          <button class="button-primary game-action" type="button" @click="handleReset">
+          <button class="button-primary game-action" type="button" :disabled="isOnline" @click="handleReset">
             Reinitialiser
           </button>
         </div>

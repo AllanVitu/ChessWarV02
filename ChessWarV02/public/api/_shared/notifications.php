@@ -82,8 +82,50 @@ function fetch_notifications_payload(string $user_id): array
     }
   }
 
+  $match_ready = [];
+  if (table_exists('match_invites')) {
+    $rows = db_fetch_all(
+      'SELECT mi.id, mi.match_id, mi.time_control, mi.responded_at, mi.requester_seen_at,
+              u.id AS user_id, u.display_name, p.name, p.title, p.rating
+       FROM match_invites mi
+       JOIN users u ON u.id = mi.recipient_id
+       LEFT JOIN profiles p ON p.user_id = u.id
+       WHERE mi.requester_id = :user_id
+         AND mi.status = :status
+         AND mi.requester_seen_at IS NULL
+       ORDER BY mi.responded_at DESC
+       LIMIT 6',
+      [
+        'user_id' => $user_id,
+        'status' => 'accepted',
+      ]
+    );
+
+    foreach ($rows as $row) {
+      $name = (string) ($row['name'] ?? '');
+      if ($name === '') {
+        $name = (string) ($row['display_name'] ?? '');
+      }
+
+      $match_ready[] = [
+        'id' => $row['id'],
+        'matchId' => $row['match_id'],
+        'timeControl' => $row['time_control'],
+        'acceptedAt' => $row['responded_at'],
+        'isNew' => empty($row['requester_seen_at']),
+        'from' => [
+          'id' => $row['user_id'],
+          'name' => $name,
+          'title' => $row['title'] ?? '',
+          'rating' => isset($row['rating']) ? (int) $row['rating'] : 0,
+        ],
+      ];
+    }
+  }
+
   return [
     'friendRequests' => $friend_requests,
     'matchInvites' => $match_invites,
+    'matchReady' => $match_ready,
   ];
 }

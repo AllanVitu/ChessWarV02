@@ -23,6 +23,14 @@ if (!table_exists('match_invites')) {
   exit;
 }
 
+if (!table_exists('match_rooms') || !table_exists('match_moves')) {
+  json_response(503, [
+    'ok' => false,
+    'message' => "Le multijoueur n'est pas encore disponible.",
+  ]);
+  exit;
+}
+
 expire_pending_invites();
 
 $payload = request_json();
@@ -144,6 +152,26 @@ if ($recipient_side === '') {
   $recipient_side = 'Aleatoire';
 }
 
+if ($requester_side === 'Aleatoire' || $recipient_side === 'Aleatoire') {
+  $requester_side = random_int(0, 1) === 0 ? 'Blancs' : 'Noirs';
+  $recipient_side = $requester_side === 'Blancs' ? 'Noirs' : 'Blancs';
+  db_query(
+    'UPDATE match_invites
+     SET requester_side = :requester_side,
+         recipient_side = :recipient_side
+     WHERE id = :id',
+    [
+      'requester_side' => $requester_side,
+      'recipient_side' => $recipient_side,
+      'id' => $invite_id,
+    ]
+  );
+} elseif ($requester_side === 'Blancs') {
+  $recipient_side = 'Noirs';
+} elseif ($requester_side === 'Noirs') {
+  $recipient_side = 'Blancs';
+}
+
 db_query(
   'INSERT INTO matches
    (id, user_id, mode, opponent, status, created_at, last_move, time_control, side, difficulty)
@@ -181,6 +209,26 @@ db_query(
     'time_control' => $time_control,
     'side' => $recipient_side,
     'difficulty' => null,
+  ]
+);
+
+$white_id = $requester_side === 'Blancs' ? $invite['requester_id'] : $invite['recipient_id'];
+$black_id = $requester_side === 'Blancs' ? $invite['recipient_id'] : $invite['requester_id'];
+
+db_query(
+  'INSERT INTO match_rooms
+   (match_id, white_id, black_id, status, side_to_move, last_move, move_count)
+   VALUES
+   (:match_id, :white_id, :black_id, :status, :side_to_move, :last_move, :move_count)
+   ON CONFLICT (match_id) DO NOTHING',
+  [
+    'match_id' => $match_id,
+    'white_id' => $white_id,
+    'black_id' => $black_id,
+    'status' => 'active',
+    'side_to_move' => 'white',
+    'last_move' => '-',
+    'move_count' => 0,
   ]
 );
 

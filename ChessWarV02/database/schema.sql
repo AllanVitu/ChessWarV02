@@ -80,8 +80,34 @@ CREATE TABLE IF NOT EXISTS match_invites (
   created_at TEXT NOT NULL,
   expires_at TIMESTAMPTZ,
   responded_at TIMESTAMPTZ,
+  requester_seen_at TIMESTAMPTZ,
   recipient_seen_at TIMESTAMPTZ,
   CHECK (requester_id <> recipient_id)
+);
+
+CREATE TABLE IF NOT EXISTS match_rooms (
+  match_id UUID PRIMARY KEY,
+  white_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  black_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  side_to_move TEXT NOT NULL DEFAULT 'white',
+  last_move TEXT NOT NULL DEFAULT '-',
+  move_count INTEGER NOT NULL DEFAULT 0,
+  CHECK (white_id <> black_id)
+);
+
+CREATE TABLE IF NOT EXISTS match_moves (
+  id BIGSERIAL PRIMARY KEY,
+  match_id UUID NOT NULL REFERENCES match_rooms(match_id) ON DELETE CASCADE,
+  ply INTEGER NOT NULL,
+  side TEXT NOT NULL,
+  from_square TEXT NOT NULL,
+  to_square TEXT NOT NULL,
+  notation TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (match_id, ply)
 );
 
 CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);
@@ -93,3 +119,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_friend_requests_pair ON friend_requests(r
 CREATE INDEX IF NOT EXISTS idx_match_invites_requester ON match_invites(requester_id);
 CREATE INDEX IF NOT EXISTS idx_match_invites_recipient ON match_invites(recipient_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_match_invites_pair ON match_invites(requester_id, recipient_id, match_id);
+CREATE INDEX IF NOT EXISTS idx_match_rooms_white ON match_rooms(white_id);
+CREATE INDEX IF NOT EXISTS idx_match_rooms_black ON match_rooms(black_id);
+CREATE INDEX IF NOT EXISTS idx_match_moves_match ON match_moves(match_id);

@@ -14,6 +14,7 @@ import {
   respondMatchInvite,
   type FriendRequestNotification,
   type MatchInviteNotification,
+  type MatchReadyNotification,
 } from '@/lib/notifications'
 
 type DashboardLayoutProps = {
@@ -52,6 +53,7 @@ let searchRequestId = 0
 
 const friendRequests = ref<FriendRequestNotification[]>([])
 const matchInvites = ref<MatchInviteNotification[]>([])
+const matchReady = ref<MatchReadyNotification[]>([])
 const notificationsLoading = ref(false)
 const notificationsError = ref('')
 const friendNotice = ref('')
@@ -68,6 +70,8 @@ const friendCount = computed(() => friendRequests.value.length)
 const matchCount = computed(() => matchInvites.value.length)
 const hasNewFriend = computed(() => friendRequests.value.some((request) => request.isNew))
 const hasNewMatch = computed(() => matchInvites.value.some((invite) => invite.isNew))
+const handledMatches = new Set<string>()
+let redirectingMatch = false
 
 const resetSearch = () => {
   searchResults.value = []
@@ -141,6 +145,7 @@ const loadNotifications = async (silent = false) => {
   if (!getSessionToken()) {
     friendRequests.value = []
     matchInvites.value = []
+    matchReady.value = []
     return
   }
 
@@ -151,6 +156,8 @@ const loadNotifications = async (silent = false) => {
     const data = await getNotifications()
     friendRequests.value = data.friendRequests
     matchInvites.value = data.matchInvites
+    matchReady.value = data.matchReady
+    void handleMatchReady(data.matchReady)
   } catch (error) {
     if (!silent) {
       notificationsError.value = (error as Error).message
@@ -184,6 +191,31 @@ const markMatchRead = async () => {
   } catch {
     // Ignore read failures.
   }
+}
+
+const handleMatchReady = async (items: MatchReadyNotification[]) => {
+  if (!items.length || redirectingMatch) return
+  const next = items.find((item) => !handledMatches.has(item.matchId))
+  if (!next) return
+
+  redirectingMatch = true
+  handledMatches.add(next.matchId)
+
+  try {
+    await markNotificationsRead('match-ready')
+  } catch {
+    // Ignore read failures.
+  }
+
+  const current = router.currentRoute.value
+  const currentId = typeof current.params.id === 'string' ? current.params.id : ''
+  if (!(current.name === 'jeu' && currentId === next.matchId)) {
+    clearMatchesCache()
+    matchOpen.value = false
+    await router.push(`/jeu/${next.matchId}`)
+  }
+
+  redirectingMatch = false
 }
 
 const toggleFriendPanel = async () => {
@@ -278,6 +310,8 @@ onMounted(async () => {
       (payload) => {
         friendRequests.value = payload.friendRequests
         matchInvites.value = payload.matchInvites
+        matchReady.value = payload.matchReady
+        void handleMatchReady(payload.matchReady)
         if (notificationsError.value) {
           notificationsError.value = ''
         }

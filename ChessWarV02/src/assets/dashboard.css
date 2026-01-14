@@ -1282,6 +1282,9 @@ td {
   .reveal,
   .auth-stack > *,
   .auth-halo,
+  .auth-silhouette,
+  .auth-silhouette::after,
+  .auth-progress__bar,
   .auth-orbit::before,
   .auth-orbit::after {
     animation: none;
@@ -1412,6 +1415,9 @@ td {
   justify-items: center;
   position: relative;
   isolation: isolate;
+  --parallax-x: 0px;
+  --parallax-y: 0px;
+  overflow: hidden;
 }
 
 .auth-page--solo::before {
@@ -1419,6 +1425,9 @@ td {
   position: absolute;
   inset: 0;
   background: url('/new_imgs/fond_app.jpg') center / cover no-repeat;
+  background-position:
+    calc(50% + var(--parallax-x))
+    calc(50% + var(--parallax-y));
   z-index: -2;
 }
 
@@ -1427,7 +1436,68 @@ td {
   position: absolute;
   inset: 0;
   background: linear-gradient(160deg, rgba(249, 243, 234, 0.4), rgba(227, 216, 244, 0.28));
+  transform:
+    translate(calc(var(--parallax-x) * -0.15), calc(var(--parallax-y) * -0.15));
   z-index: -1;
+}
+
+.auth-wordmark {
+  position: absolute;
+  inset: 0;
+  background: url('./brand-wordmark.png') no-repeat 75% 20%;
+  background-size: clamp(260px, 40vw, 720px);
+  opacity: 0.1;
+  pointer-events: none;
+  transform:
+    translate(calc(var(--parallax-x) * 0.4), calc(var(--parallax-y) * 0.4));
+  z-index: -1;
+}
+
+.auth-silhouette {
+  position: absolute;
+  width: 160px;
+  height: 240px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.auth-silhouette::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.22;
+  filter: blur(0.4px);
+  mix-blend-mode: screen;
+  animation: silhouette-drift 18s ease-in-out infinite;
+}
+
+.auth-silhouette--pawn {
+  left: 8%;
+  top: 18%;
+  transform:
+    translate(calc(var(--parallax-x) * 0.3), calc(var(--parallax-y) * 0.3))
+    rotate(-6deg);
+}
+
+.auth-silhouette--pawn::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 200'><path fill='white' d='M60 12c-16 0-29 13-29 29 0 12 7 22 17 27-9 10-14 23-14 37 0 11 3 22 9 31H30c-8 0-14 6-14 14v14h88v-14c0-8-6-14-14-14H77c6-9 9-20 9-31 0-14-5-27-14-37 10-5 17-15 17-27 0-16-13-29-29-29z'/></svg>");
+}
+
+.auth-silhouette--knight {
+  right: 10%;
+  bottom: 14%;
+  width: 190px;
+  height: 260px;
+  transform:
+    translate(calc(var(--parallax-x) * -0.25), calc(var(--parallax-y) * -0.25))
+    rotate(8deg);
+}
+
+.auth-silhouette--knight::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><path fill='white' d='M40 170h120l-10-44-36-26 22-32-10-30-28-14-16 16-28-12-20 22 12 28-18 28 22 20 10 44z'/></svg>");
+  animation-delay: 2s;
 }
 
 .auth-orbit {
@@ -1552,6 +1622,14 @@ td {
   animation-delay: 0.4s;
 }
 
+.auth-stack > :nth-child(9) {
+  animation-delay: 0.45s;
+}
+
+.auth-stack > :nth-child(10) {
+  animation-delay: 0.5s;
+}
+
 .auth-kicker {
   font-size: 12px;
   text-transform: uppercase;
@@ -1567,6 +1645,57 @@ td {
 
 .auth-subhead {
   font-size: 14px;
+}
+
+.auth-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.35);
+}
+
+.auth-status-count {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.auth-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.auth-input .form-input {
+  padding-right: 96px;
+}
+
+.auth-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.auth-toggle:hover {
+  color: var(--text);
+  background: rgba(198, 161, 255, 0.18);
 }
 
 .auth-form .button-primary {
@@ -1589,10 +1718,50 @@ td {
   background: rgba(255, 248, 240, 0.35);
 }
 
+.auth-progress {
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(198, 161, 255, 0.2);
+  overflow: hidden;
+}
+
+.auth-progress__bar {
+  display: block;
+  height: 100%;
+  width: 45%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-3), var(--accent-strong));
+  animation: progress-sweep 1.2s ease-in-out infinite;
+}
+
 .auth-note {
   font-size: 12px;
   color: var(--text-faint);
   text-align: center;
+}
+
+.auth-stat {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-soft);
+  backdrop-filter: blur(12px) saturate(140%);
+}
+
+.auth-stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--text-faint);
+}
+
+.auth-stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .auth-chips {
@@ -1635,6 +1804,25 @@ td {
 .auth-chip-dot--rank {
   background: #f97316;
   box-shadow: 0 0 10px rgba(249, 115, 22, 0.35);
+}
+
+@media (max-width: 720px) {
+  .auth-wordmark {
+    opacity: 0.06;
+    background-position: 50% 15%;
+  }
+
+  .auth-silhouette {
+    display: none;
+  }
+
+  .auth-status {
+    justify-content: center;
+  }
+
+  .auth-input .form-input {
+    padding-right: 88px;
+  }
 }
 
 .auth-card--orbit .eyebrow {
@@ -1709,6 +1897,30 @@ td {
   100% {
     transform: translate(-50%, -50%) scale(0.96);
     opacity: 0.6;
+  }
+}
+
+@keyframes silhouette-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(6px, -4px) scale(1.02);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes progress-sweep {
+  0% {
+    transform: translateX(-80%);
+  }
+  50% {
+    transform: translateX(20%);
+  }
+  100% {
+    transform: translateX(120%);
   }
 }
 
@@ -1984,6 +2196,10 @@ td {
   color: var(--text-faint);
   text-transform: uppercase;
   letter-spacing: 0.12em;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .match-opponent {

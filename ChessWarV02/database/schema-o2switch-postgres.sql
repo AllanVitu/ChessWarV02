@@ -67,9 +67,26 @@ CREATE TABLE IF NOT EXISTS friend_requests (
   CHECK (requester_id <> recipient_id)
 );
 
+CREATE TABLE IF NOT EXISTS match_invites (
+  id UUID PRIMARY KEY,
+  requester_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  match_id TEXT NOT NULL,
+  requester_side TEXT NOT NULL,
+  recipient_side TEXT NOT NULL,
+  time_control TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TEXT NOT NULL,
+  responded_at TIMESTAMPTZ,
+  CHECK (requester_id <> recipient_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
 CREATE INDEX IF NOT EXISTS idx_matches_user_id ON matches(user_id);
 CREATE INDEX IF NOT EXISTS idx_friend_requests_requester ON friend_requests(requester_id);
 CREATE INDEX IF NOT EXISTS idx_friend_requests_recipient ON friend_requests(recipient_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_friend_requests_pair ON friend_requests(requester_id, recipient_id);
+CREATE INDEX IF NOT EXISTS idx_match_invites_requester ON match_invites(requester_id);
+CREATE INDEX IF NOT EXISTS idx_match_invites_recipient ON match_invites(recipient_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_match_invites_pair ON match_invites(requester_id, recipient_id, match_id);

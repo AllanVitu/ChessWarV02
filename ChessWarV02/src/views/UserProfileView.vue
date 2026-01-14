@@ -1,18 +1,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
-import { addMatch, type MatchRecord } from '@/lib/matchesDb'
 import {
   getPublicProfile,
   requestFriend,
   respondFriendRequest,
   type PublicProfile,
 } from '@/lib/users'
+import { createMatchInvite } from '@/lib/notifications'
 
 const route = useRoute()
-const router = useRouter()
-
 const profile = ref<PublicProfile | null>(null)
 const loading = ref(false)
 const loadError = ref('')
@@ -41,7 +39,6 @@ const initials = computed(() => {
     .join('') || '?'
 })
 
-const formattedNow = () => new Date().toISOString().slice(0, 16).replace('T', ' ')
 
 const resetMessages = () => {
   actionMessage.value = ''
@@ -133,21 +130,14 @@ const handleLaunchMatch = async () => {
     return
   }
 
-  const match: MatchRecord = {
-    id: `M-${Math.floor(1000 + Math.random() * 9000)}`,
-    mode: 'JcJ',
-    opponent: profile.value.name,
-    status: 'planifie',
-    createdAt: formattedNow(),
-    lastMove: '-',
-    timeControl: '10+0',
-    side: 'Aleatoire',
+  try {
+    const response = await createMatchInvite(profile.value.id)
+    matchMessage.value = response.message
+    matchError.value = !response.ok
+  } catch (error) {
+    matchMessage.value = (error as Error).message
+    matchError.value = true
   }
-
-  await addMatch(match)
-  matchMessage.value = 'Match cree. Redirection en cours...'
-  matchError.value = false
-  await router.push(`/jeu/${match.id}`)
 }
 
 watch(userId, loadProfile, { immediate: true })

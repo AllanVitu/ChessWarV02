@@ -307,6 +307,126 @@
   gap: 10px;
 }
 
+.notify-group {
+  position: relative;
+}
+
+.notify-button {
+  position: relative;
+}
+
+.notify-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--accent);
+  color: #f8f3ea;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  box-shadow: 0 6px 12px rgba(155, 110, 230, 0.35);
+}
+
+.notify-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #f97316;
+  top: 2px;
+  left: 2px;
+  box-shadow: 0 0 0 2px rgba(255, 248, 240, 0.9);
+}
+
+.notify-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(320px, 82vw);
+  background: var(--panel-strong);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  box-shadow: var(--shadow);
+  z-index: 30;
+  backdrop-filter: blur(16px) saturate(150%);
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.notify-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-faint);
+  padding: 4px 6px;
+}
+
+.notify-status {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 6px;
+}
+
+.notify-status--error {
+  color: var(--danger);
+}
+
+.notify-status--success {
+  color: var(--success);
+}
+
+.notify-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: var(--panel-soft);
+  border: 1px solid transparent;
+}
+
+.notify-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: rgba(198, 161, 255, 0.2);
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+}
+
+.notify-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.notify-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.notify-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.notify-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.notify-action {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
 .icon-button {
   width: 40px;
   height: 40px;
@@ -2005,6 +2125,139 @@ td {
 .public-action-group {
   display: flex;
   gap: 10px;
+}
+
+.friends-card {
+  display: grid;
+  gap: 16px;
+}
+
+.friends-list {
+  display: grid;
+  gap: 12px;
+}
+
+.friend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--panel-soft);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+.friend-ident {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 180px;
+}
+
+.friend-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  color: #f8f3ea;
+  background: linear-gradient(135deg, var(--accent-3), var(--accent));
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
+}
+
+.friend-name {
+  font-weight: 600;
+}
+
+.friend-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.friend-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.friend-chip {
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(198, 161, 255, 0.3);
+  background: var(--panel);
+  color: var(--text);
+  backdrop-filter: blur(10px) saturate(140%);
+}
+
+.friend-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.friends-request-list {
+  display: grid;
+  gap: 12px;
+}
+
+.request-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--panel-soft);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+.request-row--outgoing {
+  opacity: 0.75;
+}
+
+.request-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 960px) {
+  .friend-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .friend-chips {
+    width: 100%;
+  }
+
+  .friend-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .request-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .request-actions {
+    width: 100%;
+  }
 }
 
 .settings-grid {

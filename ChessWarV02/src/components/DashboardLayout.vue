@@ -5,7 +5,14 @@ import logoUrl from '@/assets/brand-icon.png'
 import { getDashboardData, type DashboardDb } from '@/lib/localDb'
 import { getSessionToken } from '@/lib/api'
 import { clearSession } from '@/lib/auth'
-import { searchUsers, type UserSearchItem } from '@/lib/users'
+import { clearMatchesCache } from '@/lib/matchesDb'
+import { searchUsers, respondFriendRequest, type UserSearchItem } from '@/lib/users'
+import {
+  getNotifications,
+  respondMatchInvite,
+  type FriendRequestNotification,
+  type MatchInviteNotification,
+} from '@/lib/notifications'
 
 type DashboardLayoutProps = {
   eyebrow?: string
@@ -41,10 +48,89 @@ const minSearchLength = 2
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let searchRequestId = 0
 
+const friendRequests = ref<FriendRequestNotification[]>([])
+const matchInvites = ref<MatchInviteNotification[]>([])
+const notificationsLoading = ref(false)
+const notificationsError = ref('')
+const friendNotice = ref('')
+const friendNoticeError = ref(false)
+const matchNotice = ref('')
+const matchNoticeError = ref(false)
+const friendOpen = ref(false)
+const matchOpen = ref(false)
+const friendGroup = ref<HTMLElement | null>(null)
+const matchGroup = ref<HTMLElement | null>(null)
+const seenFriendIds = ref<string[]>([])
+const seenMatchIds = ref<string[]>([])
+const seenStorageKey = 'warchess.notifications.seen'
+const notificationsPollMs = 20000
+let notificationsTimer: ReturnType<typeof setInterval> | null = null
+
+const friendCount = computed(() => friendRequests.value.length)
+const matchCount = computed(() => matchInvites.value.length)
+const hasNewFriend = computed(() =>
+  friendRequests.value.some((request) => !seenFriendIds.value.includes(request.id)),
+)
+const hasNewMatch = computed(() =>
+  matchInvites.value.some((invite) => !seenMatchIds.value.includes(invite.id)),
+)
+
 const resetSearch = () => {
   searchResults.value = []
   searchLoading.value = false
   searchMessage.value = ''
+}
+
+const loadSeenState = () => {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = window.localStorage.getItem(seenStorageKey)
+    if (!raw) return
+    const parsed = JSON.parse(raw) as { friendIds?: string[]; matchIds?: string[] }
+    if (Array.isArray(parsed.friendIds)) {
+      seenFriendIds.value = parsed.friendIds
+    }
+    if (Array.isArray(parsed.matchIds)) {
+      seenMatchIds.value = parsed.matchIds
+    }
+  } catch {
+    // Ignore malformed storage.
+  }
+}
+
+const saveSeenState = () => {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(
+      seenStorageKey,
+      JSON.stringify({
+        friendIds: seenFriendIds.value,
+        matchIds: seenMatchIds.value,
+      }),
+    )
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+const markFriendSeen = () => {
+  seenFriendIds.value = friendRequests.value.map((request) => request.id)
+  saveSeenState()
+}
+
+const markMatchSeen = () => {
+  seenMatchIds.value = matchInvites.value.map((invite) => invite.id)
+  saveSeenState()
+}
+
+const resetFriendNotice = () => {
+  friendNotice.value = ''
+  friendNoticeError.value = false
+}
+
+const resetMatchNotice = () => {
+  matchNotice.value = ''
+  matchNoticeError.value = false
 }
 
 const initialsFor = (name: string) => {
@@ -95,11 +181,115 @@ const handleSelectUser = async (user: UserSearchItem) => {
   await router.push(`/joueur/${user.id}`)
 }
 
+const loadNotifications = async (silent = false) => {
+  if (!silent) {
+    notificationsError.value = ''
+  }
+
+  if (!getSessionToken()) {
+    friendRequests.value = []
+    matchInvites.value = []
+    return
+  }
+
+  if (!silent) {
+    notificationsLoading.value = true
+  }
+  try {
+    const data = await getNotifications()
+    friendRequests.value = data.friendRequests
+    matchInvites.value = data.matchInvites
+
+    if (friendOpen.value) {
+      markFriendSeen()
+    }
+    if (matchOpen.value) {
+      markMatchSeen()
+    }
+  } catch (error) {
+    if (!silent) {
+      notificationsError.value = (error as Error).message
+    }
+  } finally {
+    if (!silent) {
+      notificationsLoading.value = false
+    }
+  }
+}
+
+const toggleFriendPanel = async () => {
+  friendOpen.value = !friendOpen.value
+  if (friendOpen.value) {
+    matchOpen.value = false
+    resetFriendNotice()
+    await loadNotifications()
+    markFriendSeen()
+  }
+}
+
+const toggleMatchPanel = async () => {
+  matchOpen.value = !matchOpen.value
+  if (matchOpen.value) {
+    friendOpen.value = false
+    resetMatchNotice()
+    await loadNotifications()
+    markMatchSeen()
+  }
+}
+
+const handleFriendResponse = async (
+  request: FriendRequestNotification,
+  action: 'accept' | 'decline',
+) => {
+  resetFriendNotice()
+  try {
+    const response = await respondFriendRequest(request.user.id, action)
+    friendNotice.value = response.message
+    friendNoticeError.value = !response.ok
+    if (response.ok) {
+      friendRequests.value = friendRequests.value.filter((item) => item.id !== request.id)
+    }
+  } catch (error) {
+    friendNotice.value = (error as Error).message
+    friendNoticeError.value = true
+  }
+}
+
+const handleMatchResponse = async (
+  invite: MatchInviteNotification,
+  action: 'accept' | 'decline',
+) => {
+  resetMatchNotice()
+  try {
+    const response = await respondMatchInvite(invite.id, action)
+    matchNotice.value = response.message
+    matchNoticeError.value = !response.ok
+    if (response.ok) {
+      matchInvites.value = matchInvites.value.filter((item) => item.id !== invite.id)
+      if (action === 'accept' && response.matchId) {
+        clearMatchesCache()
+        matchOpen.value = false
+        await router.push(`/jeu/${response.matchId}`)
+      }
+    }
+  } catch (error) {
+    matchNotice.value = (error as Error).message
+    matchNoticeError.value = true
+  }
+}
+
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as Node | null
-  if (!searchGroup.value || !target) return
-  if (!searchGroup.value.contains(target)) {
+  if (!target) return
+
+  if (searchGroup.value && !searchGroup.value.contains(target)) {
     searchOpen.value = false
+  }
+  if (friendGroup.value && !friendGroup.value.contains(target)) {
+    friendOpen.value = false
+  }
+  if (matchGroup.value && !matchGroup.value.contains(target)) {
+    matchOpen.value = false
   }
 }
 
@@ -110,6 +300,11 @@ const showSearchPanel = computed(() => {
 
 onMounted(async () => {
   dashboard.value = await getDashboardData()
+  loadSeenState()
+  await loadNotifications()
+  notificationsTimer = setInterval(() => {
+    void loadNotifications(true)
+  }, notificationsPollMs)
 })
 
 onMounted(() => {
@@ -119,6 +314,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (searchTimer) {
     clearTimeout(searchTimer)
+  }
+  if (notificationsTimer) {
+    clearInterval(notificationsTimer)
   }
   document.removeEventListener('mousedown', handleClickOutside)
 })
@@ -186,6 +384,14 @@ const handleLogout = async () => {
         <RouterLink to="/profil/analyse" class="nav-link" active-class="nav-link--active">
           <span class="nav-dot"></span>
           Analyse du profil
+        </RouterLink>
+      </div>
+
+      <div class="nav-group">
+        <p class="nav-title">Social</p>
+        <RouterLink to="/amis" class="nav-link" active-class="nav-link--active">
+          <span class="nav-dot"></span>
+          Amis
         </RouterLink>
       </div>
 
@@ -259,33 +465,138 @@ const handleLogout = async () => {
           </div>
 
           <div class="top-buttons">
-            <button class="icon-button" type="button" aria-label="Notifications">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M12 4a5 5 0 0 0-5 5v2.8l-1.4 2.2h12.8L17 11.8V9a5 5 0 0 0-5-5z"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  fill="none"
-                />
-                <path
-                  d="M9.5 18a2.5 2.5 0 0 0 5 0"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  fill="none"
-                />
-              </svg>
-            </button>
-            <button class="icon-button" type="button" aria-label="Messages">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M4 6h16v9H7l-3 3V6z"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  fill="none"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </button>
+            <div ref="matchGroup" class="notify-group">
+              <button
+                class="icon-button notify-button"
+                type="button"
+                aria-label="Notifications de match"
+                @click="toggleMatchPanel"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M12 4a5 5 0 0 0-5 5v2.8l-1.4 2.2h12.8L17 11.8V9a5 5 0 0 0-5-5z"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    fill="none"
+                  />
+                  <path
+                    d="M9.5 18a2.5 2.5 0 0 0 5 0"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    fill="none"
+                  />
+                </svg>
+                <span v-if="matchCount" class="notify-badge">{{ matchCount }}</span>
+                <span v-if="hasNewMatch" class="notify-dot"></span>
+              </button>
+
+              <div v-if="matchOpen" class="notify-panel">
+                <p class="notify-title">Invitations de match</p>
+                <p v-if="notificationsLoading" class="notify-status">Chargement...</p>
+                <p v-if="!notificationsLoading && notificationsError" class="notify-status notify-status--error">
+                  {{ notificationsError }}
+                </p>
+                <div v-for="invite in matchInvites" :key="invite.id" class="notify-item">
+                  <span class="notify-avatar">{{ initialsFor(invite.from.name) }}</span>
+                  <span class="notify-main">
+                    <span class="notify-name">{{ invite.from.name }}</span>
+                    <span class="notify-sub">Invitation de match - {{ invite.timeControl }}</span>
+                  </span>
+                  <span class="notify-actions">
+                    <button
+                      class="notify-action button-primary"
+                      type="button"
+                      @click="handleMatchResponse(invite, 'accept')"
+                    >
+                      Accepter
+                    </button>
+                    <button
+                      class="notify-action button-ghost"
+                      type="button"
+                      @click="handleMatchResponse(invite, 'decline')"
+                    >
+                      Refuser
+                    </button>
+                  </span>
+                </div>
+                <p
+                  v-if="!notificationsLoading && !matchInvites.length && !notificationsError"
+                  class="notify-status"
+                >
+                  Aucune invitation.
+                </p>
+                <p
+                  v-if="matchNotice"
+                  :class="['notify-status', matchNoticeError ? 'notify-status--error' : 'notify-status--success']"
+                >
+                  {{ matchNotice }}
+                </p>
+              </div>
+            </div>
+
+            <div ref="friendGroup" class="notify-group">
+              <button
+                class="icon-button notify-button"
+                type="button"
+                aria-label="Demandes d'amis"
+                @click="toggleFriendPanel"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M4 6h16v9H7l-3 3V6z"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    fill="none"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                <span v-if="friendCount" class="notify-badge">{{ friendCount }}</span>
+                <span v-if="hasNewFriend" class="notify-dot"></span>
+              </button>
+
+              <div v-if="friendOpen" class="notify-panel">
+                <p class="notify-title">Demandes d'amis</p>
+                <p v-if="notificationsLoading" class="notify-status">Chargement...</p>
+                <p v-if="!notificationsLoading && notificationsError" class="notify-status notify-status--error">
+                  {{ notificationsError }}
+                </p>
+                <div v-for="request in friendRequests" :key="request.id" class="notify-item">
+                  <span class="notify-avatar">{{ initialsFor(request.user.name) }}</span>
+                  <span class="notify-main">
+                    <span class="notify-name">{{ request.user.name }}</span>
+                    <span class="notify-sub">Demande d'ami</span>
+                  </span>
+                  <span class="notify-actions">
+                    <button
+                      class="notify-action button-primary"
+                      type="button"
+                      @click="handleFriendResponse(request, 'accept')"
+                    >
+                      Accepter
+                    </button>
+                    <button
+                      class="notify-action button-ghost"
+                      type="button"
+                      @click="handleFriendResponse(request, 'decline')"
+                    >
+                      Refuser
+                    </button>
+                  </span>
+                </div>
+                <p
+                  v-if="!notificationsLoading && !friendRequests.length && !notificationsError"
+                  class="notify-status"
+                >
+                  Aucune demande.
+                </p>
+                <p
+                  v-if="friendNotice"
+                  :class="['notify-status', friendNoticeError ? 'notify-status--error' : 'notify-status--success']"
+                >
+                  {{ friendNotice }}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div class="user-pill">

@@ -13,3 +13,21 @@ function is_valid_uuid(string $value): bool
     $value
   );
 }
+
+function table_exists(string $table_name): bool
+{
+  $row = db_fetch_one(
+    'SELECT table_name
+     FROM information_schema.tables
+     WHERE table_name = :table
+       AND table_schema NOT IN (:system_schema, :info_schema)
+     LIMIT 1',
+    [
+      'table' => $table_name,
+      'system_schema' => 'pg_catalog',
+      'info_schema' => 'information_schema',
+    ]
+  );
+
+  return $row !== null;
+}

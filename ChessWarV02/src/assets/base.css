@@ -14,6 +14,14 @@
   --accent-strong: #9b6ee6;
   --accent-2: #dcc7ff;
   --accent-3: #c6a1ff;
+  --analysis-blue: #3b82f6;
+  --analysis-blue-soft: #60a5fa;
+  --analysis-green: #22c55e;
+  --analysis-green-soft: #4ade80;
+  --analysis-red: #ef4444;
+  --analysis-red-soft: #f87171;
+  --analysis-orange: #f97316;
+  --analysis-orange-soft: #fb923c;
   --danger: #f87171;
   --success: #b48cff;
   --shadow: 0 26px 70px rgba(81, 58, 120, 0.18);

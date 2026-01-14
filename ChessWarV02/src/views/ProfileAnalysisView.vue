@@ -43,7 +43,7 @@ const analysis = getProfileAiAnalysis()
             <button class="range-pill" type="button">Mensuel</button>
           </div>
 
-          <div class="progress-list">
+          <div class="progress-list analysis-progress">
             <div v-for="focus in analysis.focusAreas" :key="focus.label" class="progress-item">
               <div class="progress-labels">
                 <span>{{ focus.label }}</span>

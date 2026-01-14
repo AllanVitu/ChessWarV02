@@ -4,6 +4,7 @@ import MatchListView from '../views/MatchListView.vue'
 import GameView from '../views/GameView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import ProfileAnalysisView from '../views/ProfileAnalysisView.vue'
+import UserProfileView from '../views/UserProfileView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
@@ -37,6 +38,11 @@ const router = createRouter({
       path: '/profil',
       name: 'profil',
       component: ProfileView,
+    },
+    {
+      path: '/joueur/:id',
+      name: 'joueur',
+      component: UserProfileView,
     },
     {
       path: '/profil/analyse',

@@ -57,6 +57,19 @@ CREATE TABLE IF NOT EXISTS matches (
   PRIMARY KEY (user_id, id)
 );
 
+CREATE TABLE IF NOT EXISTS friend_requests (
+  id UUID PRIMARY KEY,
+  requester_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  responded_at TIMESTAMPTZ,
+  CHECK (requester_id <> recipient_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
 CREATE INDEX IF NOT EXISTS idx_matches_user_id ON matches(user_id);
+CREATE INDEX IF NOT EXISTS idx_friend_requests_requester ON friend_requests(requester_id);
+CREATE INDEX IF NOT EXISTS idx_friend_requests_recipient ON friend_requests(recipient_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_friend_requests_pair ON friend_requests(requester_id, recipient_id);

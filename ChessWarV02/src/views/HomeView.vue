@@ -214,12 +214,17 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
           <svg class="trend-chart" viewBox="0 0 520 180" aria-hidden="true">
             <defs>
               <linearGradient id="trendLine" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#4ade80" />
-                <stop offset="100%" stop-color="#22c55e" />
+                <stop offset="0%" stop-color="var(--analysis-blue)" />
+                <stop offset="33%" stop-color="var(--analysis-green)" />
+                <stop offset="66%" stop-color="var(--analysis-red)" />
+                <stop offset="100%" stop-color="var(--analysis-orange)" />
               </linearGradient>
               <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="rgba(74, 222, 128, 0.35)" />
-                <stop offset="100%" stop-color="rgba(74, 222, 128, 0)" />
+                <stop offset="0%" stop-color="var(--analysis-blue)" stop-opacity="0.3" />
+                <stop offset="45%" stop-color="var(--analysis-green)" stop-opacity="0.22" />
+                <stop offset="75%" stop-color="var(--analysis-red)" stop-opacity="0.16" />
+                <stop offset="92%" stop-color="var(--analysis-orange)" stop-opacity="0.1" />
+                <stop offset="100%" stop-color="var(--analysis-orange)" stop-opacity="0" />
               </linearGradient>
             </defs>
             <path

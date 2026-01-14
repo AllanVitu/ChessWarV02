@@ -32,7 +32,7 @@ const difficultyLabels: Record<DifficultyKey, string> = {
 const modeLabels: Record<MatchMode, string> = {
   IA: 'IA',
   Local: 'Local',
-  JcJ: 'Local',
+  JcJ: 'Ami',
 }
 
 const statusLabels = {

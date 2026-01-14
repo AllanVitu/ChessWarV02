@@ -4,10 +4,11 @@ import { RouterLink, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { clearMatchesCache } from '@/lib/matchesDb'
 import { getFriendsOverview, type FriendProfile, type FriendRequestItem } from '@/lib/friends'
-import { respondFriendRequest } from '@/lib/users'
+import { cancelFriendRequest, removeFriend, respondFriendRequest } from '@/lib/users'
 import {
   createMatchInvite,
   getNotifications,
+  markNotificationsRead,
   respondMatchInvite,
   type MatchInviteNotification,
 } from '@/lib/notifications'
@@ -94,6 +95,36 @@ const handleInviteMatch = async (friend: FriendProfile) => {
   }
 }
 
+const handleCancelRequest = async (request: FriendRequestItem) => {
+  resetNotices()
+  try {
+    const response = await cancelFriendRequest(request.user.id)
+    friendNotice.value = response.message
+    friendNoticeError.value = !response.ok
+    if (response.ok) {
+      await loadFriends()
+    }
+  } catch (error) {
+    friendNotice.value = (error as Error).message
+    friendNoticeError.value = true
+  }
+}
+
+const handleRemoveFriend = async (friend: FriendProfile) => {
+  resetNotices()
+  try {
+    const response = await removeFriend(friend.id)
+    friendNotice.value = response.message
+    friendNoticeError.value = !response.ok
+    if (response.ok) {
+      await loadFriends()
+    }
+  } catch (error) {
+    friendNotice.value = (error as Error).message
+    friendNoticeError.value = true
+  }
+}
+
 const handleMatchResponse = async (
   invite: MatchInviteNotification,
   action: 'accept' | 'decline',
@@ -118,6 +149,7 @@ const handleMatchResponse = async (
 
 onMounted(() => {
   void loadAll()
+  markNotificationsRead('all').catch(() => {})
 })
 </script>
 
@@ -161,6 +193,9 @@ onMounted(() => {
                 <RouterLink class="button-ghost" :to="`/joueur/${friend.id}`">Voir</RouterLink>
                 <button class="button-primary" type="button" @click="handleInviteMatch(friend)">
                   Inviter
+                </button>
+                <button class="button-ghost" type="button" @click="handleRemoveFriend(friend)">
+                  Retirer
                 </button>
               </div>
             </article>
@@ -215,7 +250,9 @@ onMounted(() => {
                   <p class="friend-meta">Demande envoyee</p>
                 </div>
               </div>
-              <button class="button-ghost" type="button" disabled>En attente</button>
+              <button class="button-ghost" type="button" @click="handleCancelRequest(request)">
+                Annuler
+              </button>
             </div>
           </div>
 

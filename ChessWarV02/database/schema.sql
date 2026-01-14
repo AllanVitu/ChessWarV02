@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS friend_requests (
   status TEXT NOT NULL DEFAULT 'pending',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   responded_at TIMESTAMPTZ,
+  recipient_seen_at TIMESTAMPTZ,
   CHECK (requester_id <> recipient_id)
 );
 
@@ -77,7 +78,9 @@ CREATE TABLE IF NOT EXISTS match_invites (
   time_control TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   created_at TEXT NOT NULL,
+  expires_at TIMESTAMPTZ,
   responded_at TIMESTAMPTZ,
+  recipient_seen_at TIMESTAMPTZ,
   CHECK (requester_id <> recipient_id)
 );
 

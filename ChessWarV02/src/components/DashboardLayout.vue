@@ -9,6 +9,8 @@ import { clearMatchesCache } from '@/lib/matchesDb'
 import { searchUsers, respondFriendRequest, type UserSearchItem } from '@/lib/users'
 import {
   getNotifications,
+  markNotificationsRead,
+  openNotificationsStream,
   respondMatchInvite,
   type FriendRequestNotification,
   type MatchInviteNotification,
@@ -60,67 +62,17 @@ const friendOpen = ref(false)
 const matchOpen = ref(false)
 const friendGroup = ref<HTMLElement | null>(null)
 const matchGroup = ref<HTMLElement | null>(null)
-const seenFriendIds = ref<string[]>([])
-const seenMatchIds = ref<string[]>([])
-const seenStorageKey = 'warchess.notifications.seen'
-const notificationsPollMs = 20000
-let notificationsTimer: ReturnType<typeof setInterval> | null = null
+let notificationsStream: EventSource | null = null
 
 const friendCount = computed(() => friendRequests.value.length)
 const matchCount = computed(() => matchInvites.value.length)
-const hasNewFriend = computed(() =>
-  friendRequests.value.some((request) => !seenFriendIds.value.includes(request.id)),
-)
-const hasNewMatch = computed(() =>
-  matchInvites.value.some((invite) => !seenMatchIds.value.includes(invite.id)),
-)
+const hasNewFriend = computed(() => friendRequests.value.some((request) => request.isNew))
+const hasNewMatch = computed(() => matchInvites.value.some((invite) => invite.isNew))
 
 const resetSearch = () => {
   searchResults.value = []
   searchLoading.value = false
   searchMessage.value = ''
-}
-
-const loadSeenState = () => {
-  if (typeof window === 'undefined') return
-  try {
-    const raw = window.localStorage.getItem(seenStorageKey)
-    if (!raw) return
-    const parsed = JSON.parse(raw) as { friendIds?: string[]; matchIds?: string[] }
-    if (Array.isArray(parsed.friendIds)) {
-      seenFriendIds.value = parsed.friendIds
-    }
-    if (Array.isArray(parsed.matchIds)) {
-      seenMatchIds.value = parsed.matchIds
-    }
-  } catch {
-    // Ignore malformed storage.
-  }
-}
-
-const saveSeenState = () => {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(
-      seenStorageKey,
-      JSON.stringify({
-        friendIds: seenFriendIds.value,
-        matchIds: seenMatchIds.value,
-      }),
-    )
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
-const markFriendSeen = () => {
-  seenFriendIds.value = friendRequests.value.map((request) => request.id)
-  saveSeenState()
-}
-
-const markMatchSeen = () => {
-  seenMatchIds.value = matchInvites.value.map((invite) => invite.id)
-  saveSeenState()
 }
 
 const resetFriendNotice = () => {
@@ -199,13 +151,6 @@ const loadNotifications = async (silent = false) => {
     const data = await getNotifications()
     friendRequests.value = data.friendRequests
     matchInvites.value = data.matchInvites
-
-    if (friendOpen.value) {
-      markFriendSeen()
-    }
-    if (matchOpen.value) {
-      markMatchSeen()
-    }
   } catch (error) {
     if (!silent) {
       notificationsError.value = (error as Error).message
@@ -217,13 +162,37 @@ const loadNotifications = async (silent = false) => {
   }
 }
 
+const markFriendRead = async () => {
+  try {
+    await markNotificationsRead('friends')
+    friendRequests.value = friendRequests.value.map((request) => ({
+      ...request,
+      isNew: false,
+    }))
+  } catch {
+    // Ignore read failures.
+  }
+}
+
+const markMatchRead = async () => {
+  try {
+    await markNotificationsRead('matches')
+    matchInvites.value = matchInvites.value.map((invite) => ({
+      ...invite,
+      isNew: false,
+    }))
+  } catch {
+    // Ignore read failures.
+  }
+}
+
 const toggleFriendPanel = async () => {
   friendOpen.value = !friendOpen.value
   if (friendOpen.value) {
     matchOpen.value = false
     resetFriendNotice()
     await loadNotifications()
-    markFriendSeen()
+    await markFriendRead()
   }
 }
 
@@ -233,7 +202,7 @@ const toggleMatchPanel = async () => {
     friendOpen.value = false
     resetMatchNotice()
     await loadNotifications()
-    markMatchSeen()
+    await markMatchRead()
   }
 }
 
@@ -300,11 +269,26 @@ const showSearchPanel = computed(() => {
 
 onMounted(async () => {
   dashboard.value = await getDashboardData()
-  loadSeenState()
   await loadNotifications()
-  notificationsTimer = setInterval(() => {
-    void loadNotifications(true)
-  }, notificationsPollMs)
+
+  const token = getSessionToken()
+  if (token) {
+    notificationsStream = openNotificationsStream(
+      token,
+      (payload) => {
+        friendRequests.value = payload.friendRequests
+        matchInvites.value = payload.matchInvites
+        if (notificationsError.value) {
+          notificationsError.value = ''
+        }
+      },
+      () => {
+        if (friendOpen.value || matchOpen.value) {
+          notificationsError.value = 'Connexion temps reel interrompue.'
+        }
+      },
+    )
+  }
 })
 
 onMounted(() => {
@@ -315,8 +299,9 @@ onBeforeUnmount(() => {
   if (searchTimer) {
     clearTimeout(searchTimer)
   }
-  if (notificationsTimer) {
-    clearInterval(notificationsTimer)
+  if (notificationsStream) {
+    notificationsStream.close()
+    notificationsStream = null
   }
   document.removeEventListener('mousedown', handleClickOutside)
 })
@@ -345,6 +330,10 @@ watch(searchQuery, (value) => {
 })
 
 const handleLogout = async () => {
+  if (notificationsStream) {
+    notificationsStream.close()
+    notificationsStream = null
+  }
   await clearSession()
   await router.push('/connexion')
 }

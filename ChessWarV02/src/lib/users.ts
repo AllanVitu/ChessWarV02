@@ -67,3 +67,17 @@ export const respondFriendRequest = async (
     body: JSON.stringify({ userId, action }),
   })
 }
+
+export const cancelFriendRequest = async (userId: string): Promise<FriendResponse> => {
+  return apiFetch<FriendResponse>('friends-cancel', {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  })
+}
+
+export const removeFriend = async (userId: string): Promise<FriendResponse> => {
+  return apiFetch<FriendResponse>('friends-remove', {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  })
+}

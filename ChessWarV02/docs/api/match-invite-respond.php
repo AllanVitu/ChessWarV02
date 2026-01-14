@@ -4,6 +4,7 @@ require_once __DIR__ . '/_shared/response.php';
 require_once __DIR__ . '/_shared/db.php';
 require_once __DIR__ . '/_shared/auth.php';
 require_once __DIR__ . '/_shared/helpers.php';
+require_once __DIR__ . '/_shared/invites.php';
 
 handle_options();
 require_method('POST');
@@ -21,6 +22,8 @@ if (!table_exists('match_invites')) {
   ]);
   exit;
 }
+
+expire_pending_invites();
 
 $payload = request_json();
 $invite_id = trim((string) ($payload['inviteId'] ?? ''));
@@ -47,6 +50,7 @@ $invite = db_fetch_one(
    WHERE id = :id
      AND recipient_id = :user_id
      AND status = :status
+     AND (expires_at IS NULL OR expires_at > now())
    LIMIT 1',
   [
     'id' => $invite_id,
@@ -56,6 +60,25 @@ $invite = db_fetch_one(
 );
 
 if (!$invite) {
+  $expired = db_fetch_one(
+    'SELECT id
+     FROM match_invites
+     WHERE id = :id
+       AND recipient_id = :user_id
+       AND status = :status
+     LIMIT 1',
+    [
+      'id' => $invite_id,
+      'user_id' => $user_id,
+      'status' => 'expired',
+    ]
+  );
+
+  if ($expired) {
+    json_response(410, ['ok' => false, 'message' => 'Invitation expiree.']);
+    exit;
+  }
+
   json_response(404, ['ok' => false, 'message' => 'Invitation introuvable.']);
   exit;
 }

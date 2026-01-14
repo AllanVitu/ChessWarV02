@@ -81,7 +81,8 @@ if ($existing) {
          recipient_id = :recipient_id,
          status = :status,
          created_at = now(),
-         responded_at = NULL
+         responded_at = NULL,
+         recipient_seen_at = NULL
      WHERE id = :id',
     [
       'requester_id' => $user_id,
@@ -102,8 +103,8 @@ if ($existing) {
 $id = generate_uuid();
 
 db_query(
-  'INSERT INTO friend_requests (id, requester_id, recipient_id, status)
-   VALUES (:id, :requester_id, :recipient_id, :status)',
+  'INSERT INTO friend_requests (id, requester_id, recipient_id, status, recipient_seen_at)
+   VALUES (:id, :requester_id, :recipient_id, :status, NULL)',
   [
     'id' => $id,
     'requester_id' => $user_id,

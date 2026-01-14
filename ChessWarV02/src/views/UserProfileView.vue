@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import {
   getPublicProfile,
+  cancelFriendRequest,
+  removeFriend,
   requestFriend,
   respondFriendRequest,
   type PublicProfile,
@@ -120,6 +122,38 @@ const handleDeclineFriend = async () => {
   }
 }
 
+const handleCancelFriend = async () => {
+  if (!profile.value) return
+  resetMessages()
+  try {
+    const response = await cancelFriendRequest(profile.value.id)
+    actionMessage.value = response.message
+    actionError.value = !response.ok
+    if (response.ok) {
+      profile.value.friendStatus = response.friendStatus
+    }
+  } catch (error) {
+    actionMessage.value = (error as Error).message
+    actionError.value = true
+  }
+}
+
+const handleRemoveFriend = async () => {
+  if (!profile.value) return
+  resetMessages()
+  try {
+    const response = await removeFriend(profile.value.id)
+    actionMessage.value = response.message
+    actionError.value = !response.ok
+    if (response.ok) {
+      profile.value.friendStatus = response.friendStatus
+    }
+  } catch (error) {
+    actionMessage.value = (error as Error).message
+    actionError.value = true
+  }
+}
+
 const handleLaunchMatch = async () => {
   if (!profile.value) return
   resetMessages()
@@ -193,8 +227,8 @@ watch(userId, loadProfile, { immediate: true })
           >
             Demander en ami
           </button>
-          <button v-else-if="isOutgoing" class="button-ghost" type="button" disabled>
-            Demande envoyee
+          <button v-else-if="isOutgoing" class="button-ghost" type="button" @click="handleCancelFriend">
+            Annuler la demande
           </button>
           <div v-else-if="isIncoming" class="public-action-group">
             <button class="button-primary" type="button" @click="handleAcceptFriend">
@@ -204,8 +238,8 @@ watch(userId, loadProfile, { immediate: true })
               Refuser
             </button>
           </div>
-          <button v-else-if="isFriends" class="button-ghost" type="button" disabled>
-            Deja amis
+          <button v-else-if="isFriends" class="button-ghost" type="button" @click="handleRemoveFriend">
+            Retirer des amis
           </button>
 
           <button

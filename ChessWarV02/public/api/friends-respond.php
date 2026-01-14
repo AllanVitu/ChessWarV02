@@ -67,7 +67,8 @@ $next_status = $action === 'accept' ? 'accepted' : 'declined';
 db_query(
   'UPDATE friend_requests
    SET status = :status,
-       responded_at = now()
+       responded_at = now(),
+       recipient_seen_at = now()
    WHERE id = :id',
   [
     'status' => $next_status,

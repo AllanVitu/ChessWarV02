@@ -1,7 +1,10 @@
 import { apiFetch } from './api'
 
+const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+
 export type FriendRequestNotification = {
   id: string
+  isNew: boolean
   user: {
     id: string
     name: string
@@ -15,6 +18,7 @@ export type MatchInviteNotification = {
   matchId: string
   timeControl: string
   createdAt: string
+  isNew: boolean
   from: {
     id: string
     name: string
@@ -43,8 +47,14 @@ export const getNotifications = async (): Promise<NotificationsPayload> => {
   }>('notifications-get')
 
   return {
-    friendRequests: response.friendRequests ?? [],
-    matchInvites: response.matchInvites ?? [],
+    friendRequests: (response.friendRequests ?? []).map((request) => ({
+      ...request,
+      isNew: request.isNew ?? false,
+    })),
+    matchInvites: (response.matchInvites ?? []).map((invite) => ({
+      ...invite,
+      isNew: invite.isNew ?? false,
+    })),
   }
 }
 
@@ -71,4 +81,45 @@ export const respondMatchInvite = async (
     method: 'POST',
     body: JSON.stringify({ inviteId, action }),
   })
+}
+
+export const markNotificationsRead = async (type: 'friends' | 'matches' | 'all' = 'all') => {
+  return apiFetch<{ ok: boolean; message: string }>('notifications-read', {
+    method: 'POST',
+    body: JSON.stringify({ type }),
+  })
+}
+
+export const openNotificationsStream = (
+  token: string,
+  onMessage: (payload: NotificationsPayload) => void,
+  onError?: (event: Event) => void,
+): EventSource => {
+  const source = new EventSource(
+    `${API_BASE}/notifications-stream?token=${encodeURIComponent(token)}`,
+  )
+
+  source.addEventListener('notifications', (event) => {
+    try {
+      const data = JSON.parse((event as MessageEvent).data) as NotificationsPayload
+      onMessage({
+        friendRequests: (data.friendRequests ?? []).map((request) => ({
+          ...request,
+          isNew: request.isNew ?? false,
+        })),
+        matchInvites: (data.matchInvites ?? []).map((invite) => ({
+          ...invite,
+          isNew: invite.isNew ?? false,
+        })),
+      })
+    } catch {
+      // Ignore malformed payloads.
+    }
+  })
+
+  if (onError) {
+    source.addEventListener('error', onError)
+  }
+
+  return source
 }

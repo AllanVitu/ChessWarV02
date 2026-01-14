@@ -26,7 +26,6 @@ if (!friend_requests_available()) {
 
 $payload = request_json();
 $target_id = trim((string) ($payload['userId'] ?? ''));
-$action = strtolower(trim((string) ($payload['action'] ?? '')));
 
 if ($target_id === '') {
   json_response(400, ['ok' => false, 'message' => 'Identifiant manquant.']);
@@ -38,46 +37,38 @@ if (!is_valid_uuid($target_id)) {
   exit;
 }
 
-if (!in_array($action, ['accept', 'decline'], true)) {
-  json_response(400, ['ok' => false, 'message' => 'Action invalide.']);
-  exit;
-}
-
-$request = db_fetch_one(
+$friendship = db_fetch_one(
   'SELECT id
    FROM friend_requests
-   WHERE requester_id = :target_id
-     AND recipient_id = :user_id
-     AND status = :status
+   WHERE status = :status
+     AND ((requester_id = :user_id AND recipient_id = :target_id)
+       OR (requester_id = :target_id AND recipient_id = :user_id))
    LIMIT 1',
   [
-    'target_id' => $target_id,
     'user_id' => $user_id,
-    'status' => 'pending',
+    'target_id' => $target_id,
+    'status' => 'accepted',
   ]
 );
 
-if (!$request) {
-  json_response(404, ['ok' => false, 'message' => 'Demande introuvable.']);
+if (!$friendship) {
+  json_response(404, ['ok' => false, 'message' => 'Amitie introuvable.']);
   exit;
 }
-
-$next_status = $action === 'accept' ? 'accepted' : 'declined';
 
 db_query(
   'UPDATE friend_requests
    SET status = :status,
-       responded_at = now(),
-       recipient_seen_at = now()
+       responded_at = now()
    WHERE id = :id',
   [
-    'status' => $next_status,
-    'id' => $request['id'],
+    'status' => 'removed',
+    'id' => $friendship['id'],
   ]
 );
 
 json_response(200, [
   'ok' => true,
-  'message' => $next_status === 'accepted' ? 'Demande acceptee.' : 'Demande refusee.',
-  'friendStatus' => $next_status === 'accepted' ? 'friends' : 'none',
+  'message' => 'Ami retire.',
+  'friendStatus' => 'none',
 ]);

@@ -6,6 +6,7 @@ require_once __DIR__ . '/_shared/auth.php';
 require_once __DIR__ . '/_shared/helpers.php';
 require_once __DIR__ . '/_shared/friends.php';
 require_once __DIR__ . '/_shared/security.php';
+require_once __DIR__ . '/_shared/invites.php';
 
 handle_options();
 require_method('POST');
@@ -23,6 +24,8 @@ if (!table_exists('match_invites')) {
   ]);
   exit;
 }
+
+expire_pending_invites();
 
 if (!friend_requests_available()) {
   json_response(503, [
@@ -87,6 +90,7 @@ $existing = db_fetch_one(
   'SELECT id
    FROM match_invites
    WHERE status = :status
+     AND (expires_at IS NULL OR expires_at > now())
      AND ((requester_id = :user_id AND recipient_id = :target_id)
        OR (requester_id = :target_id AND recipient_id = :user_id))
    LIMIT 1',
@@ -106,14 +110,15 @@ if ($existing) {
 }
 
 $invite_id = generate_uuid();
-$match_id = 'M-' . random_int(1000, 9999);
+$match_id = generate_uuid();
 $created_at = date('Y-m-d H:i');
+$expires_at = (new DateTime('now', new DateTimeZone('UTC')))->modify('+24 hours')->format('c');
 
 db_query(
   'INSERT INTO match_invites
-   (id, requester_id, recipient_id, match_id, requester_side, recipient_side, time_control, status, created_at)
+   (id, requester_id, recipient_id, match_id, requester_side, recipient_side, time_control, status, created_at, expires_at)
    VALUES
-   (:id, :requester_id, :recipient_id, :match_id, :requester_side, :recipient_side, :time_control, :status, :created_at)',
+   (:id, :requester_id, :recipient_id, :match_id, :requester_side, :recipient_side, :time_control, :status, :created_at, :expires_at)',
   [
     'id' => $invite_id,
     'requester_id' => $user_id,
@@ -124,6 +129,7 @@ db_query(
     'time_control' => $time_control,
     'status' => 'pending',
     'created_at' => $created_at,
+    'expires_at' => $expires_at,
   ]
 );
 

@@ -1,8 +1,9 @@
-const CACHE_NAME = 'cloudchess-v1'
+const CACHE_NAME = 'cloudchess-v2'
 const APP_SHELL = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
+  '/icon-180.png',
   '/icon-192.png',
   '/icon-512.png',
   '/favicon.ico',

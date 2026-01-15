@@ -2021,6 +2021,78 @@ td {
   }
 }
 
+@media (max-width: 640px) {
+  .auth-page {
+    min-height: 100svh;
+    padding: 20px 16px 28px;
+    align-items: start;
+  }
+
+  .auth-page--solo {
+    overflow-y: auto;
+  }
+
+  .auth-orbit {
+    width: 100%;
+    padding: 12px;
+  }
+
+  .auth-orbit::before,
+  .auth-orbit::after {
+    display: none;
+  }
+
+  .auth-halo {
+    width: min(420px, 90vw);
+    height: min(420px, 90vw);
+    opacity: 0.5;
+  }
+
+  .auth-card--orbit {
+    width: 100%;
+    border-radius: 20px;
+  }
+
+  .auth-card--orbit::before {
+    display: none;
+  }
+
+  .auth-stack {
+    gap: 12px;
+  }
+
+  .auth-title {
+    font-size: 24px;
+  }
+
+  .auth-subhead {
+    font-size: 13px;
+  }
+
+  .auth-status {
+    font-size: 11px;
+  }
+
+  .auth-links {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .auth-chips {
+    justify-content: center;
+  }
+
+  .auth-chip {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  .auth-stat {
+    padding: 10px 12px;
+  }
+}
+
 .auth-card--orbit .eyebrow {
   color: var(--text-faint);
 }
@@ -2561,6 +2633,33 @@ td {
   color: var(--text-muted);
 }
 
+.player-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.player-clock {
+  margin-left: auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--accent-strong);
+  background: rgba(180, 140, 255, 0.18);
+}
+
+.player-clock--warning {
+  color: var(--analysis-orange);
+  background: rgba(249, 115, 22, 0.18);
+}
+
+.player-clock--danger {
+  color: var(--danger);
+  background: rgba(248, 113, 113, 0.18);
+}
+
 .vs-pill {
   font-size: 11px;
   letter-spacing: 0.2em;
@@ -2591,6 +2690,62 @@ td {
 
 .panel-subsection {
   display: grid;
+  gap: 12px;
+}
+
+.elo-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.elo-periods {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.elo-chart {
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--panel-soft);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.15);
+}
+
+.elo-chart svg {
+  width: 100%;
+  height: 180px;
+  display: block;
+}
+
+.elo-line {
+  fill: none;
+  stroke: #7eb8ff;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.elo-area {
+  stroke: none;
+}
+
+.elo-dot {
+  fill: #7eb8ff;
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.elo-range {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.elo-metrics,
+.period-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
 }
 

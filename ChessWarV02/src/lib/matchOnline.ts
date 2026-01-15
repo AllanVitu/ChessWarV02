@@ -29,6 +29,8 @@ export type MatchOnlineState = {
   sideToMove: OnlineSide
   lastMove: string
   moveCount: number
+  createdAt?: string | null
+  updatedAt?: string | null
   yourSide: OnlineSide
   moves: OnlineMove[]
   messages?: OnlineMessage[]
@@ -81,7 +83,7 @@ export const addMatchMessage = async (
 
 export const finishMatch = async (
   matchId: string,
-  result: 'resign' | 'draw',
+  result: 'resign' | 'draw' | 'timeout',
 ): Promise<MatchOnlineState> => {
   const response = await apiFetch<{ ok: boolean; match?: MatchOnlineState }>('match-finish', {
     method: 'POST',

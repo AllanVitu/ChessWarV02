@@ -48,6 +48,14 @@ const rematchNotice = ref('')
 const rematchNoticeError = ref(false)
 const finishNotice = ref('')
 const finishNoticeError = ref(false)
+const whiteClockMs = ref(0)
+const blackClockMs = ref(0)
+const clockTickAt = ref(0)
+const timeoutTriggered = ref(false)
+const clockNotice = ref('')
+const clockNoticeError = ref(false)
+let clockTimer: ReturnType<typeof setInterval> | null = null
+const localMatchEnded = ref(false)
 
 const mode = computed<MatchRecord['mode']>(() => match.value?.mode ?? 'IA')
 const isOnline = computed(() => mode.value === 'JcJ')
@@ -70,6 +78,7 @@ watch(
   matchId,
   async () => {
     stopOnlineStream()
+    stopClock()
     onlineMoves.value = []
     onlineMessages.value = []
     onlineError.value = ''
@@ -86,6 +95,13 @@ watch(
     rematchNoticeError.value = false
     finishNotice.value = ''
     finishNoticeError.value = false
+    whiteClockMs.value = 0
+    blackClockMs.value = 0
+    clockTickAt.value = 0
+    timeoutTriggered.value = false
+    clockNotice.value = ''
+    clockNoticeError.value = false
+    localMatchEnded.value = false
     if (!matchId.value) {
       match.value = null
       difficulty.value = 'intermediaire'
@@ -95,6 +111,8 @@ watch(
     difficulty.value = match.value?.difficulty ?? 'intermediaire'
     if (match.value?.mode === 'JcJ') {
       await loadOnlineMatch()
+    } else if (match.value) {
+      resetLocalClocks()
     }
   },
   { immediate: true },
@@ -114,10 +132,48 @@ const aiSide = computed(() => {
   return playerSide.value === 'white' ? 'black' : 'white'
 })
 
-const matchEnded = computed(() => isOnline.value && onlineStatus.value !== 'active')
+const matchEnded = computed(() =>
+  isOnline.value ? onlineStatus.value !== 'active' : localMatchEnded.value,
+)
 const opponentId = computed(() => {
   if (!isOnline.value) return ''
   return playerSide.value === 'white' ? onlineBlackId.value ?? '' : onlineWhiteId.value ?? ''
+})
+
+const parseTimeControl = (value: string) => {
+  const trimmed = value.trim()
+  const match = /^(\d+)(?:\+(\d+))?$/.exec(trimmed)
+  if (!match) {
+    return { initialMs: 10 * 60 * 1000, incrementMs: 0 }
+  }
+  const minutes = Math.max(1, Number.parseInt(match[1] ?? '10', 10))
+  const increment = Math.max(0, Number.parseInt(match[2] ?? '0', 10))
+  return { initialMs: minutes * 60 * 1000, incrementMs: increment * 1000 }
+}
+
+const clockConfig = computed(() => parseTimeControl(timeControl.value))
+
+const formatClock = (ms: number) => {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+}
+
+const clockTone = (ms: number) => {
+  if (ms <= 10000) return 'player-clock--danger'
+  if (ms <= 30000) return 'player-clock--warning'
+  return ''
+}
+
+const whiteClockLabel = computed(() => formatClock(whiteClockMs.value))
+const blackClockLabel = computed(() => formatClock(blackClockMs.value))
+
+const clockActive = computed(() => {
+  if (isOnline.value) {
+    return onlineStatus.value === 'active' && !onlineLoading.value && !onlinePending.value
+  }
+  return !localMatchEnded.value
 })
 
 const board = ref(createInitialBoard())
@@ -173,6 +229,7 @@ const canUserMove = computed(() => {
       sideToMove.value === playerSide.value
     )
   }
+  if (localMatchEnded.value) return false
   if (mode.value !== 'IA') return true
   return sideToMove.value === playerSide.value
 })
@@ -235,6 +292,117 @@ const applyOnlineState = (state: MatchOnlineState) => {
   sideToMove.value = state.sideToMove
   onlinePending.value = false
   applyOnlineMoves(onlineMoves.value)
+  syncOnlineClocks(state)
+}
+
+const stopClock = () => {
+  if (clockTimer) {
+    clearInterval(clockTimer)
+    clockTimer = null
+  }
+}
+
+const checkTimeout = () => {
+  if (timeoutTriggered.value) return
+  if (whiteClockMs.value === 0 || blackClockMs.value === 0) {
+    timeoutTriggered.value = true
+    void handleTimeout()
+  }
+}
+
+const startClock = () => {
+  stopClock()
+  clockTickAt.value = Date.now()
+  clockTimer = setInterval(() => {
+    if (!clockActive.value || matchEnded.value) {
+      clockTickAt.value = Date.now()
+      return
+    }
+    const now = Date.now()
+    const elapsed = now - clockTickAt.value
+    clockTickAt.value = now
+    if (sideToMove.value === 'white') {
+      whiteClockMs.value = Math.max(0, whiteClockMs.value - elapsed)
+    } else {
+      blackClockMs.value = Math.max(0, blackClockMs.value - elapsed)
+    }
+    checkTimeout()
+  }, 250)
+}
+
+const commitClockTick = () => {
+  if (!clockActive.value || matchEnded.value) return
+  const now = Date.now()
+  const elapsed = now - clockTickAt.value
+  clockTickAt.value = now
+  if (sideToMove.value === 'white') {
+    whiteClockMs.value = Math.max(0, whiteClockMs.value - elapsed)
+  } else {
+    blackClockMs.value = Math.max(0, blackClockMs.value - elapsed)
+  }
+}
+
+const applyIncrement = (side: Side) => {
+  const { incrementMs } = clockConfig.value
+  if (incrementMs <= 0) return
+  if (side === 'white') {
+    whiteClockMs.value += incrementMs
+  } else {
+    blackClockMs.value += incrementMs
+  }
+}
+
+const resetLocalClocks = () => {
+  const { initialMs } = clockConfig.value
+  whiteClockMs.value = initialMs
+  blackClockMs.value = initialMs
+  localMatchEnded.value = false
+  timeoutTriggered.value = false
+  clockNotice.value = ''
+  clockNoticeError.value = false
+  clockTickAt.value = Date.now()
+  startClock()
+}
+
+const syncOnlineClocks = (state: MatchOnlineState) => {
+  const { initialMs, incrementMs } = clockConfig.value
+  let whiteLeft = initialMs
+  let blackLeft = initialMs
+  const startAt = state.createdAt ? new Date(state.createdAt).getTime() : Date.now()
+  let lastTime = startAt
+
+  for (const move of state.moves ?? []) {
+    const moveTime = new Date(move.createdAt).getTime()
+    if (!Number.isFinite(moveTime)) continue
+    const elapsed = Math.max(0, moveTime - lastTime)
+    if (move.side === 'white') {
+      whiteLeft = Math.max(0, whiteLeft - elapsed + incrementMs)
+    } else {
+      blackLeft = Math.max(0, blackLeft - elapsed + incrementMs)
+    }
+    lastTime = moveTime
+  }
+
+  if (state.status === 'active') {
+    const elapsed = Math.max(0, Date.now() - lastTime)
+    if (state.sideToMove === 'white') {
+      whiteLeft = Math.max(0, whiteLeft - elapsed)
+    } else {
+      blackLeft = Math.max(0, blackLeft - elapsed)
+    }
+  }
+
+  whiteClockMs.value = whiteLeft
+  blackClockMs.value = blackLeft
+  clockTickAt.value = Date.now()
+  timeoutTriggered.value = state.status !== 'active'
+  checkTimeout()
+
+  if (state.status === 'active') {
+    startClock()
+  } else {
+    stopClock()
+  }
 }
 
 const stopOnlineStream = () => {
@@ -299,6 +467,11 @@ const isOwnedBySide = (piece: string, side: Side) => {
 }
 
 const applyAndRecord = (move: Move) => {
+  if (!isOnline.value) {
+    commitClockTick()
+    applyIncrement(sideToMove.value)
+    checkTimeout()
+  }
   board.value = applyMove(board.value, move)
   moveHistory.value = [
     ...moveHistory.value,
@@ -311,6 +484,7 @@ const applyAndRecord = (move: Move) => {
   lastMove.value = { from: move.from, to: move.to }
   selectedSquare.value = null
   sideToMove.value = sideToMove.value === 'white' ? 'black' : 'white'
+  clockTickAt.value = Date.now()
 }
 
 const updateAnalysis = () => {
@@ -322,6 +496,7 @@ const updateAnalysis = () => {
 
 const triggerAiMove = () => {
   if (aiThinking.value) return
+  if (localMatchEnded.value) return
   if (!aiSide.value || sideToMove.value !== aiSide.value) return
   aiThinking.value = true
   if (aiTimeout) {
@@ -342,6 +517,7 @@ const submitOnlineMove = async (move: Move) => {
   if (onlineStatus.value !== 'active') return
   onlinePending.value = true
   onlineError.value = ''
+  stopClock()
   try {
     const state = await addMatchMove(matchId.value, {
       from: move.from,
@@ -404,18 +580,41 @@ const handleRematch = async () => {
   }
 }
 
-const handleFinishMatch = async (result: 'resign' | 'draw') => {
+const handleFinishMatch = async (result: 'resign' | 'draw' | 'timeout') => {
   if (!matchId.value || !isOnline.value) return
   finishNotice.value = ''
   finishNoticeError.value = false
   try {
     const state = await finishMatch(matchId.value, result)
     applyOnlineState(state)
-    finishNotice.value = result === 'draw' ? 'Match nul enregistre.' : 'Match termine.'
+    if (result === 'draw') {
+      finishNotice.value = 'Match nul enregistre.'
+    } else if (result === 'timeout') {
+      finishNotice.value = 'Temps ecoule.'
+    } else {
+      finishNotice.value = 'Match termine.'
+    }
   } catch (error) {
     finishNotice.value = (error as Error).message
     finishNoticeError.value = true
   }
+}
+
+const handleTimeout = async () => {
+  if (matchEnded.value) return
+  stopClock()
+  if (isOnline.value) {
+    await handleFinishMatch('timeout')
+    return
+  }
+  if (aiTimeout) {
+    clearTimeout(aiTimeout)
+    aiTimeout = null
+  }
+  aiThinking.value = false
+  localMatchEnded.value = true
+  clockNotice.value = 'Temps ecoule. Match termine.'
+  clockNoticeError.value = true
 }
 
 const handleSquareClick = (squareId: string, piece: string) => {
@@ -490,7 +689,9 @@ const handleReset = () => {
     onlineError.value = 'Action indisponible en multijoueur.'
     return
   }
+  localMatchEnded.value = false
   resetMatch()
+  resetLocalClocks()
 }
 
 const handleLeaveMatch = async () => {
@@ -511,6 +712,7 @@ watch(
 
 onBeforeUnmount(() => {
   stopOnlineStream()
+  stopClock()
   if (aiTimeout) {
     clearTimeout(aiTimeout)
     aiTimeout = null
@@ -564,26 +766,34 @@ const squares = computed(() =>
 
           <p v-if="onlineNote" class="form-message form-message--success">{{ onlineNote }}</p>
           <p v-if="onlineError" class="form-message form-message--error">{{ onlineError }}</p>
+          <p
+            v-if="clockNotice"
+            :class="['form-message', clockNoticeError ? 'form-message--error' : 'form-message--success']"
+          >
+            {{ clockNotice }}
+          </p>
 
           <div class="player-strip">
             <div
               :class="['player-chip', sideToMove === 'white' && 'player-chip--active']"
             >
               <div class="player-avatar">{{ initialsFrom(whiteLabel) }}</div>
-              <div>
+              <div class="player-info">
                 <p class="player-name">{{ whiteLabel }}</p>
                 <p class="player-meta">Blancs</p>
               </div>
+              <div :class="['player-clock', clockTone(whiteClockMs)]">{{ whiteClockLabel }}</div>
             </div>
             <span class="vs-pill">VS</span>
             <div
               :class="['player-chip', sideToMove === 'black' && 'player-chip--active']"
             >
               <div class="player-avatar">{{ initialsFrom(blackLabel) }}</div>
-              <div>
+              <div class="player-info">
                 <p class="player-name">{{ blackLabel }}</p>
                 <p class="player-meta">Noirs</p>
               </div>
+              <div :class="['player-clock', clockTone(blackClockMs)]">{{ blackClockLabel }}</div>
             </div>
           </div>
 

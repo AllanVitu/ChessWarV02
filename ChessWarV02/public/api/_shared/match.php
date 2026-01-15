@@ -16,7 +16,8 @@ function match_chat_available(): bool
 function fetch_match_room(string $match_id): ?array
 {
   return db_fetch_one(
-    'SELECT match_id, white_id, black_id, status, side_to_move, last_move, move_count
+    'SELECT match_id, white_id, black_id, status, side_to_move, last_move, move_count,
+            created_at, updated_at
      FROM match_rooms
      WHERE match_id = :match_id
      LIMIT 1',
@@ -106,6 +107,8 @@ function build_match_payload(string $user_id, array $room): array
     'sideToMove' => $room['side_to_move'] ?? 'white',
     'lastMove' => $room['last_move'] ?? '-',
     'moveCount' => isset($room['move_count']) ? (int) $room['move_count'] : 0,
+    'createdAt' => $room['created_at'] ?? null,
+    'updatedAt' => $room['updated_at'] ?? null,
     'yourSide' => side_for_user($user_id, $room),
     'moves' => $formatted_moves,
     'messages' => $formatted_messages,

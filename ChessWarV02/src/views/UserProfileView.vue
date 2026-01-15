@@ -4,16 +4,21 @@ import { useRoute } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import {
   getPublicProfile,
+  getUserBadges,
   cancelFriendRequest,
   removeFriend,
   requestFriend,
   respondFriendRequest,
   type PublicProfile,
+  type UserBadge,
 } from '@/lib/users'
 import { createMatchInvite } from '@/lib/notifications'
 
 const route = useRoute()
 const profile = ref<PublicProfile | null>(null)
+const badges = ref<UserBadge[]>([])
+const badgesLoading = ref(false)
+const badgesError = ref('')
 const loading = ref(false)
 const loadError = ref('')
 
@@ -29,7 +34,9 @@ const isSelf = computed(() => friendStatus.value === 'self')
 const isFriends = computed(() => friendStatus.value === 'friends')
 const isOutgoing = computed(() => friendStatus.value === 'outgoing')
 const isIncoming = computed(() => friendStatus.value === 'incoming')
-const isOnline = computed(() => profile.value?.isOnline ?? false)
+const onlineState = computed(() => profile.value?.isOnline)
+const hasOnlineStatus = computed(() => typeof onlineState.value === 'boolean')
+const isOnline = computed(() => onlineState.value === true)
 
 const initials = computed(() => {
   const name = profile.value?.name?.trim() ?? ''
@@ -42,6 +49,25 @@ const initials = computed(() => {
     .join('') || '?'
 })
 
+const badgeIcon = (key: string) => {
+  if (key === 'streak') return 'S'
+  if (key === 'tournament') return 'T'
+  if (key === 'fairplay') return 'F'
+  return 'B'
+}
+
+const loadBadges = async (targetId: string) => {
+  badgesLoading.value = true
+  badgesError.value = ''
+  try {
+    badges.value = await getUserBadges(targetId)
+  } catch (error) {
+    badgesError.value = (error as Error).message
+    badges.value = []
+  } finally {
+    badgesLoading.value = false
+  }
+}
 
 const resetMessages = () => {
   actionMessage.value = ''
@@ -67,6 +93,7 @@ const loadProfile = async () => {
       loadError.value = 'Profil introuvable.'
     } else {
       profile.value = data
+      await loadBadges(targetId)
     }
   } catch (error) {
     loadError.value = (error as Error).message
@@ -165,7 +192,7 @@ const handleLaunchMatch = async () => {
     return
   }
 
-  if (!isOnline.value) {
+  if (hasOnlineStatus.value && !isOnline.value) {
     matchMessage.value = 'Ce joueur est hors ligne.'
     matchError.value = true
     return
@@ -215,9 +242,18 @@ watch(userId, loadProfile, { immediate: true })
             <span class="stat-chip-label">Elo</span>
             <span class="stat-chip-value">{{ profile.rating }}</span>
           </div>
-          <div :class="['stat-chip', isOnline ? 'stat-chip--online' : 'stat-chip--offline']">
+          <div
+            :class="[
+              'stat-chip',
+              hasOnlineStatus ? (isOnline ? 'stat-chip--online' : 'stat-chip--offline') : 'stat-chip--unknown',
+            ]"
+          >
             <span class="stat-chip-label">Statut</span>
-            <span class="stat-chip-value">{{ isOnline ? 'En ligne' : 'Hors ligne' }}</span>
+            <span class="stat-chip-value">
+              {{
+                hasOnlineStatus ? (isOnline ? 'En ligne' : 'Hors ligne') : 'Statut inconnu'
+              }}
+            </span>
           </div>
           <div class="stat-chip">
             <span class="stat-chip-label">Localisation</span>
@@ -227,6 +263,33 @@ watch(userId, loadProfile, { immediate: true })
             <span class="stat-chip-label">Derniere activite</span>
             <span class="stat-chip-value">{{ profile.lastSeen || 'Non renseignee' }}</span>
           </div>
+        </div>
+
+        <div class="public-badges">
+          <p class="panel-title">Badges</p>
+          <p class="panel-sub">Series, tournois et fair-play.</p>
+
+          <p v-if="badgesLoading" class="panel-sub">Chargement des badges...</p>
+          <p v-else-if="badgesError" class="form-message form-message--error">
+            {{ badgesError }}
+          </p>
+          <div v-else class="badge-grid">
+            <article
+              v-for="badge in badges"
+              :key="badge.key"
+              :class="['badge-card', !badge.earned && 'badge-card--locked']"
+            >
+              <div class="badge-icon">{{ badgeIcon(badge.key) }}</div>
+              <div class="badge-content">
+                <p class="badge-label">{{ badge.label }}</p>
+                <p class="badge-desc">{{ badge.description }}</p>
+                <p class="badge-value">{{ badge.value }}</p>
+              </div>
+            </article>
+          </div>
+          <p v-if="!badgesLoading && !badgesError && !badges.length" class="empty-state">
+            Aucun badge disponible.
+          </p>
         </div>
 
         <div v-if="!isSelf" class="public-actions">
@@ -256,10 +319,16 @@ watch(userId, loadProfile, { immediate: true })
           <button
             class="button-primary"
             type="button"
-            :disabled="!isFriends || !isOnline"
+            :disabled="!isFriends || (hasOnlineStatus && !isOnline)"
             @click="handleLaunchMatch"
           >
-            {{ isOnline ? 'Lancer un match' : 'Indisponible' }}
+            {{
+              !hasOnlineStatus
+                ? 'Lancer un match'
+                : isOnline
+                  ? 'Lancer un match'
+                  : 'Indisponible'
+            }}
           </button>
         </div>
 

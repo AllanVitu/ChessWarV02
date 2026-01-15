@@ -527,6 +527,7 @@ const squares = computed(() =>
       const isSelected = selectedSquare.value === squareId
       const isTarget = targetSquares.value.has(squareId)
       const isLast = lastMove.value?.from === squareId || lastMove.value?.to === squareId
+      const isArrival = lastMove.value?.to === squareId
 
       return {
         id: squareId,
@@ -537,6 +538,7 @@ const squares = computed(() =>
         isSelected,
         isTarget,
         isLast,
+        isArrival,
       }
     }),
   ),
@@ -595,6 +597,7 @@ const squares = computed(() =>
                   'square',
                   square.dark ? 'square--dark' : 'square--light',
                   square.isLast ? 'square--last' : '',
+                  square.isArrival ? 'square--arrival' : '',
                   square.isSelected ? 'square--selected' : '',
                   square.isTarget ? 'square--target' : '',
                 ]"
@@ -602,7 +605,11 @@ const squares = computed(() =>
               >
                 <span
                   v-if="square.piece"
-                  :class="['piece', square.tone === 'light' ? 'piece--light' : 'piece--dark']"
+                  :class="[
+                    'piece',
+                    square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                    square.isArrival ? 'piece--impact' : '',
+                  ]"
                 >
                   {{ square.symbol }}
                 </span>

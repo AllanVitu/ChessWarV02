@@ -36,6 +36,14 @@ const initialsFor = (name: string) => {
     .join('') || '?'
 }
 
+const hasOnlineStatus = (friend: FriendProfile) => typeof friend.isOnline === 'boolean'
+const isOnline = (friend: FriendProfile) => friend.isOnline === true
+const onlineLabel = (friend: FriendProfile) => {
+  if (!hasOnlineStatus(friend)) return 'Statut inconnu'
+  return isOnline(friend) ? 'En ligne' : 'Hors ligne'
+}
+const canInvite = (friend: FriendProfile) => !hasOnlineStatus(friend) || isOnline(friend)
+
 const resetNotices = () => {
   friendNotice.value = ''
   friendNoticeError.value = false
@@ -189,10 +197,14 @@ onMounted(() => {
                 <span
                   :class="[
                     'friend-chip',
-                    friend.isOnline ? 'friend-chip--online' : 'friend-chip--offline',
+                    hasOnlineStatus(friend)
+                      ? isOnline(friend)
+                        ? 'friend-chip--online'
+                        : 'friend-chip--offline'
+                      : 'friend-chip--unknown',
                   ]"
                 >
-                  {{ friend.isOnline ? 'En ligne' : 'Hors ligne' }}
+                  {{ onlineLabel(friend) }}
                 </span>
                 <span class="friend-chip">{{ friend.location || 'Localisation inconnue' }}</span>
                 <span class="friend-chip">{{ friend.lastSeen || 'Derniere activite inconnue' }}</span>
@@ -202,10 +214,10 @@ onMounted(() => {
                 <button
                   class="button-primary"
                   type="button"
-                  :disabled="!friend.isOnline"
+                  :disabled="!canInvite(friend)"
                   @click="handleInviteMatch(friend)"
                 >
-                  {{ friend.isOnline ? 'Inviter' : 'Indisponible' }}
+                  {{ canInvite(friend) ? 'Inviter' : 'Indisponible' }}
                 </button>
                 <button class="button-ghost" type="button" @click="handleRemoveFriend(friend)">
                   Retirer

@@ -53,17 +53,21 @@ $friends = array_map(function (array $row) use ($has_last_seen_at): array {
     $name = (string) ($row['display_name'] ?? '');
   }
 
-  $is_online = $has_last_seen_at ? is_recent_timestamp($row['last_seen_at'] ?? null) : false;
+  $is_online = $has_last_seen_at ? is_recent_timestamp($row['last_seen_at'] ?? null) : null;
 
-  return [
+  $friend = [
     'id' => $row['user_id'],
     'name' => $name,
     'title' => $row['title'] ?? '',
     'rating' => isset($row['rating']) ? (int) $row['rating'] : 0,
     'location' => $row['location'] ?? '',
     'lastSeen' => $row['last_seen'] ?? '',
-    'isOnline' => $is_online,
   ];
+  if ($has_last_seen_at) {
+    $friend['isOnline'] = $is_online;
+  }
+
+  return $friend;
 }, $friends_rows);
 
 $incoming_rows = db_fetch_all(

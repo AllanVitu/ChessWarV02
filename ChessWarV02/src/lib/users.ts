@@ -23,6 +23,14 @@ export type PublicProfile = {
   friendStatus: FriendStatus
 }
 
+export type UserBadge = {
+  key: string
+  label: string
+  description: string
+  value: string
+  earned: boolean
+}
+
 type FriendResponse = {
   ok: boolean
   message: string
@@ -51,6 +59,15 @@ export const getPublicProfile = async (userId: string): Promise<PublicProfile | 
     ...response.profile,
     friendStatus: response.friendStatus ?? 'none',
   }
+}
+
+export const getUserBadges = async (userId: string): Promise<UserBadge[]> => {
+  const response = await apiFetch<{ ok: boolean; badges?: UserBadge[] }>(
+    `users-badges?id=${encodeURIComponent(userId)}`,
+  )
+
+  if (!response.ok) return []
+  return response.badges ?? []
 }
 
 export const requestFriend = async (userId: string): Promise<FriendResponse> => {

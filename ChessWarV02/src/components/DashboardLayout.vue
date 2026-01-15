@@ -104,6 +104,18 @@ const initialsFor = (name: string) => {
     .join('') || '?'
 }
 
+const onlineLabel = (user: UserSearchItem) => {
+  if (user.isOnline === true) return 'En ligne'
+  if (user.isOnline === false) return 'Hors ligne'
+  return 'Statut inconnu'
+}
+
+const onlineClass = (user: UserSearchItem) => {
+  if (user.isOnline === true) return 'presence-dot--online'
+  if (user.isOnline === false) return 'presence-dot--offline'
+  return 'presence-dot--unknown'
+}
+
 const runSearch = async (query: string) => {
   if (!getSessionToken()) {
     searchMessage.value = 'Connectez-vous pour rechercher.'
@@ -571,13 +583,10 @@ const handleLogout = async () => {
                 </span>
                 <span class="search-meta">
                   <span
-                    :class="[
-                      'presence-dot',
-                      user.isOnline ? 'presence-dot--online' : 'presence-dot--offline',
-                    ]"
+                    :class="['presence-dot', onlineClass(user)]"
                     aria-hidden="true"
                   ></span>
-                  {{ user.isOnline ? 'En ligne' : 'Hors ligne' }} · Elo {{ user.rating }}
+                  {{ onlineLabel(user) }} · Elo {{ user.rating }}
                 </span>
               </button>
               <p v-if="!searchLoading && searchMessage" class="search-status">{{ searchMessage }}</p>

@@ -44,16 +44,20 @@ $users = array_map(function (array $row) use ($has_last_seen_at): array {
     $name = (string) ($row['display_name'] ?? '');
   }
 
-  $is_online = $has_last_seen_at ? is_recent_timestamp($row['last_seen_at'] ?? null) : false;
+  $is_online = $has_last_seen_at ? is_recent_timestamp($row['last_seen_at'] ?? null) : null;
 
-  return [
+  $user = [
     'id' => $row['id'],
     'name' => $name,
     'title' => $row['title'] ?? '',
     'rating' => isset($row['rating']) ? (int) $row['rating'] : 0,
     'location' => $row['location'] ?? '',
-    'isOnline' => $is_online,
   ];
+  if ($has_last_seen_at) {
+    $user['isOnline'] = $is_online;
+  }
+
+  return $user;
 }, $rows);
 
 json_response(200, [

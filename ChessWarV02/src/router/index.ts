@@ -7,6 +7,7 @@ import ProfileAnalysisView from '../views/ProfileAnalysisView.vue'
 import UserProfileView from '../views/UserProfileView.vue'
 import FriendsView from '../views/FriendsView.vue'
 import SettingsView from '../views/SettingsView.vue'
+import IntroView from '../views/IntroView.vue'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
 import ForgotPasswordView from '../views/ForgotPasswordView.vue'
@@ -16,9 +17,14 @@ const router = createRouter({
   routes: [
     {
       path: '/',
+      name: 'intro',
+      component: IntroView,
+      alias: '/intro',
+    },
+    {
+      path: '/connexion',
       name: 'connexion',
       component: LoginView,
-      alias: '/connexion',
     },
     {
       path: '/tableau-de-bord',

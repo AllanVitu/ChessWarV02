@@ -32,6 +32,10 @@ export type MatchOnlineState = {
   createdAt?: string | null
   updatedAt?: string | null
   yourSide: OnlineSide
+  mode?: 'Local' | 'IA' | 'JcJ' | null
+  opponent?: string | null
+  timeControl?: string | null
+  side?: 'Blancs' | 'Noirs' | 'Aleatoire' | null
   moves: OnlineMove[]
   messages?: OnlineMessage[]
 }

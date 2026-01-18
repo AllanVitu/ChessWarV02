@@ -91,149 +91,31 @@ if (!$invite) {
   exit;
 }
 
-$next_status = $action === 'accept' ? 'accepted' : 'declined';
+if ($action === 'decline') {
+  db_query(
+    'UPDATE match_invites
+     SET status = :status,
+         responded_at = now()
+     WHERE id = :id',
+    [
+      'status' => 'declined',
+      'id' => $invite_id,
+    ]
+  );
 
-db_query(
-  'UPDATE match_invites
-   SET status = :status,
-       responded_at = now()
-   WHERE id = :id',
-  [
-    'status' => $next_status,
-    'id' => $invite_id,
-  ]
-);
-
-if ($next_status === 'declined') {
   json_response(200, [
     'ok' => true,
     'message' => 'Invitation refusee.',
+    'status' => 'declined',
   ]);
   exit;
 }
 
-$requester = db_fetch_one(
-  'SELECT u.id, u.display_name, p.name
-   FROM users u
-   LEFT JOIN profiles p ON p.user_id = u.id
-   WHERE u.id = :id
-   LIMIT 1',
-  ['id' => $invite['requester_id']]
-);
-
-$recipient = db_fetch_one(
-  'SELECT u.id, u.display_name, p.name
-   FROM users u
-   LEFT JOIN profiles p ON p.user_id = u.id
-   WHERE u.id = :id
-   LIMIT 1',
-  ['id' => $invite['recipient_id']]
-);
-
-$requester_name = (string) ($requester['name'] ?? '');
-if ($requester_name === '') {
-  $requester_name = (string) ($requester['display_name'] ?? '');
-}
-
-$recipient_name = (string) ($recipient['name'] ?? '');
-if ($recipient_name === '') {
-  $recipient_name = (string) ($recipient['display_name'] ?? '');
-}
-
-$match_id = (string) $invite['match_id'];
-$created_at = (string) $invite['created_at'];
-$time_control = (string) $invite['time_control'];
-$requester_side = (string) ($invite['requester_side'] ?? '');
-if ($requester_side === '') {
-  $requester_side = 'Aleatoire';
-}
-$recipient_side = (string) ($invite['recipient_side'] ?? '');
-if ($recipient_side === '') {
-  $recipient_side = 'Aleatoire';
-}
-
-if ($requester_side === 'Aleatoire' || $recipient_side === 'Aleatoire') {
-  $requester_side = random_int(0, 1) === 0 ? 'Blancs' : 'Noirs';
-  $recipient_side = $requester_side === 'Blancs' ? 'Noirs' : 'Blancs';
-  db_query(
-    'UPDATE match_invites
-     SET requester_side = :requester_side,
-         recipient_side = :recipient_side
-     WHERE id = :id',
-    [
-      'requester_side' => $requester_side,
-      'recipient_side' => $recipient_side,
-      'id' => $invite_id,
-    ]
-  );
-} elseif ($requester_side === 'Blancs') {
-  $recipient_side = 'Noirs';
-} elseif ($requester_side === 'Noirs') {
-  $recipient_side = 'Blancs';
-}
-
-db_query(
-  'INSERT INTO matches
-   (id, user_id, mode, opponent, status, created_at, last_move, time_control, side, difficulty)
-   VALUES
-   (:id, :user_id, :mode, :opponent, :status, :created_at, :last_move, :time_control, :side, :difficulty)
-   ON CONFLICT DO NOTHING',
-  [
-    'id' => $match_id,
-    'user_id' => $invite['requester_id'],
-    'mode' => 'JcJ',
-    'opponent' => $recipient_name,
-    'status' => 'planifie',
-    'created_at' => $created_at,
-    'last_move' => '-',
-    'time_control' => $time_control,
-    'side' => $requester_side,
-    'difficulty' => null,
-  ]
-);
-
-db_query(
-  'INSERT INTO matches
-   (id, user_id, mode, opponent, status, created_at, last_move, time_control, side, difficulty)
-   VALUES
-   (:id, :user_id, :mode, :opponent, :status, :created_at, :last_move, :time_control, :side, :difficulty)
-   ON CONFLICT DO NOTHING',
-  [
-    'id' => $match_id,
-    'user_id' => $invite['recipient_id'],
-    'mode' => 'JcJ',
-    'opponent' => $requester_name,
-    'status' => 'planifie',
-    'created_at' => $created_at,
-    'last_move' => '-',
-    'time_control' => $time_control,
-    'side' => $recipient_side,
-    'difficulty' => null,
-  ]
-);
-
-$white_id = $requester_side === 'Blancs' ? $invite['requester_id'] : $invite['recipient_id'];
-$black_id = $requester_side === 'Blancs' ? $invite['recipient_id'] : $invite['requester_id'];
-
-db_query(
-  'INSERT INTO match_rooms
-   (match_id, white_id, black_id, status, side_to_move, last_move, move_count)
-   VALUES
-   (:match_id, :white_id, :black_id, :status, :side_to_move, :last_move, :move_count)
-   ON CONFLICT (match_id) DO NOTHING',
-  [
-    'match_id' => $match_id,
-    'white_id' => $white_id,
-    'black_id' => $black_id,
-    'status' => 'active',
-    'side_to_move' => 'white',
-    'last_move' => '-',
-    'move_count' => 0,
-  ]
-);
+$accepted = accept_match_invite($invite);
 
 json_response(200, [
   'ok' => true,
   'message' => 'Invitation acceptee.',
-  'matchId' => $match_id,
+  'matchId' => $accepted['matchId'],
+  'status' => 'accepted',
 ]);

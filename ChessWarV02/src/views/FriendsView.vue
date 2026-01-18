@@ -97,6 +97,10 @@ const handleInviteMatch = async (friend: FriendProfile) => {
     const response = await createMatchInvite(friend.id)
     inviteNotice.value = response.message
     inviteNoticeError.value = !response.ok
+    if (response.ok && response.status === 'accepted' && response.matchId) {
+      clearMatchesCache()
+      await router.push(`/jeu/${response.matchId}`)
+    }
   } catch (error) {
     inviteNotice.value = (error as Error).message
     inviteNoticeError.value = true

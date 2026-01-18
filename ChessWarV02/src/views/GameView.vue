@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
-import { getMatchById, type DifficultyKey, type MatchRecord } from '@/lib/matchesDb'
+import { clearMatchesCache, getMatchById, type DifficultyKey, type MatchRecord } from '@/lib/matchesDb'
 import {
   addMatchMessage,
   addMatchMove,
@@ -36,6 +36,9 @@ const onlineSideToMove = ref<'white' | 'black'>('white')
 const onlineWhiteId = ref<string | null>(null)
 const onlineBlackId = ref<string | null>(null)
 const onlineStatus = ref('active')
+const onlineMode = ref<MatchRecord['mode'] | null>(null)
+const onlineOpponent = ref<string | null>(null)
+const onlineTimeControl = ref<string | null>(null)
 const onlineLoading = ref(false)
 const onlineError = ref('')
 const onlinePending = ref(false)
@@ -57,11 +60,15 @@ const clockNoticeError = ref(false)
 let clockTimer: ReturnType<typeof setInterval> | null = null
 const localMatchEnded = ref(false)
 
-const mode = computed<MatchRecord['mode']>(() => match.value?.mode ?? 'IA')
+const mode = computed<MatchRecord['mode']>(() => match.value?.mode ?? onlineMode.value ?? 'IA')
 const isOnline = computed(() => mode.value === 'JcJ')
 const modeLabel = computed(() => (mode.value === 'JcJ' ? 'En ligne' : mode.value))
-const opponent = computed(() => match.value?.opponent ?? 'IA Sparring')
-const timeControl = computed(() => match.value?.timeControl ?? '10+0')
+const opponent = computed(() => {
+  const direct = match.value?.opponent ?? onlineOpponent.value
+  if (direct) return direct
+  return isOnline.value ? 'Adversaire' : 'IA Sparring'
+})
+const timeControl = computed(() => match.value?.timeControl ?? onlineTimeControl.value ?? '10+0')
 const sideLabel = computed(() => (mode.value === 'Local' ? 'Camp joueur 1' : 'Votre couleur'))
 const opponentLabel = computed(() => (mode.value === 'Local' ? 'Joueur 2' : 'Adversaire'))
 const onlineNote = computed(() => {
@@ -73,6 +80,8 @@ const onlineNote = computed(() => {
 })
 
 const difficulty = ref<DifficultyKey>('intermediaire')
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 
 watch(
   matchId,
@@ -88,6 +97,9 @@ watch(
     onlineWhiteId.value = null
     onlineBlackId.value = null
     onlineStatus.value = 'active'
+    onlineMode.value = null
+    onlineOpponent.value = null
+    onlineTimeControl.value = null
     chatInput.value = ''
     chatPending.value = false
     chatError.value = ''
@@ -113,6 +125,8 @@ watch(
       await loadOnlineMatch()
     } else if (match.value) {
       resetLocalClocks()
+    } else if (isUuid(matchId.value)) {
+      await loadOnlineMatch()
     }
   },
   { immediate: true },
@@ -289,6 +303,13 @@ const applyOnlineState = (state: MatchOnlineState) => {
   onlineWhiteId.value = state.whiteId ?? null
   onlineBlackId.value = state.blackId ?? null
   onlineStatus.value = state.status ?? 'active'
+  onlineMode.value = (state.mode as MatchRecord['mode'] | null) ?? 'JcJ'
+  if (state.opponent) {
+    onlineOpponent.value = state.opponent
+  }
+  if (state.timeControl) {
+    onlineTimeControl.value = state.timeControl
+  }
   sideToMove.value = state.sideToMove
   onlinePending.value = false
   applyOnlineMoves(onlineMoves.value)
@@ -574,6 +595,10 @@ const handleRematch = async () => {
     const response = await createMatchInvite(opponentId.value, timeControl.value, 'Aleatoire')
     rematchNotice.value = response.message
     rematchNoticeError.value = !response.ok
+    if (response.ok && response.status === 'accepted' && response.matchId) {
+      clearMatchesCache()
+      await router.push(`/jeu/${response.matchId}`)
+    }
   } catch (error) {
     rematchNotice.value = (error as Error).message
     rematchNoticeError.value = true

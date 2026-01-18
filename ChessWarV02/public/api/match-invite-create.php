@@ -7,6 +7,7 @@ require_once __DIR__ . '/_shared/helpers.php';
 require_once __DIR__ . '/_shared/friends.php';
 require_once __DIR__ . '/_shared/security.php';
 require_once __DIR__ . '/_shared/invites.php';
+require_once __DIR__ . '/_shared/match.php';
 
 handle_options();
 require_method('POST');
@@ -68,6 +69,41 @@ if (!are_friends($user_id, $target_id)) {
   exit;
 }
 
+$incoming = db_fetch_one(
+  'SELECT id, requester_id, recipient_id, match_id, requester_side, recipient_side, time_control, created_at
+   FROM match_invites
+   WHERE status = :status
+     AND requester_id = :target_id
+     AND recipient_id = :user_id
+     AND (expires_at IS NULL OR expires_at > now())
+   LIMIT 1',
+  [
+    'status' => 'pending',
+    'user_id' => $user_id,
+    'target_id' => $target_id,
+  ]
+);
+
+if ($incoming) {
+  if (!match_tables_available()) {
+    json_response(503, [
+      'ok' => false,
+      'message' => "Le multijoueur n'est pas encore disponible.",
+    ]);
+    exit;
+  }
+
+  $accepted = accept_match_invite($incoming);
+  json_response(200, [
+    'ok' => true,
+    'message' => 'Invitation acceptee.',
+    'inviteId' => $incoming['id'],
+    'matchId' => $accepted['matchId'],
+    'status' => 'accepted',
+  ]);
+  exit;
+}
+
 $allowed_sides = ['Blancs', 'Noirs', 'Aleatoire'];
 $requester_side = trim((string) ($payload['requesterSide'] ?? 'Aleatoire'));
 if (!in_array($requester_side, $allowed_sides, true)) {
@@ -87,12 +123,12 @@ if ($time_control === '') {
 }
 
 $existing = db_fetch_one(
-  'SELECT id
+  'SELECT id, match_id
    FROM match_invites
    WHERE status = :status
+     AND requester_id = :user_id
+     AND recipient_id = :target_id
      AND (expires_at IS NULL OR expires_at > now())
-     AND ((requester_id = :user_id AND recipient_id = :target_id)
-       OR (requester_id = :target_id AND recipient_id = :user_id))
    LIMIT 1',
   [
     'status' => 'pending',
@@ -105,6 +141,9 @@ if ($existing) {
   json_response(200, [
     'ok' => true,
     'message' => 'Une invitation est deja en attente.',
+    'inviteId' => $existing['id'],
+    'matchId' => $existing['match_id'],
+    'status' => 'pending',
   ]);
   exit;
 }
@@ -138,4 +177,5 @@ json_response(200, [
   'message' => 'Invitation envoyee.',
   'inviteId' => $invite_id,
   'matchId' => $match_id,
+  'status' => 'pending',
 ]);

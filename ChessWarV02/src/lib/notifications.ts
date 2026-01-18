@@ -52,6 +52,7 @@ type MatchInviteResponse = {
   message: string
   inviteId?: string
   matchId?: string
+  status?: 'pending' | 'accepted' | 'declined' | 'expired'
 }
 
 export const getNotifications = async (): Promise<NotificationsPayload> => {

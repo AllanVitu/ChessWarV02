@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
+import { clearMatchesCache } from '@/lib/matchesDb'
 import {
   getPublicProfile,
   getUserBadges,
@@ -15,6 +16,7 @@ import {
 import { createMatchInvite } from '@/lib/notifications'
 
 const route = useRoute()
+const router = useRouter()
 const profile = ref<PublicProfile | null>(null)
 const badges = ref<UserBadge[]>([])
 const badgesLoading = ref(false)
@@ -202,6 +204,10 @@ const handleLaunchMatch = async () => {
     const response = await createMatchInvite(profile.value.id)
     matchMessage.value = response.message
     matchError.value = !response.ok
+    if (response.ok && response.status === 'accepted' && response.matchId) {
+      clearMatchesCache()
+      await router.push(`/jeu/${response.matchId}`)
+    }
   } catch (error) {
     matchMessage.value = (error as Error).message
     matchError.value = true

@@ -25,6 +25,25 @@ function fetch_match_room(string $match_id): ?array
   );
 }
 
+function fetch_match_meta(string $match_id, string $user_id): ?array
+{
+  if (!table_exists('matches')) {
+    return null;
+  }
+
+  return db_fetch_one(
+    'SELECT mode, opponent, time_control, side
+     FROM matches
+     WHERE id = :match_id
+       AND user_id = :user_id
+     LIMIT 1',
+    [
+      'match_id' => $match_id,
+      'user_id' => $user_id,
+    ]
+  );
+}
+
 function is_match_player(string $user_id, array $room): bool
 {
   return $user_id === ($room['white_id'] ?? '') || $user_id === ($room['black_id'] ?? '');
@@ -72,6 +91,7 @@ function build_match_payload(string $user_id, array $room): array
 {
   $moves = fetch_match_moves((string) $room['match_id']);
   $messages = fetch_match_messages((string) $room['match_id']);
+  $meta = fetch_match_meta((string) $room['match_id'], $user_id);
 
   $formatted_moves = array_map(static function (array $move): array {
     return [
@@ -110,6 +130,10 @@ function build_match_payload(string $user_id, array $room): array
     'createdAt' => $room['created_at'] ?? null,
     'updatedAt' => $room['updated_at'] ?? null,
     'yourSide' => side_for_user($user_id, $room),
+    'mode' => $meta['mode'] ?? null,
+    'opponent' => $meta['opponent'] ?? null,
+    'timeControl' => $meta['time_control'] ?? null,
+    'side' => $meta['side'] ?? null,
     'moves' => $formatted_moves,
     'messages' => $formatted_messages,
   ];

@@ -37,7 +37,7 @@ if (!is_valid_uuid($match_id)) {
   exit;
 }
 
-if (!in_array($result, ['resign', 'draw'], true)) {
+if (!in_array($result, ['resign', 'draw', 'timeout'], true)) {
   json_response(400, ['ok' => false, 'message' => 'Resultat invalide.']);
   exit;
 }
@@ -53,7 +53,13 @@ if (!is_match_player($user_id, $room)) {
   exit;
 }
 
-$label = $result === 'draw' ? 'Match nul' : 'Abandon';
+if ($result === 'draw') {
+  $label = 'Match nul';
+} elseif ($result === 'timeout') {
+  $label = 'Temps ecoule';
+} else {
+  $label = 'Abandon';
+}
 
 db_query(
   'UPDATE match_rooms

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cloudchess-v2'
+const CACHE_NAME = 'cloudchess-v3'
 const APP_SHELL = [
   '/',
   '/index.html',

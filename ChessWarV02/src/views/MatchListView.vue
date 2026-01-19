@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import {
   addMatch,
+  clearMatchesHistory,
   getMatches,
   type DifficultyKey,
   type MatchMode,
@@ -13,6 +14,8 @@ import {
 const matches = ref<MatchRecord[]>([])
 const formMessage = ref('')
 const formError = ref(false)
+const historyMessage = ref('')
+const historyError = ref(false)
 
 const form = reactive({
   mode: 'IA' as MatchMode,
@@ -68,6 +71,7 @@ const actionLabel = (status: MatchRecord['status']) => {
 }
 
 const totalMatches = computed(() => matches.value.length)
+const hasHistoryMatches = computed(() => matches.value.some((match) => match.status === 'termine'))
 const previewOpponent = computed(() =>
   form.mode === 'IA' ? aiNames[form.difficulty] : form.opponent.trim() || 'Joueur 2',
 )
@@ -84,6 +88,8 @@ onMounted(async () => {
 const handleCreateMatch = async () => {
   formMessage.value = ''
   formError.value = false
+  historyMessage.value = ''
+  historyError.value = false
 
   const id = `M-${Math.floor(1000 + Math.random() * 9000)}`
   const opponent =
@@ -106,6 +112,27 @@ const handleCreateMatch = async () => {
   formMessage.value = 'Match cree avec succes.'
   formError.value = false
 }
+
+const handleClearHistory = async () => {
+  formMessage.value = ''
+  formError.value = false
+  historyMessage.value = ''
+  historyError.value = false
+
+  if (!hasHistoryMatches.value) {
+    historyMessage.value = 'Aucun match termine a effacer.'
+    historyError.value = true
+    return
+  }
+
+  const confirmed = window.confirm("Effacer l'historique des matchs termines ?")
+  if (!confirmed) return
+
+  const result = await clearMatchesHistory('history')
+  matches.value = result.matches
+  historyMessage.value = result.message
+  historyError.value = !result.ok
+}
 </script>
 
 <template>
@@ -121,7 +148,9 @@ const handleCreateMatch = async () => {
             <p class="panel-title">Nouveau match</p>
             <h3 class="panel-headline">Configurer une partie</h3>
           </div>
-          <span class="badge-soft">{{ totalMatches }} matchs</span>
+          <div class="panel-actions">
+            <span class="badge-soft">{{ totalMatches }} matchs</span>
+          </div>
         </div>
 
         <div class="match-preview">
@@ -231,6 +260,16 @@ const handleCreateMatch = async () => {
             <p class="panel-title">Liste des matchs</p>
             <h3 class="panel-headline">Historique et en cours</h3>
           </div>
+          <div class="panel-actions">
+            <button
+              class="button-ghost"
+              type="button"
+              :disabled="!hasHistoryMatches"
+              @click="handleClearHistory"
+            >
+              Effacer l'historique
+            </button>
+          </div>
         </div>
 
         <div class="match-cards">
@@ -264,6 +303,13 @@ const handleCreateMatch = async () => {
             </div>
           </article>
         </div>
+
+        <p
+          v-if="historyMessage"
+          :class="['form-message', historyError ? 'form-message--error' : 'form-message--success']"
+        >
+          {{ historyMessage }}
+        </p>
       </div>
     </section>
   </DashboardLayout>

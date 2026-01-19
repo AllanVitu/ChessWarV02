@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { clearMatchesCache, getMatchById, type DifficultyKey, type MatchRecord } from '@/lib/matchesDb'
+import { getCurrentUser } from '@/lib/auth'
 import {
   addMatchMessage,
   addMatchMove,
@@ -59,14 +60,21 @@ const clockNotice = ref('')
 const clockNoticeError = ref(false)
 let clockTimer: ReturnType<typeof setInterval> | null = null
 const localMatchEnded = ref(false)
+const currentUserId = ref('')
+let onlinePollTimer: ReturnType<typeof setInterval> | null = null
 
-const mode = computed<MatchRecord['mode']>(() => match.value?.mode ?? onlineMode.value ?? 'IA')
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+const forceOnline = computed(() => isUuid(matchId.value))
+const mode = computed<MatchRecord['mode']>(() =>
+  forceOnline.value ? 'JcJ' : match.value?.mode ?? onlineMode.value ?? 'IA',
+)
 const isOnline = computed(() => mode.value === 'JcJ')
 const modeLabel = computed(() => (mode.value === 'JcJ' ? 'En ligne' : mode.value))
 const opponent = computed(() => {
   const direct = match.value?.opponent ?? onlineOpponent.value
   if (direct) return direct
-  return isOnline.value ? 'Adversaire' : 'IA Sparring'
+  return forceOnline.value ? 'Adversaire' : 'IA Sparring'
 })
 const timeControl = computed(() => match.value?.timeControl ?? onlineTimeControl.value ?? '10+0')
 const sideLabel = computed(() => (mode.value === 'Local' ? 'Camp joueur 1' : 'Votre couleur'))
@@ -80,8 +88,12 @@ const onlineNote = computed(() => {
 })
 
 const difficulty = ref<DifficultyKey>('intermediaire')
-const isUuid = (value: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+
+const ensureCurrentUserId = async () => {
+  if (currentUserId.value) return
+  const user = await getCurrentUser()
+  currentUserId.value = user?.id ?? ''
+}
 
 watch(
   matchId,
@@ -119,13 +131,19 @@ watch(
       difficulty.value = 'intermediaire'
       return
     }
+
+    const shouldLoadOnline = forceOnline.value
+    if (shouldLoadOnline) {
+      onlineMode.value = 'JcJ'
+    }
+
     match.value = await getMatchById(matchId.value)
     difficulty.value = match.value?.difficulty ?? 'intermediaire'
     if (match.value?.mode === 'JcJ') {
       await loadOnlineMatch()
     } else if (match.value) {
       resetLocalClocks()
-    } else if (isUuid(matchId.value)) {
+    } else if (shouldLoadOnline) {
       await loadOnlineMatch()
     }
   },
@@ -298,7 +316,15 @@ const applyOnlineMoves = (moves: OnlineMove[]) => {
 const applyOnlineState = (state: MatchOnlineState) => {
   onlineMoves.value = state.moves ?? []
   onlineMessages.value = state.messages ?? []
-  onlineSide.value = state.yourSide
+  let resolvedSide = state.yourSide
+  if (currentUserId.value) {
+    if (state.whiteId && state.whiteId === currentUserId.value) {
+      resolvedSide = 'white'
+    } else if (state.blackId && state.blackId === currentUserId.value) {
+      resolvedSide = 'black'
+    }
+  }
+  onlineSide.value = resolvedSide ?? 'white'
   onlineSideToMove.value = state.sideToMove
   onlineWhiteId.value = state.whiteId ?? null
   onlineBlackId.value = state.blackId ?? null
@@ -389,12 +415,17 @@ const syncOnlineClocks = (state: MatchOnlineState) => {
   const { initialMs, incrementMs } = clockConfig.value
   let whiteLeft = initialMs
   let blackLeft = initialMs
-  const startAt = state.createdAt ? new Date(state.createdAt).getTime() : Date.now()
+  const parseTimestamp = (value?: string | null) => {
+    if (!value) return null
+    const time = new Date(value).getTime()
+    return Number.isFinite(time) ? time : null
+  }
+  const startAt = parseTimestamp(state.createdAt) ?? Date.now()
   let lastTime = startAt
 
   for (const move of state.moves ?? []) {
-    const moveTime = new Date(move.createdAt).getTime()
-    if (!Number.isFinite(moveTime)) continue
+    const moveTime = parseTimestamp(move.createdAt)
+    if (!moveTime) continue
     const elapsed = Math.max(0, moveTime - lastTime)
     if (move.side === 'white') {
       whiteLeft = Math.max(0, whiteLeft - elapsed + incrementMs)
@@ -411,6 +442,19 @@ const syncOnlineClocks = (state: MatchOnlineState) => {
     } else {
       blackLeft = Math.max(0, blackLeft - elapsed)
     }
+  }
+
+  if (!Number.isFinite(whiteLeft) || !Number.isFinite(blackLeft)) {
+    whiteLeft = initialMs
+    blackLeft = initialMs
+  }
+  if (
+    state.status === 'active' &&
+    (!state.moves || state.moves.length === 0) &&
+    (whiteLeft <= 0 || blackLeft <= 0)
+  ) {
+    whiteLeft = initialMs
+    blackLeft = initialMs
   }
 
   whiteClockMs.value = whiteLeft
@@ -433,10 +477,32 @@ const stopOnlineStream = () => {
   }
 }
 
+const stopOnlinePolling = () => {
+  if (onlinePollTimer) {
+    clearInterval(onlinePollTimer)
+    onlinePollTimer = null
+  }
+}
+
+const startOnlinePolling = () => {
+  if (onlinePollTimer) return
+  onlinePollTimer = setInterval(async () => {
+    if (!matchId.value) return
+    try {
+      const state = await getMatchRoom(matchId.value)
+      applyOnlineState(state)
+    } catch {
+      // Ignore polling errors to avoid noisy loops.
+    }
+  }, 3000)
+}
+
 const loadOnlineMatch = async () => {
   if (!matchId.value) return
   onlineLoading.value = true
   onlineError.value = ''
+  stopOnlinePolling()
+  await ensureCurrentUserId()
   try {
     const state = await getMatchRoom(matchId.value)
     applyOnlineState(state)
@@ -453,10 +519,15 @@ const loadOnlineMatch = async () => {
         if (!onlineError.value) {
           onlineError.value = 'Connexion temps reel interrompue.'
         }
+        startOnlinePolling()
       },
     )
+    if (!onlineStream) {
+      startOnlinePolling()
+    }
   } catch (error) {
     onlineError.value = (error as Error).message
+    startOnlinePolling()
   } finally {
     onlineLoading.value = false
   }
@@ -737,6 +808,7 @@ watch(
 
 onBeforeUnmount(() => {
   stopOnlineStream()
+  stopOnlinePolling()
   stopClock()
   if (aiTimeout) {
     clearTimeout(aiTimeout)

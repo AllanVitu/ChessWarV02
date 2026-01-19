@@ -110,3 +110,38 @@ export const getMatchById = async (matchId: string): Promise<MatchRecord | null>
   const matches = await getMatches()
   return matches.find((match) => match.id === matchId) ?? null
 }
+
+export const clearMatchesHistory = async (
+  scope: 'history' | 'all' = 'history',
+): Promise<{ ok: boolean; message: string; matches: MatchRecord[] }> => {
+  const current = await getMatches()
+  const filtered =
+    scope === 'all' ? [] : current.filter((match) => match.status !== 'termine')
+
+  if (!getSessionToken()) {
+    matchesCache = filtered
+    return {
+      ok: true,
+      message: "Historique efface.",
+      matches: filtered,
+    }
+  }
+
+  try {
+    const response = await apiFetch<{
+      ok: boolean
+      message: string
+      matches?: MatchRecord[]
+    }>('matches-clear', {
+      method: 'POST',
+      body: JSON.stringify({ scope }),
+    })
+
+    const next = response.ok && response.matches ? response.matches : filtered
+    matchesCache = next
+    return { ok: response.ok, message: response.message, matches: next }
+  } catch (error) {
+    matchesCache = filtered
+    return { ok: false, message: (error as Error).message, matches: filtered }
+  }
+}

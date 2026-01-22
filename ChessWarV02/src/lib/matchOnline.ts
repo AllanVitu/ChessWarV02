@@ -1,6 +1,14 @@
 import { apiFetch, getSessionToken } from './api'
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+const WS_BASE = (() => {
+  const raw = String(import.meta.env.VITE_WS_BASE || '').trim()
+  if (!raw) return ''
+  if (raw.startsWith('ws://') || raw.startsWith('wss://')) return raw
+  if (raw.startsWith('https://')) return `wss://${raw.slice(8)}`
+  if (raw.startsWith('http://')) return `ws://${raw.slice(7)}`
+  return raw
+})()
 
 export type OnlineSide = 'white' | 'black'
 
@@ -38,6 +46,14 @@ export type MatchOnlineState = {
   side?: 'Blancs' | 'Noirs' | 'Aleatoire' | null
   moves: OnlineMove[]
   messages?: OnlineMessage[]
+}
+
+export type MatchSocketMessage = {
+  type: string
+  matchId?: string
+  match?: MatchOnlineState
+  message?: string
+  event?: string
 }
 
 export const getMatchRoom = async (matchId: string): Promise<MatchOnlineState> => {
@@ -126,4 +142,36 @@ export const openMatchStream = (
   }
 
   return source
+}
+
+export const openMatchSocket = (
+  matchId: string,
+  onMessage: (payload: MatchSocketMessage) => void,
+  onError?: (event: Event) => void,
+): WebSocket | null => {
+  if (!WS_BASE) return null
+  const token = getSessionToken()
+  if (!token || !matchId) return null
+
+  const socket = new WebSocket(WS_BASE)
+  const subscribe = JSON.stringify({ type: 'subscribe', matchId, token })
+
+  socket.addEventListener('open', () => {
+    socket.send(subscribe)
+  })
+
+  socket.addEventListener('message', (event) => {
+    try {
+      const data = JSON.parse(String(event.data)) as MatchSocketMessage
+      onMessage(data)
+    } catch {
+      // Ignore malformed payloads.
+    }
+  })
+
+  if (onError) {
+    socket.addEventListener('error', onError)
+  }
+
+  return socket
 }

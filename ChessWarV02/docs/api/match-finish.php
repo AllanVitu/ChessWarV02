@@ -5,6 +5,7 @@ require_once __DIR__ . '/_shared/db.php';
 require_once __DIR__ . '/_shared/auth.php';
 require_once __DIR__ . '/_shared/helpers.php';
 require_once __DIR__ . '/_shared/match.php';
+require_once __DIR__ . '/_shared/realtime.php';
 
 handle_options();
 require_method('POST');
@@ -85,6 +86,8 @@ db_query(
     'match_id' => $match_id,
   ]
 );
+
+notify_match_update($match_id, 'finish');
 
 $room = fetch_match_room($match_id);
 if (!$room) {

@@ -7,4 +7,6 @@ return [
   'db_user' => 'vial4802_Kward',
   'db_pass' => '@AllanStell@577!',
   'db_sslmode' => '',
+  'realtime_notify_url' => '',
+  'realtime_secret' => '',
 ];

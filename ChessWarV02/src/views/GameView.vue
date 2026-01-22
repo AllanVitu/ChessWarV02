@@ -9,8 +9,10 @@ import {
   addMatchMove,
   finishMatch,
   getMatchRoom,
+  openMatchSocket,
   openMatchStream,
   type MatchOnlineState,
+  type MatchSocketMessage,
   type OnlineMessage,
   type OnlineMove,
 } from '@/lib/matchOnline'
@@ -44,6 +46,8 @@ const onlineLoading = ref(false)
 const onlineError = ref('')
 const onlinePending = ref(false)
 let onlineStream: EventSource | null = null
+let onlineSocket: WebSocket | null = null
+let onlineRefreshPending = false
 const chatInput = ref('')
 const chatPending = ref(false)
 const chatError = ref('')
@@ -98,7 +102,9 @@ const ensureCurrentUserId = async () => {
 watch(
   matchId,
   async () => {
+    stopOnlineSocket()
     stopOnlineStream()
+    stopOnlinePolling()
     stopClock()
     onlineMoves.value = []
     onlineMessages.value = []
@@ -470,6 +476,13 @@ const syncOnlineClocks = (state: MatchOnlineState) => {
   }
 }
 
+const stopOnlineSocket = () => {
+  if (!onlineSocket) return
+  const socket = onlineSocket
+  onlineSocket = null
+  socket.close()
+}
+
 const stopOnlineStream = () => {
   if (onlineStream) {
     onlineStream.close()
@@ -484,17 +497,104 @@ const stopOnlinePolling = () => {
   }
 }
 
+const refreshOnlineState = async (silent = false) => {
+  if (!matchId.value || onlineRefreshPending) return
+  onlineRefreshPending = true
+  try {
+    const state = await getMatchRoom(matchId.value)
+    applyOnlineState(state)
+    if (onlineError.value) {
+      onlineError.value = ''
+    }
+  } catch (error) {
+    if (!silent) {
+      onlineError.value = (error as Error).message
+    }
+  } finally {
+    onlineRefreshPending = false
+  }
+}
+
+const handleSocketMessage = async (payload: MatchSocketMessage) => {
+  if (!payload || payload.matchId !== matchId.value) return
+  if (payload.type === 'state' && payload.match) {
+    applyOnlineState(payload.match)
+    if (onlineError.value) {
+      onlineError.value = ''
+    }
+    return
+  }
+  if (payload.type === 'match-update') {
+    await refreshOnlineState()
+    return
+  }
+  if (payload.type === 'error') {
+    onlineError.value = payload.message || 'Erreur temps reel.'
+  }
+}
+
 const startOnlinePolling = () => {
   if (onlinePollTimer) return
   onlinePollTimer = setInterval(async () => {
-    if (!matchId.value) return
-    try {
-      const state = await getMatchRoom(matchId.value)
-      applyOnlineState(state)
-    } catch {
-      // Ignore polling errors to avoid noisy loops.
-    }
+    await refreshOnlineState(true)
   }, 3000)
+}
+
+const startOnlineStream = () => {
+  if (!matchId.value) return
+  stopOnlineStream()
+  onlineStream = openMatchStream(
+    matchId.value,
+    (payload) => {
+      applyOnlineState(payload)
+      if (onlineError.value) {
+        onlineError.value = ''
+      }
+    },
+    () => {
+      if (!onlineError.value) {
+        onlineError.value = 'Connexion temps reel interrompue.'
+      }
+      startOnlinePolling()
+    },
+  )
+  if (!onlineStream) {
+    startOnlinePolling()
+  }
+}
+
+const startOnlineRealtime = () => {
+  if (!matchId.value) return
+  stopOnlinePolling()
+  stopOnlineStream()
+  stopOnlineSocket()
+  const socket = openMatchSocket(
+    matchId.value,
+    (payload) => {
+      void handleSocketMessage(payload)
+    },
+    () => {
+      if (!onlineError.value) {
+        onlineError.value = 'Connexion temps reel interrompue.'
+      }
+      startOnlineStream()
+    },
+  )
+
+  if (!socket) {
+    startOnlineStream()
+    return
+  }
+
+  onlineSocket = socket
+  socket.addEventListener('close', () => {
+    if (onlineSocket !== socket) return
+    onlineSocket = null
+    if (!onlineError.value) {
+      onlineError.value = 'Connexion temps reel interrompue.'
+    }
+    startOnlineStream()
+  })
 }
 
 const loadOnlineMatch = async () => {
@@ -502,29 +602,13 @@ const loadOnlineMatch = async () => {
   onlineLoading.value = true
   onlineError.value = ''
   stopOnlinePolling()
+  stopOnlineStream()
+  stopOnlineSocket()
   await ensureCurrentUserId()
   try {
     const state = await getMatchRoom(matchId.value)
     applyOnlineState(state)
-    stopOnlineStream()
-    onlineStream = openMatchStream(
-      matchId.value,
-      (payload) => {
-        applyOnlineState(payload)
-        if (onlineError.value) {
-          onlineError.value = ''
-        }
-      },
-      () => {
-        if (!onlineError.value) {
-          onlineError.value = 'Connexion temps reel interrompue.'
-        }
-        startOnlinePolling()
-      },
-    )
-    if (!onlineStream) {
-      startOnlinePolling()
-    }
+    startOnlineRealtime()
   } catch (error) {
     onlineError.value = (error as Error).message
     startOnlinePolling()
@@ -807,6 +891,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  stopOnlineSocket()
   stopOnlineStream()
   stopOnlinePolling()
   stopClock()

@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import logoUrl from '@/assets/brand-icon.png'
 import BottomNav from '@/components/ui/BottomNav.vue'
+import AppNavbar from '@/components/ui/AppNavbar.vue'
 import { getDashboardData, type DashboardDb } from '@/lib/localDb'
 import { getSessionToken } from '@/lib/api'
 import { clearSession } from '@/lib/auth'
@@ -40,6 +41,14 @@ const profileTitle = computed(() => {
 const logoutLabel = computed(() =>
   isGuestSession() && !getSessionToken() ? 'Quitter' : 'Se deconnecter',
 )
+
+const navItems = [
+  { label: 'Dashboard', to: '/dashboard' },
+  { label: 'Jouer', to: '/play' },
+  { label: 'Classement', to: '/leaderboard' },
+  { label: 'Profil', to: '/profile' },
+  { label: 'Parametres', to: '/settings' },
+]
 const profileAvatar = computed(() => dashboard.value?.profile.avatarUrl ?? '')
 const profileInitials = computed(() => {
   const name = profileName.value.trim()
@@ -469,6 +478,23 @@ const handleLogout = async () => {
 <template>
   <a class="skip-link" href="#main-content">Aller au contenu</a>
   <div class="app-shell">
+    <AppNavbar
+      class="app-navbar--dashboard"
+      :items="navItems"
+      brand-label="WarChess"
+      :brand-logo="logoUrl"
+    >
+      <template #actions>
+        <div class="dashboard-nav-actions">
+          <RouterLink class="button-ghost nav-action" to="/matchs">Matchs</RouterLink>
+          <RouterLink class="button-ghost nav-action" to="/amis">Amis</RouterLink>
+          <RouterLink class="app-navbar__link nav-action" to="/help">Aide &amp; regles</RouterLink>
+          <button class="button-outline nav-action" type="button" @click="handleLogout">
+            {{ logoutLabel }}
+          </button>
+        </div>
+      </template>
+    </AppNavbar>
     <div class="toast-stack" aria-live="polite" aria-atomic="true">
       <div v-if="matchReadyToast" class="toast-card" role="status">
         <div class="toast-main">
@@ -484,58 +510,6 @@ const handleLogout = async () => {
         </div>
       </div>
     </div>
-    <aside class="sidebar reveal">
-      <div class="brand">
-        <div class="brand-mark">
-          <img class="brand-logo" :src="logoUrl" alt="WarChess" />
-        </div>
-        <div>
-          <p class="brand-title">WarChess</p>
-          <p class="brand-sub">Operations Arena</p>
-        </div>
-      </div>
-
-      <nav class="nav-group nav-group--primary" aria-label="Navigation principale">
-        <RouterLink to="/dashboard" class="nav-link" exact-active-class="nav-link--active">
-          <span class="nav-dot"></span>
-          Dashboard
-        </RouterLink>
-        <RouterLink to="/play" class="nav-link" active-class="nav-link--active">
-          <span class="nav-dot"></span>
-          Jouer
-        </RouterLink>
-        <RouterLink to="/leaderboard" class="nav-link" active-class="nav-link--active">
-          <span class="nav-dot"></span>
-          Classement
-        </RouterLink>
-        <RouterLink to="/profile" class="nav-link" active-class="nav-link--active">
-          <span class="nav-dot"></span>
-          Profil
-        </RouterLink>
-        <RouterLink to="/settings" class="nav-link" active-class="nav-link--active">
-          <span class="nav-dot"></span>
-          Parametres
-        </RouterLink>
-      </nav>
-
-      <div class="sidebar-card">
-        <p class="card-title">Raccourcis</p>
-        <p class="card-text">Acces direct aux matchs et a votre reseau.</p>
-        <div class="card-actions">
-          <RouterLink class="button-ghost" to="/matchs">Matchs</RouterLink>
-          <RouterLink class="button-ghost" to="/amis">Amis</RouterLink>
-        </div>
-      </div>
-
-      <div class="sidebar-footer">
-        <RouterLink class="nav-link nav-link--secondary" to="/help">
-          Aide &amp; regles
-        </RouterLink>
-      </div>
-
-      <button class="logout" type="button" @click="handleLogout">{{ logoutLabel }}</button>
-    </aside>
-
     <main id="main-content" class="main">
       <header class="topbar">
         <div class="welcome">

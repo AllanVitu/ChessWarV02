@@ -1,6 +1,6 @@
 .app-shell {
-  display: grid;
-  grid-template-columns: 260px 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 24px;
   padding: 24px;
   min-height: 100vh;
@@ -1274,7 +1274,7 @@ td {
 
 @media (max-width: 1200px) {
   .app-shell {
-    grid-template-columns: 1fr;
+    padding: 20px;
   }
 
   .sidebar {
@@ -3459,13 +3459,25 @@ td {
   font-weight: 600;
 }
 
+.dashboard-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dashboard-nav-actions .nav-action {
+  font-size: 12px;
+}
+
 @media (max-width: 960px) {
-  .sidebar {
-    display: none;
+  .app-shell {
+    padding: 16px;
+    padding-bottom: 110px;
   }
 
-  .app-shell {
-    padding-bottom: 110px;
+  .dashboard-nav-actions {
+    display: none;
   }
 }
 

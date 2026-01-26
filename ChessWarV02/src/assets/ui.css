@@ -154,6 +154,15 @@
   align-items: center;
 }
 
+.app-navbar--dashboard .app-navbar__links {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+.app-navbar--dashboard .app-navbar__actions {
+  margin-left: 12px;
+}
+
 .bottom-nav {
   position: fixed;
   left: 50%;

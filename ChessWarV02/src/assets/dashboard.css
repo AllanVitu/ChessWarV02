@@ -3348,5 +3348,162 @@ td {
   }
 }
 
+.sidebar-footer {
+  margin-top: auto;
+  display: grid;
+  gap: 8px;
+}
+
+.nav-link--secondary {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.onboarding-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+}
+
+.onboarding-step {
+  background: var(--panel-soft);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.onboarding-step__title {
+  font-weight: 600;
+}
+
+.onboarding-step__text {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.leaderboard-page {
+  display: grid;
+  gap: 20px;
+}
+
+.leaderboard-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.leaderboard-controls {
+  display: grid;
+  gap: 12px;
+  min-width: 260px;
+}
+
+.leaderboard-cta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.leaderboard-table__header {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1.4fr) 80px 70px 80px;
+  gap: 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(180, 140, 255, 0.2);
+}
+
+.leaderboard-table__body {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1.4fr) 80px 70px 80px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--panel-soft);
+  border: 1px solid var(--panel-border);
+}
+
+.leaderboard-rank {
+  font-weight: 700;
+}
+
+.leaderboard-player {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.leaderboard-rating {
+  font-weight: 600;
+}
+
+@media (max-width: 960px) {
+  .sidebar {
+    display: none;
+  }
+
+  .app-shell {
+    padding-bottom: 110px;
+  }
+}
+
+@media (max-width: 720px) {
+  .leaderboard-table__header {
+    display: none;
+  }
+
+  .leaderboard-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'player player'
+      'rank rating'
+      'delta action';
+    row-gap: 6px;
+  }
+
+  .leaderboard-player {
+    grid-area: player;
+  }
+
+  .leaderboard-rank {
+    grid-area: rank;
+  }
+
+  .leaderboard-rating {
+    grid-area: rating;
+  }
+
+  .leaderboard-delta {
+    grid-area: delta;
+  }
+
+  .leaderboard-row .button-ghost {
+    grid-area: action;
+    justify-self: end;
+  }
+}
+
 
 

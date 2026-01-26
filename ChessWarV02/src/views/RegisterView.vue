@@ -2,6 +2,9 @@
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { registerUser } from '@/lib/auth'
+import { startGuestSession } from '@/lib/guest'
+import { notifyError, notifyInfo, notifySuccess } from '@/lib/toast'
+import { trackEvent } from '@/lib/telemetry'
 
 const router = useRouter()
 const displayName = ref('')
@@ -22,8 +25,22 @@ const handleRegister = async () => {
   isError.value = !result.ok
 
   if (result.ok) {
-    await router.push('/tableau-de-bord')
+    notifySuccess('Compte cree', result.message)
+    trackEvent({ name: 'signup' })
+    await router.push('/dashboard')
+    return
   }
+
+  if (result.message) {
+    notifyError('Inscription refusee', result.message)
+  }
+}
+
+const handleGuest = async () => {
+  startGuestSession()
+  notifyInfo('Mode invite', "Vous jouez en local sans compte.")
+  trackEvent({ name: 'login_guest' })
+  await router.push('/dashboard')
 }
 </script>
 
@@ -38,30 +55,54 @@ const handleRegister = async () => {
       <form class="form-stack" @submit.prevent="handleRegister">
         <label class="form-field">
           <span class="form-label">Nom d'affichage</span>
-          <input v-model="displayName" class="form-input" type="text" placeholder="Votre pseudo" />
+          <input
+            v-model="displayName"
+            class="form-input"
+            type="text"
+            autocomplete="name"
+            placeholder="Votre pseudo"
+          />
         </label>
 
         <label class="form-field">
           <span class="form-label">Email</span>
-          <input v-model="email" class="form-input" type="email" placeholder="vous@exemple.com" />
+          <input
+            v-model="email"
+            class="form-input"
+            type="email"
+            autocomplete="email"
+            inputmode="email"
+            placeholder="vous@exemple.com"
+          />
         </label>
 
         <label class="form-field">
           <span class="form-label">Mot de passe</span>
-          <input v-model="password" class="form-input" type="password" placeholder="8 caracteres minimum" />
+          <input
+            v-model="password"
+            class="form-input"
+            type="password"
+            autocomplete="new-password"
+            placeholder="8 caracteres minimum"
+          />
         </label>
 
-        <button class="button-primary" type="submit" :disabled="isLoading">
+        <button class="button-primary" type="submit" :disabled="isLoading" :aria-busy="isLoading">
           {{ isLoading ? 'Creation...' : 'Creer le compte' }}
         </button>
+        <button class="button-ghost" type="button" @click="handleGuest">Jouer en invite</button>
       </form>
 
-      <p v-if="message" :class="['form-message', isError ? 'form-message--error' : 'form-message--success']">
+      <p
+        v-if="message"
+        :class="['form-message', isError ? 'form-message--error' : 'form-message--success']"
+        role="status"
+      >
         {{ message }}
       </p>
 
       <div class="auth-links">
-        <RouterLink to="/connexion">Deja un compte ? Se connecter</RouterLink>
+        <RouterLink to="/auth">Deja un compte ? Se connecter</RouterLink>
       </div>
       </div>
     </div>

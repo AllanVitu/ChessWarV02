@@ -6,15 +6,107 @@
     <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
-    <meta name="apple-mobile-web-app-title" content="CloudChess">
-    <meta name="application-name" content="CloudChess">
+    <meta name="apple-mobile-web-app-title" content="WarChess">
+    <meta name="application-name" content="WarChess">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="WarChess, plateforme d'echecs moderne pour jouer, progresser et analyser vos parties.">
+    <meta name="robots" content="index, follow">
+    <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#b48cff">
-    <title>WarChess - Tableau de bord</title>
-    <script type="module" crossorigin src="./assets/index-HV7lUM1W.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-POM4Jizo.css">
+    <link rel="canonical" href="https://warchess.app/">
+    <meta property="og:title" content="WarChess - Jouez et progressez aux echecs">
+    <meta property="og:description" content="Parties rapides, classements et analyse intelligente pour tous les niveaux.">
+    <meta property="og:image" content="./icon-512.png">
+    <meta property="og:url" content="https://warchess.app/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="WarChess">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="WarChess - Jouez et progressez aux echecs">
+    <meta name="twitter:description" content="Parties rapides, classements et analyse intelligente pour tous les niveaux.">
+    <meta name="twitter:image" content="./icon-512.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <title>WarChess | Echecs nouvelle generation</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+
+      .app-loader {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 20% 20%, rgba(180, 140, 255, 0.25), transparent 55%),
+          radial-gradient(circle at 80% 10%, rgba(220, 199, 255, 0.22), transparent 45%),
+          #f5efe7;
+        color: #2f2733;
+        font-family: "Manrope", "Avenir Next", "Trebuchet MS", sans-serif;
+        z-index: 9999;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+      }
+
+      .app-loader__card {
+        display: grid;
+        gap: 12px;
+        justify-items: center;
+        text-align: center;
+        padding: 24px 28px;
+        border-radius: 20px;
+        background: rgba(255, 248, 240, 0.85);
+        border: 1px solid rgba(180, 140, 255, 0.25);
+        box-shadow: 0 20px 50px rgba(58, 38, 90, 0.18);
+        min-width: 220px;
+      }
+
+      .app-loader__spinner {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 3px solid rgba(180, 140, 255, 0.35);
+        border-top-color: #9b6ee6;
+        animation: app-spin 0.8s linear infinite;
+      }
+
+      .app-loader__title {
+        font-weight: 700;
+        font-size: 16px;
+      }
+
+      .app-loader__text {
+        font-size: 12px;
+        color: rgba(47, 39, 51, 0.7);
+      }
+
+      .app-ready .app-loader {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      @keyframes app-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .app-loader__spinner {
+          animation: none;
+        }
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-0n7ZVvpq.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CS9bihMB.css">
   </head>
   <body>
+    <div id="app-loader" class="app-loader" role="status" aria-live="polite" aria-label="Chargement de WarChess">
+      <div class="app-loader__card">
+        <div class="app-loader__spinner" aria-hidden="true"></div>
+        <div class="app-loader__title">WarChess</div>
+        <div class="app-loader__text">Chargement de l'arene...</div>
+      </div>
+    </div>
     <div id="app"></div>
   </body>
 </html>

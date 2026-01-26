@@ -1,4 +1,5 @@
 import { apiFetch, getSessionToken } from './api'
+import { isGuestSession } from './guest'
 
 export type GameResult = 'win' | 'loss' | 'draw'
 
@@ -94,6 +95,16 @@ const defaultDb: DashboardDb = {
   ],
 }
 
+const guestProfile: Partial<DashboardProfile> = {
+  name: 'Invite',
+  title: 'Mode invite',
+  rating: 1200,
+  motto: 'Jouez librement, progressez ensuite.',
+  location: 'Hors ligne',
+  lastSeen: 'Maintenant',
+  email: '',
+}
+
 let dashboardCache: DashboardDb | null = null
 let dashboardPromise: Promise<DashboardDb> | null = null
 
@@ -125,6 +136,17 @@ const mapDashboard = (payload?: DashboardDb | null): DashboardDb => {
   }
 }
 
+const applyGuestOverlay = (payload: DashboardDb): DashboardDb => {
+  if (!isGuestSession()) return payload
+  return {
+    ...payload,
+    profile: {
+      ...payload.profile,
+      ...guestProfile,
+    },
+  }
+}
+
 export const clearDashboardCache = (): void => {
   dashboardCache = null
   dashboardPromise = null
@@ -133,7 +155,7 @@ export const clearDashboardCache = (): void => {
 export const getDashboardData = async (): Promise<DashboardDb> => {
   if (dashboardCache) return dashboardCache
   const stored = readStorage()
-  const storedMapped = mapDashboard(stored)
+  const storedMapped = applyGuestOverlay(mapDashboard(stored))
   const storedAvatar = stored?.profile?.avatarUrl ?? ''
   if (!getSessionToken()) {
     dashboardCache = storedMapped
@@ -148,7 +170,7 @@ export const getDashboardData = async (): Promise<DashboardDb> => {
         if (storedAvatar && !mapped.profile.avatarUrl) {
           mapped.profile.avatarUrl = storedAvatar
         }
-        return mapped
+        return applyGuestOverlay(mapped)
       })
       .catch(() => storedMapped)
       .then((next) => {

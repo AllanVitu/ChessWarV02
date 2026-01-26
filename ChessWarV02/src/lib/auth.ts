@@ -1,4 +1,5 @@
 import { apiFetch, getSessionToken, setSessionToken } from './api'
+import { clearGuestSession } from './guest'
 import { clearDashboardCache } from './localDb'
 import { clearMatchesCache } from './matchesDb'
 
@@ -29,6 +30,7 @@ export const clearSession = async (): Promise<void> => {
     // Ignore logout errors to allow local cleanup.
   } finally {
     setSessionToken(null)
+    clearGuestSession()
     clearCaches()
   }
 }
@@ -69,6 +71,7 @@ export const registerUser = async (
 
     if (response.ok && response.token) {
       setSessionToken(response.token)
+      clearGuestSession()
       clearCaches()
     }
 
@@ -99,6 +102,7 @@ export const loginUser = async (email: string, password: string): Promise<AuthRe
 
     if (response.ok && response.token) {
       setSessionToken(response.token)
+      clearGuestSession()
       clearCaches()
     }
 

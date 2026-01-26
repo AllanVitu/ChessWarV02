@@ -1,5 +1,7 @@
 @import './base.css';
+@import './ui.css';
 @import './dashboard.css';
+@import './landing.css';
 
 html,
 body {

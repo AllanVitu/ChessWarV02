@@ -7,6 +7,7 @@ import {
   loadPreferences,
   savePreferences,
 } from '@/lib/preferences'
+import { notifySuccess } from '@/lib/toast'
 
 const preferences = reactive(loadPreferences())
 const statusMessage = ref('')
@@ -65,6 +66,7 @@ const handleSave = () => {
   savePreferences(preferences)
   applyPreferences(preferences)
   statusMessage.value = 'Parametres enregistres.'
+  notifySuccess('Parametres', statusMessage.value)
 }
 
 const handleReset = () => {
@@ -73,6 +75,7 @@ const handleReset = () => {
   savePreferences(preferences)
   applyPreferences(preferences)
   statusMessage.value = 'Parametres reinitialises.'
+  notifySuccess('Parametres', statusMessage.value)
 }
 </script>
 
@@ -87,7 +90,7 @@ const handleReset = () => {
         <div class="panel-header">
           <div>
             <p class="panel-title">Preferences generales</p>
-            <h3 class="panel-headline">Interface & rythme</h3>
+            <h3 class="panel-headline">Interface &amp; rythme</h3>
           </div>
         </div>
 
@@ -203,7 +206,7 @@ const handleReset = () => {
           <button class="button-primary" type="button" @click="handleSave">Enregistrer</button>
         </div>
 
-        <p v-if="statusMessage" class="form-message form-message--success">
+        <p v-if="statusMessage" class="form-message form-message--success" role="status">
           {{ statusMessage }}
         </p>
       </div>

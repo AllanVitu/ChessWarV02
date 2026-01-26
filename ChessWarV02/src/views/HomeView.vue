@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
+import AppModal from '@/components/ui/AppModal.vue'
 import { getDashboardData, type DashboardDb, type DashboardProfile } from '@/lib/localDb'
 import { buildTrendPaths, getProfileAiAnalysis } from '@/lib/profileAnalysis'
 
@@ -25,9 +26,39 @@ const greetingTitle = computed(() =>
   dashboard.value ? `Bonjour, ${dashboard.value.profile.name}` : 'Bonjour',
 )
 const greetingSubtitle = computed(() => dashboard.value?.profile.motto ?? 'Analyse en cours.')
+const onboardingOpen = ref(false)
+const onboardingKey = 'warchess.onboarding.dismissed'
+
+const onboardingSteps = [
+  {
+    title: 'Choisir un mode',
+    text: 'Local, invite ou match classe pour trouver le bon rythme.',
+  },
+  {
+    title: 'Jouer la partie',
+    text: 'Lancez un duel rapide et suivez les coups en direct.',
+  },
+  {
+    title: 'Analyser',
+    text: 'Revoyez vos coups et vos stats pour progresser.',
+  },
+]
 
 onMounted(async () => {
   dashboard.value = await getDashboardData()
+  if (typeof window !== 'undefined' && !window.localStorage.getItem(onboardingKey)) {
+    onboardingOpen.value = true
+  }
+})
+
+const closeOnboarding = () => {
+  onboardingOpen.value = false
+}
+
+watch(onboardingOpen, (value, previous) => {
+  if (previous && !value && typeof window !== 'undefined') {
+    window.localStorage.setItem(onboardingKey, '1')
+  }
 })
 
 const quickStats = [
@@ -124,6 +155,19 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
     :title="greetingTitle"
     :subtitle="greetingSubtitle"
   >
+    <AppModal v-model="onboardingOpen" title="Demarrage rapide">
+      <ol class="onboarding-list">
+        <li v-for="step in onboardingSteps" :key="step.title" class="onboarding-step">
+          <p class="onboarding-step__title">{{ step.title }}</p>
+          <p class="onboarding-step__text">{{ step.text }}</p>
+        </li>
+      </ol>
+      <template #footer>
+        <button class="button-ghost" type="button" @click="closeOnboarding">Plus tard</button>
+        <RouterLink class="button-primary" to="/play" @click="closeOnboarding">Jouer maintenant</RouterLink>
+      </template>
+    </AppModal>
+
     <section class="content-grid">
       <div class="left-column">
         <div class="panel hero-card reveal">
@@ -136,13 +180,15 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
               </p>
             </div>
             <div class="hero-actions">
-              <RouterLink class="button-primary" to="/matchs">Nouvelle partie</RouterLink>
-              <button class="button-ghost" type="button">Analyser</button>
+              <RouterLink class="button-primary" to="/play">Nouvelle partie</RouterLink>
+              <button class="button-ghost" type="button" @click="onboardingOpen = true">
+                Mini tutoriel
+              </button>
             </div>
           </div>
 
           <div class="hero-body">
-            <div class="board">
+            <div class="board" aria-hidden="true">
               <div
                 v-for="square in squares"
                 :key="square.id"

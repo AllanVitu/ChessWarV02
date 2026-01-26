@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { requestPasswordReset } from '@/lib/auth'
+import { notifyError, notifySuccess } from '@/lib/toast'
 
 const email = ref('')
 const message = ref('')
@@ -11,6 +12,11 @@ const handleReset = () => {
   const result = requestPasswordReset(email.value)
   message.value = result.message
   isError.value = !result.ok
+  if (result.ok) {
+    notifySuccess('Lien envoye', result.message)
+  } else {
+    notifyError('Erreur', result.message)
+  }
 }
 </script>
 
@@ -24,18 +30,29 @@ const handleReset = () => {
       <form class="form-stack" @submit.prevent="handleReset">
         <label class="form-field">
           <span class="form-label">Email</span>
-          <input v-model="email" class="form-input" type="email" placeholder="vous@exemple.com" />
+          <input
+            v-model="email"
+            class="form-input"
+            type="email"
+            autocomplete="email"
+            inputmode="email"
+            placeholder="vous@exemple.com"
+          />
         </label>
 
         <button class="button-primary" type="submit">Envoyer le lien</button>
       </form>
 
-      <p v-if="message" :class="['form-message', isError ? 'form-message--error' : 'form-message--success']">
+      <p
+        v-if="message"
+        :class="['form-message', isError ? 'form-message--error' : 'form-message--success']"
+        role="status"
+      >
         {{ message }}
       </p>
 
       <div class="auth-links">
-        <RouterLink to="/connexion">Retour a la connexion</RouterLink>
+        <RouterLink to="/auth">Retour a la connexion</RouterLink>
       </div>
     </div>
 

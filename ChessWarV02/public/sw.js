@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cloudchess-v3'
+const CACHE_NAME = 'warchess-v4'
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -7,6 +7,8 @@ const APP_SHELL = [
   '/icon-192.png',
   '/icon-512.png',
   '/favicon.ico',
+  '/robots.txt',
+  '/sitemap.xml',
 ]
 
 self.addEventListener('install', (event) => {

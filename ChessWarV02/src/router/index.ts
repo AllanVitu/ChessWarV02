@@ -1,80 +1,175 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import MatchListView from '../views/MatchListView.vue'
-import GameView from '../views/GameView.vue'
-import ProfileView from '../views/ProfileView.vue'
-import ProfileAnalysisView from '../views/ProfileAnalysisView.vue'
-import UserProfileView from '../views/UserProfileView.vue'
-import FriendsView from '../views/FriendsView.vue'
-import SettingsView from '../views/SettingsView.vue'
-import IntroView from '../views/IntroView.vue'
-import LoginView from '../views/LoginView.vue'
-import RegisterView from '../views/RegisterView.vue'
-import ForgotPasswordView from '../views/ForgotPasswordView.vue'
+
+const IntroView = () => import('../views/IntroView.vue')
+const LoginView = () => import('../views/LoginView.vue')
+const RegisterView = () => import('../views/RegisterView.vue')
+const ForgotPasswordView = () => import('../views/ForgotPasswordView.vue')
+const HomeView = () => import('../views/HomeView.vue')
+const MatchListView = () => import('../views/MatchListView.vue')
+const GameView = () => import('../views/GameView.vue')
+const LeaderboardView = () => import('../views/LeaderboardView.vue')
+const ProfileView = () => import('../views/ProfileView.vue')
+const ProfileAnalysisView = () => import('../views/ProfileAnalysisView.vue')
+const UserProfileView = () => import('../views/UserProfileView.vue')
+const FriendsView = () => import('../views/FriendsView.vue')
+const SettingsView = () => import('../views/SettingsView.vue')
+const HelpView = () => import('../views/HelpView.vue')
+const NotFoundView = () => import('../views/NotFoundView.vue')
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
+  scrollBehavior() {
+    return { top: 0 }
+  },
   routes: [
     {
       path: '/',
+      redirect: '/intro',
+    },
+    {
+      path: '/intro',
       name: 'intro',
       component: IntroView,
-      alias: '/intro',
+      meta: {
+        title: 'Accueil',
+        description: "Decouvrez WarChess, l'arene d'echecs pour jouer et progresser rapidement.",
+      },
     },
     {
-      path: '/connexion',
-      name: 'connexion',
+      path: '/auth',
+      name: 'auth',
       component: LoginView,
+      alias: '/connexion',
+      meta: {
+        title: 'Connexion',
+        description: 'Connectez-vous ou jouez en invite pour demarrer une partie.',
+      },
     },
     {
-      path: '/tableau-de-bord',
+      path: '/dashboard',
       name: 'dashboard',
       component: HomeView,
+      alias: '/tableau-de-bord',
+      meta: {
+        title: 'Dashboard',
+        description: 'Suivez vos performances, matchs et analyses recentes.',
+      },
     },
     {
       path: '/matchs',
       name: 'matchs',
       component: MatchListView,
+      alias: '/matches',
+      meta: {
+        title: 'Matchs',
+        description: 'Creez et gerez vos parties en cours.',
+      },
     },
     {
-      path: '/jeu/:id?',
-      name: 'jeu',
+      path: '/play/:id?',
+      name: 'play',
       component: GameView,
+      alias: '/jeu/:id?',
+      meta: {
+        title: 'Jouer',
+        description: 'Lancez une partie locale ou en ligne.',
+      },
     },
     {
-      path: '/profil',
-      name: 'profil',
+      path: '/leaderboard',
+      name: 'leaderboard',
+      component: LeaderboardView,
+      alias: '/classement',
+      meta: {
+        title: 'Classement',
+        description: 'Comparez vos performances avec les meilleurs joueurs.',
+      },
+    },
+    {
+      path: '/profile',
+      name: 'profile',
       component: ProfileView,
+      alias: '/profil',
+      meta: {
+        title: 'Profil',
+        description: 'Gerez vos informations et la securite du compte.',
+      },
     },
     {
       path: '/amis',
       name: 'amis',
       component: FriendsView,
+      meta: {
+        title: 'Amis',
+        description: 'Invitez et suivez vos partenaires de jeu.',
+      },
     },
     {
       path: '/joueur/:id',
       name: 'joueur',
       component: UserProfileView,
+      meta: {
+        title: 'Profil joueur',
+        description: 'Consultez les statistiques publiques.',
+      },
     },
     {
       path: '/profil/analyse',
       name: 'profil-analyse',
       component: ProfileAnalysisView,
+      meta: {
+        title: 'Analyse',
+        description: "Analysez votre progression sur la saison.",
+      },
     },
     {
-      path: '/parametres',
-      name: 'parametres',
+      path: '/settings',
+      name: 'settings',
       component: SettingsView,
+      alias: '/parametres',
+      meta: {
+        title: 'Parametres',
+        description: "Ajustez l'interface, les notifications et la confidentialite.",
+      },
     },
     {
       path: '/inscription',
       name: 'inscription',
       component: RegisterView,
+      alias: '/auth/inscription',
+      meta: {
+        title: 'Inscription',
+        description: 'Creez un compte WarChess.',
+      },
     },
     {
       path: '/mot-de-passe-oublie',
       name: 'mot-de-passe-oublie',
       component: ForgotPasswordView,
+      alias: '/auth/mot-de-passe-oublie',
+      meta: {
+        title: 'Mot de passe',
+        description: 'Reinitialisez votre acces au compte.',
+      },
+    },
+    {
+      path: '/help',
+      name: 'help',
+      component: HelpView,
+      alias: '/aide',
+      meta: {
+        title: 'Aide',
+        description: 'Regles, FAQ et conseils pour bien demarrer.',
+      },
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: NotFoundView,
+      meta: {
+        title: 'Page introuvable',
+        description: "La page demandee n'existe pas.",
+      },
     },
   ],
 })

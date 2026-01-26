@@ -16,40 +16,7 @@ export type MatchRecord = {
   difficulty?: DifficultyKey
 }
 
-const defaultMatches: MatchRecord[] = [
-  {
-    id: 'M-1042',
-    mode: 'IA',
-    opponent: 'IA Atlas',
-    status: 'en_cours',
-    createdAt: '09 Jan 19:10',
-    lastMove: 'Cg1-f3',
-    timeControl: '10+0',
-    side: 'Blancs',
-    difficulty: 'intermediaire',
-  },
-  {
-    id: 'M-1038',
-    mode: 'Local',
-    opponent: 'L. Vernet',
-    status: 'planifie',
-    createdAt: '09 Jan 21:00',
-    lastMove: '-',
-    timeControl: '5+0',
-    side: 'Noirs',
-  },
-  {
-    id: 'M-1029',
-    mode: 'IA',
-    opponent: 'IA Nova',
-    status: 'termine',
-    createdAt: '07 Jan 18:35',
-    lastMove: 'Dd1-e2',
-    timeControl: '15+10',
-    side: 'Blancs',
-    difficulty: 'difficile',
-  },
-]
+const defaultMatches: MatchRecord[] = []
 
 let matchesCache: MatchRecord[] | null = null
 let matchesPromise: Promise<MatchRecord[]> | null = null
@@ -70,6 +37,7 @@ export const getMatches = async (): Promise<MatchRecord[]> => {
     matchesPromise = apiFetch<{ ok: boolean; matches?: MatchRecord[] }>('matches-get')
       .then((response) => (response.ok && response.matches?.length ? response.matches : defaultMatches))
       .catch(() => defaultMatches)
+      .then((next) => next.filter((match) => match.mode === 'JcJ'))
       .then((next) => {
         matchesCache = next
         return next

@@ -2,6 +2,9 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { loginUser } from '@/lib/auth'
+import { startGuestSession } from '@/lib/guest'
+import { notifyError, notifyInfo, notifySuccess } from '@/lib/toast'
+import { trackEvent } from '@/lib/telemetry'
 
 const router = useRouter()
 const email = ref('')
@@ -76,8 +79,22 @@ const handleLogin = async () => {
   isError.value = !result.ok
 
   if (result.ok) {
-    await router.push('/tableau-de-bord')
+    notifySuccess('Connexion reussie', result.message)
+    trackEvent({ name: 'login' })
+    await router.push('/dashboard')
+    return
   }
+
+  if (result.message) {
+    notifyError('Connexion refusee', result.message)
+  }
+}
+
+const handleGuest = async () => {
+  startGuestSession()
+  notifyInfo('Mode invite', "Vous jouez en local sans compte.")
+  trackEvent({ name: 'login_guest' })
+  await router.push('/dashboard')
 }
 
 onMounted(() => {
@@ -126,7 +143,14 @@ onBeforeUnmount(() => {
           <form class="form-stack auth-form" @submit.prevent="handleLogin">
             <label class="form-field">
               <span class="form-label">Email</span>
-              <input v-model="email" class="form-input" type="email" placeholder="vous@exemple.com" />
+              <input
+                v-model="email"
+                class="form-input"
+                type="email"
+                autocomplete="email"
+                inputmode="email"
+                placeholder="vous@exemple.com"
+              />
             </label>
 
             <label class="form-field">
@@ -136,6 +160,7 @@ onBeforeUnmount(() => {
                   v-model="password"
                   class="form-input"
                   :type="showPassword ? 'text' : 'password'"
+                  autocomplete="current-password"
                   placeholder="********"
                 />
                 <button
@@ -150,16 +175,21 @@ onBeforeUnmount(() => {
               </div>
             </label>
 
-            <button class="button-primary" type="submit" :disabled="isLoading">
+            <button class="button-primary" type="submit" :disabled="isLoading" :aria-busy="isLoading">
               {{ isLoading ? 'Connexion...' : 'Se connecter' }}
             </button>
+            <button class="button-ghost" type="button" @click="handleGuest">Jouer en invite</button>
             <div v-if="isLoading" class="auth-progress" aria-hidden="true">
               <span class="auth-progress__bar"></span>
             </div>
             <p class="auth-note">Connexion securisee et synchronisee sur tous vos appareils.</p>
           </form>
 
-          <p v-if="message" :class="['form-message', isError ? 'form-message--error' : 'form-message--success']">
+          <p
+            v-if="message"
+            :class="['form-message', isError ? 'form-message--error' : 'form-message--success']"
+            role="status"
+          >
             {{ message }}
           </p>
 

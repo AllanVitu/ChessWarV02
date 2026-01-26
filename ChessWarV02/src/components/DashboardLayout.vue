@@ -2,10 +2,12 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import logoUrl from '@/assets/brand-icon.png'
+import BottomNav from '@/components/ui/BottomNav.vue'
 import { getDashboardData, type DashboardDb } from '@/lib/localDb'
 import { getSessionToken } from '@/lib/api'
 import { clearSession } from '@/lib/auth'
 import { clearMatchesCache } from '@/lib/matchesDb'
+import { isGuestSession } from '@/lib/guest'
 import { searchUsers, respondFriendRequest, type UserSearchItem } from '@/lib/users'
 import {
   getNotifications,
@@ -31,7 +33,13 @@ const props = withDefaults(defineProps<DashboardLayoutProps>(), {
 const router = useRouter()
 const dashboard = ref<DashboardDb | null>(null)
 const profileName = computed(() => dashboard.value?.profile.name ?? 'Invite')
-const profileTitle = computed(() => dashboard.value?.profile.title ?? 'Compte local')
+const profileTitle = computed(() => {
+  if (isGuestSession() && !getSessionToken()) return 'Mode invite'
+  return dashboard.value?.profile.title ?? 'Compte local'
+})
+const logoutLabel = computed(() =>
+  isGuestSession() && !getSessionToken() ? 'Quitter' : 'Se deconnecter',
+)
 const profileAvatar = computed(() => dashboard.value?.profile.avatarUrl ?? '')
 const profileInitials = computed(() => {
   const name = profileName.value.trim()
@@ -266,7 +274,7 @@ const joinMatchReady = async () => {
 
   const current = router.currentRoute.value
   const currentId = typeof current.params.id === 'string' ? current.params.id : ''
-  if (!(current.name === 'jeu' && currentId === matchId)) {
+  if (!(current.name === 'play' && currentId === matchId)) {
     clearMatchesCache()
     matchOpen.value = false
     await router.push(`/jeu/${matchId}`)
@@ -454,14 +462,15 @@ const handleLogout = async () => {
   }
   stopMatchReadyTimer()
   await clearSession()
-  await router.push('/connexion')
+  await router.push('/auth')
 }
 </script>
 
 <template>
+  <a class="skip-link" href="#main-content">Aller au contenu</a>
   <div class="app-shell">
     <div class="toast-stack" aria-live="polite" aria-atomic="true">
-      <div v-if="matchReadyToast" class="toast-card">
+      <div v-if="matchReadyToast" class="toast-card" role="status">
         <div class="toast-main">
           <p class="toast-title">Match accepte</p>
           <p class="toast-sub">
@@ -486,58 +495,48 @@ const handleLogout = async () => {
         </div>
       </div>
 
-      <div class="nav-group">
-        <p class="nav-title">General</p>
-        <RouterLink to="/tableau-de-bord" class="nav-link" exact-active-class="nav-link--active">
+      <nav class="nav-group nav-group--primary" aria-label="Navigation principale">
+        <RouterLink to="/dashboard" class="nav-link" exact-active-class="nav-link--active">
           <span class="nav-dot"></span>
-          Vue d'ensemble
+          Dashboard
         </RouterLink>
-        <RouterLink to="/matchs" class="nav-link" active-class="nav-link--active">
+        <RouterLink to="/play" class="nav-link" active-class="nav-link--active">
           <span class="nav-dot"></span>
-          Matchs
+          Jouer
         </RouterLink>
-        <RouterLink to="/jeu" class="nav-link" active-class="nav-link--active">
+        <RouterLink to="/leaderboard" class="nav-link" active-class="nav-link--active">
           <span class="nav-dot"></span>
-          Partie
+          Classement
         </RouterLink>
-      </div>
-
-      <div class="nav-group">
-        <p class="nav-title">Rapports</p>
-        <RouterLink to="/profil/analyse" class="nav-link" active-class="nav-link--active">
+        <RouterLink to="/profile" class="nav-link" active-class="nav-link--active">
           <span class="nav-dot"></span>
-          Analyse du profil
+          Profil
         </RouterLink>
-      </div>
-
-      <div class="nav-group">
-        <p class="nav-title">Social</p>
-        <RouterLink to="/amis" class="nav-link" active-class="nav-link--active">
-          <span class="nav-dot"></span>
-          Amis
-        </RouterLink>
-      </div>
-
-      <div class="nav-group">
-        <p class="nav-title">Parametres</p>
-        <RouterLink to="/parametres" class="nav-link" active-class="nav-link--active">
+        <RouterLink to="/settings" class="nav-link" active-class="nav-link--active">
           <span class="nav-dot"></span>
           Parametres
         </RouterLink>
-        <RouterLink to="/profil" class="nav-link" active-class="nav-link--active">
-          <span class="nav-dot"></span>
-          Profil & securite
-        </RouterLink>
-        <button class="nav-link nav-link--disabled" type="button" disabled>
-          <span class="nav-dot"></span>
-          Support
-        </button>
+      </nav>
+
+      <div class="sidebar-card">
+        <p class="card-title">Raccourcis</p>
+        <p class="card-text">Acces direct aux matchs et a votre reseau.</p>
+        <div class="card-actions">
+          <RouterLink class="button-ghost" to="/matchs">Matchs</RouterLink>
+          <RouterLink class="button-ghost" to="/amis">Amis</RouterLink>
+        </div>
       </div>
 
-      <button class="logout" type="button" @click="handleLogout">Se deconnecter</button>
+      <div class="sidebar-footer">
+        <RouterLink class="nav-link nav-link--secondary" to="/help">
+          Aide &amp; regles
+        </RouterLink>
+      </div>
+
+      <button class="logout" type="button" @click="handleLogout">{{ logoutLabel }}</button>
     </aside>
 
-    <main class="main">
+    <main id="main-content" class="main">
       <header class="topbar">
         <div class="welcome">
           <p class="eyebrow">{{ props.eyebrow }}</p>
@@ -559,8 +558,9 @@ const handleLogout = async () => {
               </svg>
               <input
                 v-model="searchQuery"
-                type="text"
+                type="search"
                 placeholder="Rechercher joueurs, parties, ouvertures"
+                aria-label="Rechercher"
                 @focus="searchOpen = true"
                 @keydown.escape="searchOpen = false"
               />
@@ -586,7 +586,7 @@ const handleLogout = async () => {
                     :class="['presence-dot', onlineClass(user)]"
                     aria-hidden="true"
                   ></span>
-                  {{ onlineLabel(user) }} · Elo {{ user.rating }}
+                  {{ onlineLabel(user) }} - Elo {{ user.rating }}
                 </span>
               </button>
               <p v-if="!searchLoading && searchMessage" class="search-status">{{ searchMessage }}</p>
@@ -599,6 +599,8 @@ const handleLogout = async () => {
                 class="icon-button notify-button"
                 type="button"
                 aria-label="Notifications de match"
+                :aria-expanded="matchOpen"
+                aria-controls="match-panel"
                 @click="toggleMatchPanel"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -619,7 +621,7 @@ const handleLogout = async () => {
                 <span v-if="hasNewMatch" class="notify-dot"></span>
               </button>
 
-              <div v-if="matchOpen" class="notify-panel">
+              <div v-if="matchOpen" id="match-panel" class="notify-panel" role="region" aria-label="Invitations de match">
                 <p class="notify-title">Invitations de match</p>
                 <p v-if="notificationsLoading" class="notify-status">Chargement...</p>
                 <p v-if="!notificationsLoading && notificationsError" class="notify-status notify-status--error">
@@ -668,6 +670,8 @@ const handleLogout = async () => {
                 class="icon-button notify-button"
                 type="button"
                 aria-label="Demandes d'amis"
+                :aria-expanded="friendOpen"
+                aria-controls="friend-panel"
                 @click="toggleFriendPanel"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -683,7 +687,13 @@ const handleLogout = async () => {
                 <span v-if="hasNewFriend" class="notify-dot"></span>
               </button>
 
-              <div v-if="friendOpen" class="notify-panel">
+              <div
+                v-if="friendOpen"
+                id="friend-panel"
+                class="notify-panel"
+                role="region"
+                aria-label="Demandes d'amis"
+              >
                 <p class="notify-title">Demandes d'amis</p>
                 <p v-if="notificationsLoading" class="notify-status">Chargement...</p>
                 <p v-if="!notificationsLoading && notificationsError" class="notify-status notify-status--error">
@@ -743,6 +753,9 @@ const handleLogout = async () => {
 
       <slot />
     </main>
+
+    <BottomNav />
   </div>
 </template>
+
 

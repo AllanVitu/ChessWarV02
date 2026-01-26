@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
-import { clearMatchesCache, getMatchById, type DifficultyKey, type MatchRecord } from '@/lib/matchesDb'
+import { clearMatchesCache, getMatchById, type MatchRecord } from '@/lib/matchesDb'
 import { getCurrentUser } from '@/lib/auth'
 import {
   addMatchMessage,
@@ -20,13 +20,12 @@ import { createMatchInvite } from '@/lib/notifications'
 import {
   applyMove,
   createInitialBoard,
-  evaluateBoard,
   formatMove,
-  getAiMove,
   getLegalMoves,
   type Move,
   type Side,
 } from '@/lib/chessEngine'
+import { trackEvent } from '@/lib/telemetry'
 
 const route = useRoute()
 const router = useRouter()
@@ -66,19 +65,21 @@ let clockTimer: ReturnType<typeof setInterval> | null = null
 const localMatchEnded = ref(false)
 const currentUserId = ref('')
 let onlinePollTimer: ReturnType<typeof setInterval> | null = null
+let trackedMatch = ''
 
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 const forceOnline = computed(() => isUuid(matchId.value))
-const mode = computed<MatchRecord['mode']>(() =>
-  forceOnline.value ? 'JcJ' : match.value?.mode ?? onlineMode.value ?? 'IA',
-)
+const mode = computed<MatchRecord['mode']>(() => {
+  if (!matchId.value) return 'Local'
+  return forceOnline.value ? 'JcJ' : match.value?.mode ?? onlineMode.value ?? 'JcJ'
+})
 const isOnline = computed(() => mode.value === 'JcJ')
 const modeLabel = computed(() => (mode.value === 'JcJ' ? 'En ligne' : mode.value))
 const opponent = computed(() => {
   const direct = match.value?.opponent ?? onlineOpponent.value
   if (direct) return direct
-  return forceOnline.value ? 'Adversaire' : 'IA Sparring'
+  return 'Adversaire'
 })
 const timeControl = computed(() => match.value?.timeControl ?? onlineTimeControl.value ?? '10+0')
 const sideLabel = computed(() => (mode.value === 'Local' ? 'Camp joueur 1' : 'Votre couleur'))
@@ -91,7 +92,6 @@ const onlineNote = computed(() => {
   return sideToMove.value === playerSide.value ? 'A vous de jouer.' : "En attente du coup adverse."
 })
 
-const difficulty = ref<DifficultyKey>('intermediaire')
 
 const ensureCurrentUserId = async () => {
   if (currentUserId.value) return
@@ -102,6 +102,18 @@ const ensureCurrentUserId = async () => {
 watch(
   matchId,
   async () => {
+    const nextMatchId = matchId.value || 'local'
+    if (trackedMatch !== nextMatchId) {
+      trackedMatch = nextMatchId
+      trackEvent({
+        name: 'start_game',
+        payload: {
+          matchId: nextMatchId,
+          mode: mode.value,
+        },
+      })
+    }
+
     stopOnlineSocket()
     stopOnlineStream()
     stopOnlinePolling()
@@ -134,7 +146,7 @@ watch(
     localMatchEnded.value = false
     if (!matchId.value) {
       match.value = null
-      difficulty.value = 'intermediaire'
+      resetLocalClocks()
       return
     }
 
@@ -144,7 +156,6 @@ watch(
     }
 
     match.value = await getMatchById(matchId.value)
-    difficulty.value = match.value?.difficulty ?? 'intermediaire'
     if (match.value?.mode === 'JcJ') {
       await loadOnlineMatch()
     } else if (match.value) {
@@ -163,11 +174,6 @@ const playerSide = computed<Side>(() => {
   if (sidePreference.value === 'Noirs') return 'black'
   const seed = Number.parseInt(matchId.value.slice(-1) || '0', 10)
   return seed % 2 === 0 ? 'white' : 'black'
-})
-
-const aiSide = computed(() => {
-  if (mode.value !== 'IA') return null
-  return playerSide.value === 'white' ? 'black' : 'white'
 })
 
 const matchEnded = computed(() =>
@@ -219,12 +225,6 @@ const sideToMove = ref<Side>('white')
 const selectedSquare = ref<string | null>(null)
 const lastMove = ref<{ from: string; to: string } | null>(null)
 const moveHistory = ref<{ ply: number; side: Side; notation: string }[]>([])
-const aiThinking = ref(false)
-const analysis = ref<{ score: number; bestMove: Move | null }>({
-  score: 0,
-  bestMove: null,
-})
-let aiTimeout: ReturnType<typeof setTimeout> | null = null
 
 const boardFiles = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 const boardRanks = [8, 7, 6, 5, 4, 3, 2, 1]
@@ -249,6 +249,21 @@ const pieceSymbols: Record<string, string> = {
   K: '♔',
 }
 
+const pieceNames: Record<string, string> = {
+  p: 'pion noir',
+  r: 'tour noire',
+  n: 'cavalier noir',
+  b: 'fou noir',
+  q: 'dame noire',
+  k: 'roi noir',
+  P: 'pion blanc',
+  R: 'tour blanche',
+  N: 'cavalier blanc',
+  B: 'fou blanc',
+  Q: 'dame blanche',
+  K: 'roi blanc',
+}
+
 const legalMoves = computed(() => getLegalMoves(board.value, sideToMove.value))
 
 const movesFromSelected = computed(() => {
@@ -268,8 +283,7 @@ const canUserMove = computed(() => {
     )
   }
   if (localMatchEnded.value) return false
-  if (mode.value !== 'IA') return true
-  return sideToMove.value === playerSide.value
+  return true
 })
 
 const whiteLabel = computed(() => {
@@ -617,26 +631,6 @@ const loadOnlineMatch = async () => {
   }
 }
 
-const evaluationValue = computed(() => {
-  const score = analysis.value.score
-  const formatted = score.toFixed(1)
-  return `${score >= 0 ? '+' : ''}${formatted}`
-})
-
-const evaluationNote = computed(() => {
-  const score = analysis.value.score
-  if (score >= 1.5) return 'Avantage blancs'
-  if (score <= -1.5) return 'Avantage noirs'
-  if (score >= 0.3) return 'Leger avantage blancs'
-  if (score <= -0.3) return 'Leger avantage noirs'
-  return 'Position equilibree'
-})
-
-const suggestedLine = computed(() => {
-  const move = analysis.value.bestMove
-  return move ? formatMove(move) : 'Aucun coup disponible'
-})
-
 const isOwnedBySide = (piece: string, side: Side) => {
   if (!piece) return false
   return side === 'white' ? piece === piece.toUpperCase() : piece === piece.toLowerCase()
@@ -661,31 +655,6 @@ const applyAndRecord = (move: Move) => {
   selectedSquare.value = null
   sideToMove.value = sideToMove.value === 'white' ? 'black' : 'white'
   clockTickAt.value = Date.now()
-}
-
-const updateAnalysis = () => {
-  analysis.value = {
-    score: evaluateBoard(board.value),
-    bestMove: getAiMove(board.value, sideToMove.value, difficulty.value),
-  }
-}
-
-const triggerAiMove = () => {
-  if (aiThinking.value) return
-  if (localMatchEnded.value) return
-  if (!aiSide.value || sideToMove.value !== aiSide.value) return
-  aiThinking.value = true
-  if (aiTimeout) {
-    clearTimeout(aiTimeout)
-  }
-  aiTimeout = setTimeout(() => {
-    const move = getAiMove(board.value, sideToMove.value, difficulty.value)
-    if (move) {
-      applyAndRecord(move)
-    }
-    aiThinking.value = false
-    aiTimeout = null
-  }, 500)
 }
 
 const submitOnlineMove = async (move: Move) => {
@@ -774,6 +743,13 @@ const handleFinishMatch = async (result: 'resign' | 'draw' | 'timeout') => {
     } else {
       finishNotice.value = 'Match termine.'
     }
+    trackEvent({
+      name: 'finish_game',
+      payload: {
+        matchId: matchId.value,
+        result,
+      },
+    })
   } catch (error) {
     finishNotice.value = (error as Error).message
     finishNoticeError.value = true
@@ -787,14 +763,16 @@ const handleTimeout = async () => {
     await handleFinishMatch('timeout')
     return
   }
-  if (aiTimeout) {
-    clearTimeout(aiTimeout)
-    aiTimeout = null
-  }
-  aiThinking.value = false
   localMatchEnded.value = true
   clockNotice.value = 'Temps ecoule. Match termine.'
   clockNoticeError.value = true
+  trackEvent({
+    name: 'finish_game',
+    payload: {
+      matchId: matchId.value || 'local',
+      result: 'timeout',
+    },
+  })
 }
 
 const handleSquareClick = (squareId: string, piece: string) => {
@@ -825,25 +803,6 @@ const handleSquareClick = (squareId: string, piece: string) => {
   }
 
   applyAndRecord(move)
-  triggerAiMove()
-}
-
-const handleAiMove = () => {
-  triggerAiMove()
-}
-
-const resetMatch = () => {
-  if (aiTimeout) {
-    clearTimeout(aiTimeout)
-    aiTimeout = null
-  }
-  board.value = createInitialBoard()
-  sideToMove.value = 'white'
-  selectedSquare.value = null
-  lastMove.value = null
-  moveHistory.value = []
-  aiThinking.value = false
-  updateAnalysis()
 }
 
 const handleAbandon = async () => {
@@ -852,7 +811,14 @@ const handleAbandon = async () => {
     await handleFinishMatch('resign')
     return
   }
-  await router.push('/tableau-de-bord')
+  trackEvent({
+    name: 'finish_game',
+    payload: {
+      matchId: matchId.value || 'local',
+      result: 'resign',
+    },
+  })
+  await router.push('/dashboard')
 }
 
 const handleDraw = async () => {
@@ -861,24 +827,19 @@ const handleDraw = async () => {
     await handleFinishMatch('draw')
     return
   }
-  await router.push('/tableau-de-bord')
-}
-
-const handleReset = () => {
-  if (isOnline.value) {
-    onlineError.value = 'Action indisponible en multijoueur.'
-    return
-  }
-  localMatchEnded.value = false
-  resetMatch()
-  resetLocalClocks()
+  trackEvent({
+    name: 'finish_game',
+    payload: {
+      matchId: matchId.value || 'local',
+      result: 'draw',
+    },
+  })
+  await router.push('/dashboard')
 }
 
 const handleLeaveMatch = async () => {
-  await router.push('/tableau-de-bord')
+  await router.push('/dashboard')
 }
-
-watch([board, sideToMove, difficulty], updateAnalysis, { immediate: true })
 
 watch(
   () => onlineMessages.value.length,
@@ -895,10 +856,6 @@ onBeforeUnmount(() => {
   stopOnlineStream()
   stopOnlinePolling()
   stopClock()
-  if (aiTimeout) {
-    clearTimeout(aiTimeout)
-    aiTimeout = null
-  }
 })
 
 const squares = computed(() =>
@@ -912,6 +869,9 @@ const squares = computed(() =>
       const isTarget = targetSquares.value.has(squareId)
       const isLast = lastMove.value?.from === squareId || lastMove.value?.to === squareId
       const isArrival = lastMove.value?.to === squareId
+      const ariaLabel = piece
+        ? `${squareId} ${pieceNames[piece] ?? 'piece'}`
+        : `${squareId} vide`
 
       return {
         id: squareId,
@@ -923,6 +883,7 @@ const squares = computed(() =>
         isTarget,
         isLast,
         isArrival,
+        ariaLabel,
       }
     }),
   ),
@@ -943,7 +904,7 @@ const squares = computed(() =>
               <p class="panel-title">Plateau</p>
               <h3 class="panel-headline">Tour: {{ sideToMove === 'white' ? 'Blancs' : 'Noirs' }}</h3>
             </div>
-            <span class="badge-soft">{{ mode === 'IA' ? 'IA active' : mode === 'JcJ' ? 'En ligne' : 'Local' }}</span>
+            <span class="badge-soft">{{ mode === 'JcJ' ? 'En ligne' : 'Local' }}</span>
           </div>
 
           <p v-if="onlineNote" class="form-message form-message--success">{{ onlineNote }}</p>
@@ -980,7 +941,7 @@ const squares = computed(() =>
           </div>
 
           <div class="board-wrap">
-            <div class="board">
+            <div class="board" role="grid" aria-label="Plateau d'echecs">
               <button
                 v-for="square in squares"
                 :key="square.id"
@@ -993,6 +954,9 @@ const squares = computed(() =>
                   square.isSelected ? 'square--selected' : '',
                   square.isTarget ? 'square--target' : '',
                 ]"
+                :aria-label="square.ariaLabel"
+                :aria-pressed="square.isSelected"
+                role="gridcell"
                 @click="handleSquareClick(square.id, square.piece)"
               >
                 <span
@@ -1022,10 +986,6 @@ const squares = computed(() =>
           <button class="button-ghost game-action" type="button" :disabled="matchEnded" @click="handleDraw">
             Match Nul
           </button>
-          <button class="button-primary game-action" type="button" :disabled="isOnline" @click="handleReset">
-            Reinitialiser
-          </button>
-
           <p
             v-if="finishNotice"
             :class="['form-message', finishNoticeError ? 'form-message--error' : 'form-message--success']"
@@ -1077,60 +1037,6 @@ const squares = computed(() =>
           </div>
         </div>
 
-        <div v-if="mode === 'IA'" class="game-ai">
-          <p class="metric-label">Difficulte IA</p>
-          <div class="segmented segmented--stack">
-            <button
-              type="button"
-              :class="['segmented-button', difficulty === 'facile' && 'segmented-button--active']"
-              @click="difficulty = 'facile'"
-            >
-              Facile
-            </button>
-            <button
-              type="button"
-              :class="['segmented-button', difficulty === 'intermediaire' && 'segmented-button--active']"
-              @click="difficulty = 'intermediaire'"
-            >
-              Intermediaire
-            </button>
-            <button
-              type="button"
-              :class="['segmented-button', difficulty === 'difficile' && 'segmented-button--active']"
-              @click="difficulty = 'difficile'"
-            >
-              Difficile
-            </button>
-            <button
-              type="button"
-              :class="['segmented-button', difficulty === 'maitre' && 'segmented-button--active']"
-              @click="difficulty = 'maitre'"
-            >
-              Maitre
-            </button>
-          </div>
-
-          <button class="button-primary" type="button" :disabled="aiThinking" @click="handleAiMove">
-            {{ aiThinking ? 'IA en cours...' : 'Jouer le coup IA' }}
-          </button>
-        </div>
-
-        <div class="panel-subsection game-analysis">
-          <p class="panel-title">Analyse IA</p>
-          <div class="analysis-grid">
-            <div class="metric-card">
-              <p class="metric-label">Evaluation</p>
-              <p class="metric-value">{{ evaluationValue }}</p>
-              <p class="metric-note">{{ evaluationNote }}</p>
-            </div>
-            <div class="metric-card">
-              <p class="metric-label">Ligne suggeree</p>
-              <p class="metric-value">{{ suggestedLine }}</p>
-              <p class="metric-note">Proposition issue du moteur local.</p>
-            </div>
-          </div>
-        </div>
-
         <div class="panel-subsection">
           <p class="panel-title">Historique</p>
           <div class="move-list">
@@ -1160,6 +1066,7 @@ const squares = computed(() =>
               v-model="chatInput"
               type="text"
               placeholder="Ecrire un message..."
+              aria-label="Message"
               :disabled="chatPending || onlineLoading"
               @keydown.enter.prevent="handleSendChat"
             />
@@ -1178,4 +1085,5 @@ const squares = computed(() =>
     </section>
   </DashboardLayout>
 </template>
+
 

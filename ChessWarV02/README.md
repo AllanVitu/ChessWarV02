@@ -1,89 +1,59 @@
 # WarChess
 
-This template should help get you started developing with Vue 3 in Vite.
+SPA d'echecs premium (Vue 3 + Vite) avec dashboard, parties, classements et analyse. Optimisee pour mobile, performance et accessibilite.
 
-## Recommended IDE Setup
+## Routes principales
+- `/#/intro` Landing
+- `/#/auth` Connexion / invite
+- `/#/dashboard` Tableau de bord
+- `/#/play` Partie
+- `/#/leaderboard` Classement
+- `/#/profile` Profil
+- `/#/settings` Parametres
+- `/#/help` Regles / FAQ
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
+## Demarrer
 ```sh
 npm install
-```
-
-## Neon + Netlify (BDD)
-
-1) Creez une base Neon et executez `database/schema.sql` dans le SQL Editor.
-2) Dans Netlify, ajoutez la variable `DATABASE_URL` (connection string Neon).
-3) Build command: `npm run build`, Publish directory: `dist`.
-
-Pour le dev local avec Netlify Functions, utilisez `netlify dev` (optionnel).
-
-## O2Switch (PostgreSQL + PHP)
-
-1) Creez une base PostgreSQL dans cPanel et notez host, port, user, password.
-2) Importez `database/schema-o2switch-postgres.sql` via phpPgAdmin.
-3) Mettez les identifiants dans `public/api/_shared/config.php` (ou via variables d'environnement).
-4) Deployez le contenu de `dist` sur la racine du domaine.
-5) L'API est exposee sur `/api/*` (ex: `/api/auth-login`).
-
-### Compile and Hot-Reload for Development
-
-```sh
 npm run dev
 ```
 
-### Type-Check, Compile and Minify for Production
-
+## Build
 ```sh
 npm run build
+npm run preview
 ```
 
-### Run Unit Tests with [Vitest](https://vitest.dev/)
+## Variables d'environnement
+- `VITE_API_BASE` URL API (ex: `/api`)
+- `VITE_SITE_URL` domaine canonical (ex: `https://warchess.app`)
+- `VITE_ANALYTICS_ENDPOINT` endpoint analytics (facultatif)
+- `VITE_ERROR_ENDPOINT` endpoint erreurs (facultatif)
 
-```sh
-npm run test:unit
-```
+## Deploiement
+### Neon + Netlify
+1) Creez une base Neon et executez `database/schema.sql`.
+2) Dans Netlify, ajoutez `DATABASE_URL`.
+3) Build: `npm run build`, publish: `dist`.
 
-### Run End-to-End Tests with [Playwright](https://playwright.dev)
+### O2Switch (PostgreSQL + PHP)
+1) Creez une base PostgreSQL dans cPanel.
+2) Importez `database/schema-o2switch-postgres.sql`.
+3) Configurez `public/api/_shared/config.php` ou les variables d'environnement.
+4) Deployer `dist` a la racine du domaine.
 
-```sh
-# Install browsers for the first run
-npx playwright install
+## SEO / partage
+- Mettre a jour `https://warchess.app` dans `index.html`, `public/robots.txt`, `public/sitemap.xml`.
+- OG image par defaut: `/icon-512.png` (remplacez par un visuel 1200x630 si besoin).
 
-# When testing on CI, must build the project first
-npm run build
+## Checklist de validation
+- Landing visible en < 200ms avec loader.
+- H1 + promesse + CTA "Jouer maintenant" sur `/intro`.
+- Mode invite accessible depuis `/auth` et `/intro`.
+- Bottom nav mobile actif.
+- Etats UI: hover/active/disabled/loading.
+- Accessibilite: clavier, focus visible, aria-live sur toasts.
+- Lighthouse cible: Perf > 90, A11y > 90, SEO > 90.
+- OG preview OK (Discord/WhatsApp).
+- 404 et offline banner affiches.
 
-# Runs the end-to-end tests
-npm run test:e2e
-# Runs the tests only on Chromium
-npm run test:e2e -- --project=chromium
-# Runs the tests of a specific file
-npm run test:e2e -- tests/example.spec.ts
-# Runs the tests in debug mode
-npm run test:e2e -- --debug
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```

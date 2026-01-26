@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { getDashboardData, saveDashboardData, type DashboardDb } from '@/lib/localDb'
 import { getCurrentUser, updatePassword } from '@/lib/auth'
+import { notifyError, notifySuccess } from '@/lib/toast'
 
 const dashboard = ref<DashboardDb | null>(null)
 const profileForm = reactive({
@@ -64,6 +65,7 @@ const saveProfile = async () => {
   dashboard.value = await saveDashboardData(dashboard.value)
   profileMessage.value = 'Profil mis a jour.'
   profileError.value = false
+  notifySuccess('Profil', profileMessage.value)
 }
 
 const savePassword = async () => {
@@ -73,12 +75,14 @@ const savePassword = async () => {
   if (!passwordForm.current || !passwordForm.next) {
     passwordMessage.value = 'Veuillez remplir tous les champs.'
     passwordError.value = true
+    notifyError('Mot de passe', passwordMessage.value)
     return
   }
 
   if (passwordForm.next !== passwordForm.confirm) {
     passwordMessage.value = 'Les mots de passe ne correspondent pas.'
     passwordError.value = true
+    notifyError('Mot de passe', passwordMessage.value)
     return
   }
 
@@ -86,6 +90,7 @@ const savePassword = async () => {
   if (!user) {
     passwordMessage.value = 'Veuillez vous connecter pour modifier le mot de passe.'
     passwordError.value = true
+    notifyError('Mot de passe', passwordMessage.value)
     return
   }
 
@@ -96,6 +101,9 @@ const savePassword = async () => {
     passwordForm.current = ''
     passwordForm.next = ''
     passwordForm.confirm = ''
+    notifySuccess('Mot de passe', passwordMessage.value)
+  } else {
+    notifyError('Mot de passe', passwordMessage.value)
   }
 }
 </script>
@@ -171,7 +179,11 @@ const savePassword = async () => {
           <button class="button-primary" type="submit">Enregistrer</button>
         </form>
 
-        <p v-if="profileMessage" :class="['form-message', profileError ? 'form-message--error' : 'form-message--success']">
+        <p
+          v-if="profileMessage"
+          :class="['form-message', profileError ? 'form-message--error' : 'form-message--success']"
+          role="status"
+        >
           {{ profileMessage }}
         </p>
       </div>
@@ -187,23 +199,42 @@ const savePassword = async () => {
         <form class="form-stack" @submit.prevent="savePassword">
           <label class="form-field">
             <span class="form-label">Mot de passe actuel</span>
-            <input v-model="passwordForm.current" class="form-input" type="password" />
+            <input
+              v-model="passwordForm.current"
+              class="form-input"
+              type="password"
+              autocomplete="current-password"
+            />
           </label>
 
           <label class="form-field">
             <span class="form-label">Nouveau mot de passe</span>
-            <input v-model="passwordForm.next" class="form-input" type="password" />
+            <input
+              v-model="passwordForm.next"
+              class="form-input"
+              type="password"
+              autocomplete="new-password"
+            />
           </label>
 
           <label class="form-field">
             <span class="form-label">Confirmer</span>
-            <input v-model="passwordForm.confirm" class="form-input" type="password" />
+            <input
+              v-model="passwordForm.confirm"
+              class="form-input"
+              type="password"
+              autocomplete="new-password"
+            />
           </label>
 
           <button class="button-primary" type="submit">Mettre a jour</button>
         </form>
 
-        <p v-if="passwordMessage" :class="['form-message', passwordError ? 'form-message--error' : 'form-message--success']">
+        <p
+          v-if="passwordMessage"
+          :class="['form-message', passwordError ? 'form-message--error' : 'form-message--success']"
+          role="status"
+        >
           {{ passwordMessage }}
         </p>
       </div>

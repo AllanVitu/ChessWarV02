@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://warchess.app/#/intro</loc>
+  </url>
+  <url>
+    <loc>https://warchess.app/#/auth</loc>
+  </url>
+  <url>
+    <loc>https://warchess.app/#/help</loc>
+  </url>
+  <url>
+    <loc>https://warchess.app/#/leaderboard</loc>
+  </url>
+  <url>
+    <loc>https://warchess.app/#/dashboard</loc>
+  </url>
+  <url>
+    <loc>https://warchess.app/#/play</loc>
+  </url>
+  <url>
+    <loc>https://warchess.app/#/profile</loc>
+  </url>
+  <url>
+    <loc>https://warchess.app/#/settings</loc>
+  </url>
+</urlset>

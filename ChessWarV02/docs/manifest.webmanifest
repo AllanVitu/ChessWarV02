@@ -1,8 +1,8 @@
 {
-  "name": "CloudChess",
-  "short_name": "CloudChess",
-  "description": "Plateforme de matchs d'echecs.",
-  "start_url": "/#/connexion",
+  "name": "WarChess",
+  "short_name": "WarChess",
+  "description": "Plateforme d'echecs moderne.",
+  "start_url": "/#/intro",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f5efe7",

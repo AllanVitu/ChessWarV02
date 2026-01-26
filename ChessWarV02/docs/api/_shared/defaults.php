@@ -52,37 +52,4 @@ $default_goals = [
   ["label" => "Preparation d'ouverture", 'progress' => 58],
 ];
 
-$default_matches = [
-  [
-    'id' => 'M-1042',
-    'mode' => 'IA',
-    'opponent' => 'IA Atlas',
-    'status' => 'en_cours',
-    'createdAt' => '09 Jan 19:10',
-    'lastMove' => 'Cg1-f3',
-    'timeControl' => '10+0',
-    'side' => 'Blancs',
-    'difficulty' => 'intermediaire',
-  ],
-  [
-    'id' => 'M-1038',
-    'mode' => 'JcJ',
-    'opponent' => 'L. Vernet',
-    'status' => 'planifie',
-    'createdAt' => '09 Jan 21:00',
-    'lastMove' => '-',
-    'timeControl' => '5+0',
-    'side' => 'Noirs',
-  ],
-  [
-    'id' => 'M-1029',
-    'mode' => 'IA',
-    'opponent' => 'IA Nova',
-    'status' => 'termine',
-    'createdAt' => '07 Jan 18:35',
-    'lastMove' => 'Dd1-e2',
-    'timeControl' => '15+10',
-    'side' => 'Blancs',
-    'difficulty' => 'difficile',
-  ],
-];
+$default_matches = [];

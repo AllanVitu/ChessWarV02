@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import { getDashboardData, type DashboardDb, type DashboardProfile } from '@/lib/localDb'
 import { buildTrendPaths, getProfileAiAnalysis } from '@/lib/profileAnalysis'
+import { getMatches } from '@/lib/matchesDb'
+import { getSessionToken } from '@/lib/api'
 
 const dashboard = ref<DashboardDb | null>(null)
+const router = useRouter()
 const fallbackProfile: DashboardProfile = {
   id: '',
   name: 'Invite',
@@ -44,11 +47,171 @@ const onboardingSteps = [
   },
 ]
 
+const checklistKey = 'warchess.checklist.completed'
+const dailyKey = 'warchess.daily.completed'
+const puzzleKey = 'warchess.daily.puzzle'
+const completedSteps = ref<string[]>([])
+const dailyDone = ref(false)
+const puzzleRevealed = ref(false)
+
+const readStorageList = (key: string) => {
+  if (typeof window === 'undefined') return []
+  try {
+    const stored = window.localStorage.getItem(key)
+    return stored ? (JSON.parse(stored) as string[]) : []
+  } catch {
+    return []
+  }
+}
+
+const readStorageFlag = (key: string) => {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(key) === '1'
+  } catch {
+    return false
+  }
+}
+
+const writeStorage = (key: string, value: string) => {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+const todayKey = computed(() => new Date().toISOString().slice(0, 10))
+
+const dailyChallenges = [
+  {
+    title: 'Defi du jour',
+    description: "Gagnez une partie rapide en moins de 15 coups.",
+    cta: 'Lancer un match',
+    to: '/play',
+  },
+  {
+    title: 'Sprint tactique',
+    description: 'Enchainez 3 parties blitz pour monter en rythme.',
+    cta: 'Jouer blitz',
+    to: '/play',
+  },
+  {
+    title: 'Focus ouverture',
+    description: "Testez une nouvelle ouverture sur 2 parties.",
+    cta: 'Demarrer',
+    to: '/play',
+  },
+]
+
+const dailyPuzzle = [
+  {
+    title: 'Puzzle rapide',
+    description: 'Mat en 2 coups.',
+    solution: '1. Qxf7+ Kxf7 2. Bc4+',
+  },
+  {
+    title: 'Puzzle rapide',
+    description: "Gagnez la dame en 2 coups.",
+    solution: '1. Nd5! exd5 2. Qe7#',
+  },
+  {
+    title: 'Puzzle rapide',
+    description: 'Tactique de fourchette.',
+    solution: '1. Nc7+ Kd8 2. Nxa8',
+  },
+]
+
+const fallbackChallenge = {
+  title: 'Defi du jour',
+  description: "Gagnez une partie rapide en moins de 15 coups.",
+  cta: 'Lancer un match',
+  to: '/play',
+}
+
+const fallbackPuzzle = {
+  title: 'Puzzle rapide',
+  description: 'Mat en 2 coups.',
+  solution: '1. Qxf7+ Kxf7 2. Bc4+',
+}
+
+const challengeOfDay = computed(() => {
+  const index = Math.abs(Number(todayKey.value.replace(/-/g, ''))) % dailyChallenges.length
+  return dailyChallenges[index] ?? fallbackChallenge
+})
+
+const puzzleOfDay = computed(() => {
+  const index = Math.abs(Number(todayKey.value.replace(/-/g, ''))) % dailyPuzzle.length
+  return dailyPuzzle[index] ?? fallbackPuzzle
+})
+
+const checklistSteps = computed(() => {
+  const autoProfile = profile.value.name && profile.value.name !== 'Invite'
+  const autoGames = games.value.length > 0
+  const autoFriend = completedSteps.value.includes('friend')
+  return [
+    {
+      id: 'profile',
+      title: 'Completer le profil',
+      done: autoProfile || completedSteps.value.includes('profile'),
+      to: '/profile',
+    },
+    {
+      id: 'match',
+      title: 'Jouer une partie',
+      done: autoGames || completedSteps.value.includes('match'),
+      to: '/play',
+    },
+    {
+      id: 'friend',
+      title: 'Ajouter un ami',
+      done: autoFriend,
+      to: '/amis',
+    },
+  ]
+})
+
+const toggleChecklist = (id: string) => {
+  if (completedSteps.value.includes(id)) {
+    completedSteps.value = completedSteps.value.filter((step) => step !== id)
+  } else {
+    completedSteps.value = [...completedSteps.value, id]
+  }
+  writeStorage(checklistKey, JSON.stringify(completedSteps.value))
+}
+
+const markDailyDone = () => {
+  dailyDone.value = true
+  writeStorage(`${dailyKey}:${todayKey.value}`, '1')
+}
+
+const togglePuzzle = () => {
+  puzzleRevealed.value = !puzzleRevealed.value
+  writeStorage(`${puzzleKey}:${todayKey.value}`, puzzleRevealed.value ? '1' : '0')
+}
+
+const resumeKey = 'warchess.resume.checked'
+const resumeActiveMatch = async () => {
+  if (typeof window === 'undefined') return
+  if (window.sessionStorage.getItem(resumeKey)) return
+  window.sessionStorage.setItem(resumeKey, '1')
+  if (!getSessionToken()) return
+  const active = (await getMatches()).find((match) => match.status === 'en_cours')
+  if (active) {
+    await router.push(`/jeu/${active.id}`)
+  }
+}
+
 onMounted(async () => {
   dashboard.value = await getDashboardData()
   if (typeof window !== 'undefined' && !window.localStorage.getItem(onboardingKey)) {
     onboardingOpen.value = true
   }
+  completedSteps.value = readStorageList(checklistKey)
+  dailyDone.value = readStorageFlag(`${dailyKey}:${todayKey.value}`)
+  puzzleRevealed.value = readStorageFlag(`${puzzleKey}:${todayKey.value}`)
+  await resumeActiveMatch()
 })
 
 const closeOnboarding = () => {
@@ -381,6 +544,62 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
               <p class="metric-value">{{ profile.lastSeen }}</p>
             </div>
           </div>
+        </div>
+
+        <div class="panel reveal delay-1">
+          <div class="panel-header">
+            <div>
+              <p class="panel-title">Checklist</p>
+              <h3 class="panel-headline">Progres rapide</h3>
+            </div>
+          </div>
+
+          <div class="onboarding-list">
+            <div v-for="step in checklistSteps" :key="step.id" class="onboarding-step checklist-step">
+              <div class="checklist-row">
+                <span :class="['checklist-dot', step.done ? 'checklist-dot--done' : '']"></span>
+                <p class="onboarding-step__title">{{ step.title }}</p>
+              </div>
+              <div class="card-actions">
+                <RouterLink class="button-ghost" :to="step.to">Ouvrir</RouterLink>
+                <button class="button-ghost" type="button" @click="toggleChecklist(step.id)">
+                  {{ step.done ? 'Annuler' : 'Terminer' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel reveal delay-2">
+          <div class="panel-header">
+            <div>
+              <p class="panel-title">{{ challengeOfDay.title }}</p>
+              <h3 class="panel-headline">Objectif du jour</h3>
+            </div>
+          </div>
+
+          <p class="panel-sub">{{ challengeOfDay.description }}</p>
+          <div class="card-actions">
+            <RouterLink class="button-primary" :to="challengeOfDay.to">{{ challengeOfDay.cta }}</RouterLink>
+            <button class="button-ghost" type="button" :disabled="dailyDone" @click="markDailyDone">
+              {{ dailyDone ? 'Valide' : 'Marquer termine' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="panel reveal delay-3">
+          <div class="panel-header">
+            <div>
+              <p class="panel-title">{{ puzzleOfDay.title }}</p>
+              <h3 class="panel-headline">Puzzle rapide</h3>
+            </div>
+            <button class="range-pill" type="button" @click="togglePuzzle">
+              {{ puzzleRevealed ? 'Masquer' : 'Voir solution' }}
+            </button>
+          </div>
+
+          <p class="panel-sub">{{ puzzleOfDay.description }}</p>
+          <p v-if="puzzleRevealed" class="empty-state__subtitle">{{ puzzleOfDay.solution }}</p>
         </div>
 
         <div class="panel focus-card reveal delay-1">

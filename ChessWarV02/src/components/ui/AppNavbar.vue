@@ -24,7 +24,14 @@ const props = withDefaults(
   <header class="app-navbar">
     <RouterLink class="app-navbar__brand" :to="props.brandTo">
       <span v-if="props.brandLogo" class="app-navbar__logo">
-        <img :src="props.brandLogo" :alt="props.brandLabel" />
+        <img
+          :src="props.brandLogo"
+          :alt="props.brandLabel"
+          width="24"
+          height="24"
+          loading="lazy"
+          decoding="async"
+        />
       </span>
       <span class="app-navbar__title">{{ props.brandLabel }}</span>
     </RouterLink>

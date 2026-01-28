@@ -33,7 +33,7 @@ export const getFriendsOverview = async (): Promise<FriendsOverview> => {
     friends?: FriendProfile[]
     incoming?: FriendRequestItem[]
     outgoing?: FriendRequestItem[]
-  }>('friends-list')
+  }>('friends-list', { cacheTtlMs: 30000 })
 
   return {
     friends: response.friends ?? [],

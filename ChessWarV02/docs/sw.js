@@ -1,4 +1,5 @@
-const CACHE_NAME = 'warchess-v4'
+const CACHE_NAME = 'warchess-v5'
+const DATA_CACHE = 'warchess-data-v1'
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -24,10 +25,37 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key !== CACHE_NAME && key !== DATA_CACHE)
+            .map((key) => caches.delete(key)),
+        ),
+      )
       .then(() => self.clients.claim()),
   )
 })
+
+const shouldCacheApi = (request, url) => {
+  if (request.headers.has('Authorization')) return false
+  if (url.pathname.includes('notifications-stream')) return false
+  return true
+}
+
+const networkFirst = async (request) => {
+  const cache = await caches.open(DATA_CACHE)
+  try {
+    const response = await fetch(request)
+    if (response && response.ok) {
+      cache.put(request, response.clone())
+    }
+    return response
+  } catch (error) {
+    const cached = await cache.match(request)
+    if (cached) return cached
+    throw error
+  }
+}
 
 self.addEventListener('fetch', (event) => {
   const { request } = event
@@ -35,7 +63,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
-  if (url.pathname.startsWith('/api')) return
+  if (url.pathname.startsWith('/api')) {
+    if (!shouldCacheApi(request, url)) return
+    event.respondWith(networkFirst(request))
+    return
+  }
 
   if (request.mode === 'navigate') {
     event.respondWith(

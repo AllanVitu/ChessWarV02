@@ -3390,6 +3390,25 @@ td {
   font-size: 13px;
 }
 
+.checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checklist-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(180, 140, 255, 0.35);
+  box-shadow: 0 0 0 3px rgba(180, 140, 255, 0.15);
+}
+
+.checklist-dot--done {
+  background: rgba(34, 197, 94, 0.9);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+}
+
 .leaderboard-page {
   display: grid;
   gap: 20px;
@@ -3443,6 +3462,16 @@ td {
   border-radius: 16px;
   background: var(--panel-soft);
   border: 1px solid var(--panel-border);
+}
+
+.leaderboard-table__body,
+.match-cards,
+.friends-list,
+.friends-request-list,
+.move-list,
+.chat-list {
+  content-visibility: auto;
+  contain-intrinsic-size: 420px;
 }
 
 .leaderboard-rank {

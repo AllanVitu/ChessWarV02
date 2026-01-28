@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import AppTabs from '@/components/ui/AppTabs.vue'
@@ -13,6 +13,8 @@ const tabs = [
 
 const activeTab = ref('global')
 const query = ref('')
+const page = ref(1)
+const pageSize = 10
 
 const leaderboard = {
   global: [
@@ -38,6 +40,21 @@ const filteredPlayers = computed(() => {
   const trimmed = query.value.trim().toLowerCase()
   if (!trimmed) return list
   return list.filter((player) => player.name.toLowerCase().includes(trimmed))
+})
+
+const visiblePlayers = computed(() =>
+  filteredPlayers.value.slice(0, page.value * pageSize),
+)
+
+const canLoadMore = computed(() => visiblePlayers.value.length < filteredPlayers.value.length)
+
+const resetQuery = () => {
+  query.value = ''
+  page.value = 1
+}
+
+watch([activeTab, query], () => {
+  page.value = 1
 })
 </script>
 
@@ -91,10 +108,12 @@ const filteredPlayers = computed(() => {
           v-if="!filteredPlayers.length"
           title="Aucun joueur trouve"
           subtitle="Essayez un autre filtre ou une recherche differente."
-        />
+        >
+          <button class="button-ghost" type="button" @click="resetQuery">Reinitialiser</button>
+        </EmptyState>
 
         <div v-else class="leaderboard-table__body">
-          <div v-for="player in filteredPlayers" :key="player.id" class="leaderboard-row">
+          <div v-for="player in visiblePlayers" :key="player.id" class="leaderboard-row">
             <span class="leaderboard-rank">#{{ player.rank }}</span>
             <div class="leaderboard-player">
               <div class="leaderboard-avatar">{{ player.name.slice(0, 1) }}</div>
@@ -107,6 +126,14 @@ const filteredPlayers = computed(() => {
             <span class="leaderboard-delta">{{ player.delta }}</span>
             <RouterLink class="button-ghost" :to="`/joueur/${player.id}`">Voir</RouterLink>
           </div>
+          <button
+            v-if="canLoadMore"
+            class="button-ghost"
+            type="button"
+            @click="page += 1"
+          >
+            Afficher plus
+          </button>
         </div>
       </div>
     </section>

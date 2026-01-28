@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { clearMatchesCache } from '@/lib/matchesDb'
@@ -24,6 +24,19 @@ const friendNotice = ref('')
 const friendNoticeError = ref(false)
 const inviteNotice = ref('')
 const inviteNoticeError = ref(false)
+const friendsPage = ref(1)
+const friendsPageSize = 6
+
+const visibleFriends = computed(() =>
+  friends.value.slice(0, friendsPage.value * friendsPageSize),
+)
+const canLoadMoreFriends = computed(
+  () => visibleFriends.value.length < friends.value.length,
+)
+
+watch(friends, () => {
+  friendsPage.value = 1
+})
 
 const initialsFor = (name: string) => {
   const trimmed = name.trim()
@@ -188,7 +201,7 @@ onMounted(() => {
           </p>
 
           <div v-else class="friends-list">
-            <article v-for="friend in friends" :key="friend.id" class="friend-row">
+            <article v-for="friend in visibleFriends" :key="friend.id" class="friend-row">
               <div class="friend-ident">
                 <div class="friend-avatar">{{ initialsFor(friend.name) }}</div>
                 <div>
@@ -229,9 +242,19 @@ onMounted(() => {
               </div>
             </article>
 
-            <p v-if="!friends.length && !loading" class="empty-state">
-              Aucun ami pour le moment.
-            </p>
+            <div v-if="!friends.length && !loading" class="empty-state">
+              <p class="empty-state__title">Aucun ami pour le moment.</p>
+              <p class="empty-state__subtitle">Invitez un joueur pour lancer un match.</p>
+              <RouterLink class="button-primary" to="/leaderboard">Trouver un joueur</RouterLink>
+            </div>
+            <button
+              v-else-if="canLoadMoreFriends"
+              class="button-ghost"
+              type="button"
+              @click="friendsPage += 1"
+            >
+              Afficher plus
+            </button>
           </div>
 
           <p

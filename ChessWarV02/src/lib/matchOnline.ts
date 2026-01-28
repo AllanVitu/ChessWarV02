@@ -1,4 +1,5 @@
 import { apiFetch, getSessionToken } from './api'
+import { enqueueAction, isNetworkError, isOffline } from './offlineQueue'
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 const WS_BASE = (() => {
@@ -70,20 +71,33 @@ export const addMatchMove = async (
   matchId: string,
   move: { from: string; to: string; notation: string },
 ): Promise<MatchOnlineState> => {
-  const response = await apiFetch<{ ok: boolean; match?: MatchOnlineState }>('match-move-add', {
-    method: 'POST',
-    body: JSON.stringify({
-      matchId,
-      from: move.from,
-      to: move.to,
-      notation: move.notation,
-    }),
-  })
-
-  if (!response.ok || !response.match) {
-    throw new Error('Impossible de jouer le coup.')
+  if (isOffline()) {
+    await enqueueAction('match-move', { matchId, ...move })
+    throw new Error('Connexion hors ligne. Coup mis en attente.')
   }
-  return response.match
+
+  try {
+    const response = await apiFetch<{ ok: boolean; match?: MatchOnlineState }>('match-move-add', {
+      method: 'POST',
+      body: JSON.stringify({
+        matchId,
+        from: move.from,
+        to: move.to,
+        notation: move.notation,
+      }),
+    })
+
+    if (!response.ok || !response.match) {
+      throw new Error('Impossible de jouer le coup.')
+    }
+    return response.match
+  } catch (error) {
+    if (isNetworkError(error) || isOffline()) {
+      await enqueueAction('match-move', { matchId, ...move })
+      throw new Error('Connexion instable. Coup mis en attente.')
+    }
+    throw error
+  }
 }
 
 export const addMatchMessage = async (

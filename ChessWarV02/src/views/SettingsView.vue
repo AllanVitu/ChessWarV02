@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import {
   applyPreferences,
@@ -11,12 +12,24 @@ import { notifySuccess } from '@/lib/toast'
 
 const preferences = reactive(loadPreferences())
 const statusMessage = ref('')
+const autoSaveStatus = ref('')
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+let autoSaveReady = false
 
 watch(
   preferences,
   (next) => {
     savePreferences(next)
     applyPreferences(next)
+
+    if (!autoSaveReady) return
+    autoSaveStatus.value = 'Sauvegarde automatique...'
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer)
+    }
+    autoSaveTimer = setTimeout(() => {
+      autoSaveStatus.value = 'Sauvegarde automatique terminee.'
+    }, 600)
   },
   { deep: true },
 )
@@ -77,6 +90,10 @@ const handleReset = () => {
   statusMessage.value = 'Parametres reinitialises.'
   notifySuccess('Parametres', statusMessage.value)
 }
+
+onMounted(() => {
+  autoSaveReady = true
+})
 </script>
 
 <template>
@@ -202,12 +219,16 @@ const handleReset = () => {
         </p>
 
         <div class="settings-actions">
+          <RouterLink class="button-ghost" to="/perf">Voir diagnostics</RouterLink>
           <button class="button-ghost" type="button" @click="handleReset">Reinitialiser</button>
           <button class="button-primary" type="button" @click="handleSave">Enregistrer</button>
         </div>
 
         <p v-if="statusMessage" class="form-message form-message--success" role="status">
           {{ statusMessage }}
+        </p>
+        <p v-else-if="autoSaveStatus" class="form-message form-message--success" role="status">
+          {{ autoSaveStatus }}
         </p>
       </div>
     </section>

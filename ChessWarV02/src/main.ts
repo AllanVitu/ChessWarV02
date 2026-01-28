@@ -9,6 +9,9 @@ import { ensureDatabaseReady } from './lib/database'
 import { applyPreferences, loadPreferences } from './lib/preferences'
 import { setupSeo } from './lib/seo'
 import { setupTelemetry } from './lib/telemetry'
+import { setupOfflineQueueSync } from './lib/offlineQueue'
+import { expireSession } from './lib/auth'
+import { setupObservability } from './lib/observability'
 
 void ensureDatabaseReady()
 
@@ -21,6 +24,8 @@ app.use(router)
 
 setupSeo(router)
 setupTelemetry(router)
+setupObservability(router)
+setupOfflineQueueSync()
 
 app.mount('#app')
 
@@ -38,5 +43,19 @@ if (typeof document !== 'undefined') {
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth:expired', () => {
+    const current = router.currentRoute.value
+    if (current.path.startsWith('/auth')) return
+    try {
+      window.sessionStorage.setItem('warchess.postLoginRedirect', current.fullPath)
+    } catch {
+      // Ignore storage failures.
+    }
+    expireSession()
+    void router.push({ path: '/auth', query: { reason: 'expired' } })
   })
 }

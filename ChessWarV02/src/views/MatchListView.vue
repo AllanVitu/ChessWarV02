@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { clearMatchesHistory, getMatches, type MatchRecord } from '@/lib/matchesDb'
@@ -35,6 +35,18 @@ const modeLabel = (mode: MatchRecord['mode']) => (mode === 'JcJ' ? 'Ami' : 'Ami'
 
 const totalMatches = computed(() => matches.value.length)
 const hasHistoryMatches = computed(() => matches.value.some((match) => match.status === 'termine'))
+const matchesPage = ref(1)
+const matchesPageSize = 6
+const visibleMatches = computed(() =>
+  matches.value.slice(0, matchesPage.value * matchesPageSize),
+)
+const canLoadMoreMatches = computed(
+  () => visibleMatches.value.length < matches.value.length,
+)
+
+watch(matches, () => {
+  matchesPage.value = 1
+})
 
 onMounted(async () => {
   matches.value = await getMatches()
@@ -102,14 +114,18 @@ const handleClearHistory = async () => {
           </div>
         </div>
 
-        <div class="match-cards">
-          <div v-if="!matches.length" class="empty-state">Aucun match JcJ pour le moment.</div>
-          <article v-for="match in matches" :key="match.id" class="match-card">
-            <div class="match-row">
-              <div class="match-ident">
-                <div class="match-avatar">{{ getInitials(match.opponent) }}</div>
-                <div>
-                  <p class="match-id">{{ match.id }}</p>
+          <div class="match-cards">
+            <div v-if="!matches.length" class="empty-state">
+              <p class="empty-state__title">Aucun match JcJ pour le moment.</p>
+              <p class="empty-state__subtitle">Invitez un ami pour commencer.</p>
+              <RouterLink class="button-primary" to="/amis">Trouver un ami</RouterLink>
+            </div>
+            <article v-for="match in visibleMatches" :key="match.id" class="match-card">
+              <div class="match-row">
+                <div class="match-ident">
+                  <div class="match-avatar">{{ getInitials(match.opponent) }}</div>
+                  <div>
+                    <p class="match-id">{{ match.id }}</p>
                   <p class="match-opponent">{{ match.opponent }}</p>
                 </div>
               </div>
@@ -130,9 +146,17 @@ const handleClearHistory = async () => {
                 <RouterLink class="button-ghost" :to="`/jeu/${match.id}`">Ouvrir</RouterLink>
                 <button class="button-primary" type="button">{{ actionLabel(match.status) }}</button>
               </div>
-            </div>
-          </article>
-        </div>
+              </div>
+            </article>
+            <button
+              v-if="canLoadMoreMatches"
+              class="button-ghost"
+              type="button"
+              @click="matchesPage += 1"
+            >
+              Afficher plus
+            </button>
+          </div>
 
         <p
           v-if="historyMessage"

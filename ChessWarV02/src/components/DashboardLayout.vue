@@ -82,6 +82,15 @@ const matchOpen = ref(false)
 const friendGroup = ref<HTMLElement | null>(null)
 const matchGroup = ref<HTMLElement | null>(null)
 let notificationsStream: EventSource | null = null
+let streamRetry = 0
+let streamReconnectTimer: ReturnType<typeof setTimeout> | null = null
+let streamWatchdog: ReturnType<typeof setInterval> | null = null
+let pollingTimer: ReturnType<typeof setInterval> | null = null
+let lastStreamEventAt = 0
+const STREAM_STALE_MS = 45000
+const STREAM_BACKOFF_BASE = 1200
+const STREAM_MAX_RETRY = 4
+const POLL_INTERVAL_MS = 20000
 
 const friendCount = computed(() => friendRequests.value.length)
 const matchCount = computed(() => matchInvites.value.length)
@@ -93,6 +102,7 @@ const matchReadyToast = ref<MatchReadyNotification | null>(null)
 const matchReadyCountdown = ref(0)
 const matchReadyDelay = 5
 let matchReadyTimer: ReturnType<typeof setInterval> | null = null
+type IdleCallback = (deadline?: { didTimeout: boolean; timeRemaining: () => number }) => void
 
 const resetSearch = () => {
   searchResults.value = []
@@ -200,6 +210,150 @@ const loadNotifications = async (silent = false) => {
       notificationsLoading.value = false
     }
   }
+}
+
+const touchStream = () => {
+  lastStreamEventAt = Date.now()
+}
+
+const stopPolling = () => {
+  if (pollingTimer) {
+    clearInterval(pollingTimer)
+    pollingTimer = null
+  }
+}
+
+const startPolling = () => {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return
+  }
+  if (pollingTimer) return
+  stopNotificationsStream()
+  stopStreamTimers()
+  void loadNotifications(true)
+  pollingTimer = setInterval(() => {
+    void loadNotifications(true)
+  }, POLL_INTERVAL_MS)
+}
+
+const scheduleStreamReconnect = () => {
+  if (streamReconnectTimer) {
+    clearTimeout(streamReconnectTimer)
+  }
+  const delay = Math.min(30000, STREAM_BACKOFF_BASE * Math.pow(2, streamRetry))
+  streamReconnectTimer = setTimeout(() => {
+    startNotificationsStream()
+  }, delay)
+}
+
+const startStreamWatchdog = () => {
+  if (streamWatchdog) return
+  streamWatchdog = setInterval(() => {
+    if (!notificationsStream) return
+    if (Date.now() - lastStreamEventAt > STREAM_STALE_MS) {
+      handleStreamError()
+    }
+  }, 10000)
+}
+
+const stopStreamTimers = () => {
+  if (streamReconnectTimer) {
+    clearTimeout(streamReconnectTimer)
+    streamReconnectTimer = null
+  }
+  if (streamWatchdog) {
+    clearInterval(streamWatchdog)
+    streamWatchdog = null
+  }
+}
+
+const handleStreamError = () => {
+  stopNotificationsStream()
+  stopStreamTimers()
+  streamRetry += 1
+  if (streamRetry >= STREAM_MAX_RETRY) {
+    startPolling()
+    return
+  }
+  scheduleStreamReconnect()
+}
+
+const startNotificationsStream = () => {
+  if (document.hidden) return
+  const token = getSessionToken()
+  if (!token || notificationsStream) return
+  notificationsStream = openNotificationsStream(
+    token,
+    (payload) => {
+      touchStream()
+      friendRequests.value = payload.friendRequests
+      matchInvites.value = payload.matchInvites
+      matchReady.value = payload.matchReady
+      void handleMatchReady(payload.matchReady)
+      if (notificationsError.value) {
+        notificationsError.value = ''
+      }
+    },
+    () => {
+      if (friendOpen.value || matchOpen.value) {
+        notificationsError.value = 'Connexion temps reel interrompue.'
+      }
+      handleStreamError()
+    },
+  )
+  streamRetry = 0
+  touchStream()
+  stopPolling()
+  startStreamWatchdog()
+}
+
+const stopNotificationsStream = () => {
+  if (!notificationsStream) return
+  notificationsStream.close()
+  notificationsStream = null
+}
+
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    stopNotificationsStream()
+    stopStreamTimers()
+    stopPolling()
+    return
+  }
+  startNotificationsStream()
+  void loadNotifications(true)
+}
+
+const handleOnline = () => {
+  if (document.hidden) return
+  startNotificationsStream()
+  void loadNotifications(true)
+}
+
+const handleOffline = () => {
+  stopNotificationsStream()
+  stopStreamTimers()
+  stopPolling()
+}
+
+const shouldPrefetch = () => {
+  if (typeof navigator === 'undefined') return false
+  const connection = (navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string }
+  }).connection
+  if (connection?.saveData) return false
+  if (connection?.effectiveType && /2g/.test(connection.effectiveType)) return false
+  return true
+}
+
+const prefetchPlay = () => {
+  if (typeof window === 'undefined' || !shouldPrefetch()) return
+  const requestIdle =
+    (window as Window & { requestIdleCallback?: (cb: IdleCallback) => number })
+      .requestIdleCallback ?? ((cb: IdleCallback) => window.setTimeout(cb, 800))
+  requestIdle(() => {
+    void import('@/views/GameView.vue')
+  })
 }
 
 const markFriendRead = async () => {
@@ -402,31 +556,15 @@ const showSearchPanel = computed(() => {
 onMounted(async () => {
   dashboard.value = await getDashboardData()
   await loadNotifications()
-
-  const token = getSessionToken()
-  if (token) {
-    notificationsStream = openNotificationsStream(
-      token,
-      (payload) => {
-        friendRequests.value = payload.friendRequests
-        matchInvites.value = payload.matchInvites
-        matchReady.value = payload.matchReady
-        void handleMatchReady(payload.matchReady)
-        if (notificationsError.value) {
-          notificationsError.value = ''
-        }
-      },
-      () => {
-        if (friendOpen.value || matchOpen.value) {
-          notificationsError.value = 'Connexion temps reel interrompue.'
-        }
-      },
-    )
-  }
+  startNotificationsStream()
+  prefetchPlay()
 })
 
 onMounted(() => {
   document.addEventListener('mousedown', handleClickOutside)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('online', handleOnline)
+  window.addEventListener('offline', handleOffline)
 })
 
 onBeforeUnmount(() => {
@@ -434,11 +572,13 @@ onBeforeUnmount(() => {
     clearTimeout(searchTimer)
   }
   stopMatchReadyTimer()
-  if (notificationsStream) {
-    notificationsStream.close()
-    notificationsStream = null
-  }
+  stopNotificationsStream()
+  stopStreamTimers()
+  stopPolling()
   document.removeEventListener('mousedown', handleClickOutside)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('online', handleOnline)
+  window.removeEventListener('offline', handleOffline)
 })
 
 watch(searchQuery, (value) => {
@@ -465,10 +605,9 @@ watch(searchQuery, (value) => {
 })
 
 const handleLogout = async () => {
-  if (notificationsStream) {
-    notificationsStream.close()
-    notificationsStream = null
-  }
+  stopNotificationsStream()
+  stopStreamTimers()
+  stopPolling()
   stopMatchReadyTimer()
   await clearSession()
   await router.push('/auth')
@@ -714,7 +853,15 @@ const handleLogout = async () => {
 
           <div class="user-pill">
             <div class="avatar">
-              <img v-if="profileAvatar" :src="profileAvatar" alt="Avatar" />
+              <img
+                v-if="profileAvatar"
+                :src="profileAvatar"
+                alt="Avatar"
+                width="36"
+                height="36"
+                loading="lazy"
+                decoding="async"
+              />
               <span v-else>{{ profileInitials }}</span>
             </div>
             <div>

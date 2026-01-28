@@ -2,6 +2,7 @@ import { apiFetch, getSessionToken, setSessionToken } from './api'
 import { clearGuestSession } from './guest'
 import { clearDashboardCache } from './localDb'
 import { clearMatchesCache } from './matchesDb'
+import { clearOfflineQueue, flushQueue } from './offlineQueue'
 
 export type AuthUser = {
   id: string
@@ -21,6 +22,13 @@ const clearCaches = () => {
   clearMatchesCache()
 }
 
+export const expireSession = (): void => {
+  setSessionToken(null)
+  clearGuestSession()
+  clearCaches()
+  clearOfflineQueue()
+}
+
 export const clearSession = async (): Promise<void> => {
   try {
     if (getSessionToken()) {
@@ -29,9 +37,7 @@ export const clearSession = async (): Promise<void> => {
   } catch {
     // Ignore logout errors to allow local cleanup.
   } finally {
-    setSessionToken(null)
-    clearGuestSession()
-    clearCaches()
+    expireSession()
   }
 }
 
@@ -73,6 +79,7 @@ export const registerUser = async (
       setSessionToken(response.token)
       clearGuestSession()
       clearCaches()
+      void flushQueue()
     }
 
     return { ok: response.ok, message: response.message, user: response.user }
@@ -104,6 +111,7 @@ export const loginUser = async (email: string, password: string): Promise<AuthRe
       setSessionToken(response.token)
       clearGuestSession()
       clearCaches()
+      void flushQueue()
     }
 
     return { ok: response.ok, message: response.message, user: response.user }

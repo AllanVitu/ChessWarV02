@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { getDashboardData, saveDashboardData, type DashboardDb } from '@/lib/localDb'
 import { getCurrentUser, updatePassword } from '@/lib/auth'
 import { notifyError, notifySuccess } from '@/lib/toast'
+import { isOffline } from '@/lib/offlineQueue'
 
 const dashboard = ref<DashboardDb | null>(null)
 const profileForm = reactive({
@@ -16,6 +17,10 @@ const profileForm = reactive({
 
 const profileMessage = ref('')
 const profileError = ref(false)
+const autoSaveStatus = ref('')
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+let profileSnapshot = ''
+let autoSaveReady = false
 const profileEmail = computed(() => dashboard.value?.profile.email ?? '')
 const avatarInitials = computed(() => {
   const name = profileForm.name.trim()
@@ -41,6 +46,8 @@ onMounted(async () => {
   profileForm.motto = data.profile.motto
   profileForm.location = data.profile.location
   profileForm.avatarUrl = data.profile.avatarUrl
+  profileSnapshot = JSON.stringify(profileForm)
+  autoSaveReady = true
 })
 
 const handleAvatarUpload = (event: Event) => {
@@ -56,17 +63,49 @@ const handleAvatarUpload = (event: Event) => {
   reader.readAsDataURL(file)
 }
 
-const saveProfile = async () => {
+const persistProfile = async (silent = false) => {
   if (!dashboard.value) return
   dashboard.value.profile = {
     ...dashboard.value.profile,
     ...profileForm,
   }
   dashboard.value = await saveDashboardData(dashboard.value)
-  profileMessage.value = 'Profil mis a jour.'
+  const message = isOffline()
+    ? 'Profil en attente de synchronisation.'
+    : 'Profil mis a jour.'
   profileError.value = false
-  notifySuccess('Profil', profileMessage.value)
+  if (!silent) {
+    profileMessage.value = message
+    notifySuccess('Profil', message)
+  }
 }
+
+const saveProfile = async (event?: SubmitEvent) => {
+  event?.preventDefault()
+  await persistProfile(false)
+}
+
+watch(
+  profileForm,
+  () => {
+    if (!autoSaveReady) return
+    const snapshot = JSON.stringify(profileForm)
+    if (snapshot === profileSnapshot) return
+    profileSnapshot = snapshot
+    autoSaveStatus.value = 'Sauvegarde automatique...'
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer)
+    }
+    autoSaveTimer = setTimeout(() => {
+      void persistProfile(true).finally(() => {
+        autoSaveStatus.value = isOffline()
+          ? 'Sauvegarde en attente de connexion.'
+          : 'Sauvegarde automatique terminee.'
+      })
+    }, 800)
+  },
+  { deep: true },
+)
 
 const savePassword = async () => {
   passwordMessage.value = ''
@@ -148,7 +187,15 @@ const savePassword = async () => {
             <span class="form-label">Avatar</span>
             <div class="avatar-field">
               <div class="avatar-preview">
-                <img v-if="profileForm.avatarUrl" :src="profileForm.avatarUrl" alt="Avatar profil" />
+                <img
+                  v-if="profileForm.avatarUrl"
+                  :src="profileForm.avatarUrl"
+                  alt="Avatar profil"
+                  width="72"
+                  height="72"
+                  loading="lazy"
+                  decoding="async"
+                />
                 <span v-else>{{ avatarInitials }}</span>
               </div>
               <div class="avatar-controls">
@@ -185,6 +232,9 @@ const savePassword = async () => {
           role="status"
         >
           {{ profileMessage }}
+        </p>
+        <p v-else-if="autoSaveStatus" class="form-message form-message--success" role="status">
+          {{ autoSaveStatus }}
         </p>
       </div>
 

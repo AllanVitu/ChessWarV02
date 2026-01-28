@@ -1,5 +1,6 @@
 import { apiFetch, getSessionToken } from './api'
 import { isGuestSession } from './guest'
+import { enqueueAction, isNetworkError, isOffline } from './offlineQueue'
 
 export type GameResult = 'win' | 'loss' | 'draw'
 
@@ -107,6 +108,8 @@ const guestProfile: Partial<DashboardProfile> = {
 
 let dashboardCache: DashboardDb | null = null
 let dashboardPromise: Promise<DashboardDb> | null = null
+let dashboardUpdatedAt = 0
+const DASHBOARD_TTL = 60000
 
 const readStorage = (): DashboardDb | null => {
   if (typeof window === 'undefined') return null
@@ -150,19 +153,29 @@ const applyGuestOverlay = (payload: DashboardDb): DashboardDb => {
 export const clearDashboardCache = (): void => {
   dashboardCache = null
   dashboardPromise = null
+  dashboardUpdatedAt = 0
+}
+
+const mergeDashboard = (target: DashboardDb, next: DashboardDb): void => {
+  target.profile = { ...target.profile, ...next.profile }
+  target.games = next.games
+  target.goals = next.goals
 }
 
 export const getDashboardData = async (): Promise<DashboardDb> => {
-  if (dashboardCache) return dashboardCache
   const stored = readStorage()
   const storedMapped = applyGuestOverlay(mapDashboard(stored))
   const storedAvatar = stored?.profile?.avatarUrl ?? ''
-  if (!getSessionToken()) {
+  if (!dashboardCache) {
     dashboardCache = storedMapped
-    return storedMapped
   }
 
-  if (!dashboardPromise) {
+  if (!getSessionToken()) {
+    return dashboardCache
+  }
+
+  const shouldRefresh = Date.now() - dashboardUpdatedAt > DASHBOARD_TTL
+  if (!dashboardPromise && shouldRefresh) {
     dashboardPromise = apiFetch<{ ok: boolean; dashboard?: DashboardDb }>('dashboard-get')
       .then((response) => {
         if (!response.ok) return storedMapped
@@ -174,19 +187,36 @@ export const getDashboardData = async (): Promise<DashboardDb> => {
       })
       .catch(() => storedMapped)
       .then((next) => {
+        if (dashboardCache) {
+          mergeDashboard(dashboardCache, next)
+          writeStorage(dashboardCache)
+          dashboardUpdatedAt = Date.now()
+          return dashboardCache
+        }
         dashboardCache = next
+        writeStorage(next)
+        dashboardUpdatedAt = Date.now()
         return next
+      })
+      .finally(() => {
+        dashboardPromise = null
       })
   }
 
-  return dashboardPromise
+  return dashboardCache
 }
 
 export const saveDashboardData = async (next: DashboardDb): Promise<DashboardDb> => {
   dashboardCache = next
   writeStorage(next)
+  dashboardUpdatedAt = Date.now()
 
   if (!getSessionToken()) {
+    return next
+  }
+
+  if (isOffline()) {
+    await enqueueAction('profile-save', { profile: next.profile })
     return next
   }
 
@@ -202,8 +232,12 @@ export const saveDashboardData = async (next: DashboardDb): Promise<DashboardDb>
     }
     dashboardCache = saved
     writeStorage(saved)
+    dashboardUpdatedAt = Date.now()
     return saved
-  } catch {
+  } catch (error) {
+    if (isNetworkError(error) || isOffline()) {
+      await enqueueAction('profile-save', { profile: next.profile })
+    }
     return next
   }
 }

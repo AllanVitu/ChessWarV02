@@ -1,12 +1,13 @@
 ﻿<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { loginUser } from '@/lib/auth'
 import { startGuestSession } from '@/lib/guest'
 import { notifyError, notifyInfo, notifySuccess } from '@/lib/toast'
 import { trackEvent } from '@/lib/telemetry'
 
 const router = useRouter()
+const route = useRoute()
 const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
@@ -78,12 +79,29 @@ const handleLogin = async () => {
   message.value = result.message
   isError.value = !result.ok
 
-  if (result.ok) {
-    notifySuccess('Connexion reussie', result.message)
-    trackEvent({ name: 'login' })
-    await router.push('/dashboard')
-    return
-  }
+    if (result.ok) {
+      notifySuccess('Connexion reussie', result.message)
+      trackEvent({ name: 'login' })
+      const redirect = (() => {
+        if (typeof window === 'undefined') return ''
+        try {
+          return window.sessionStorage.getItem('warchess.postLoginRedirect') ?? ''
+        } catch {
+          return ''
+        }
+      })()
+      if (redirect) {
+        try {
+          window.sessionStorage.removeItem('warchess.postLoginRedirect')
+        } catch {
+          // Ignore storage failures.
+        }
+        await router.push(redirect)
+      } else {
+        await router.push('/dashboard')
+      }
+      return
+    }
 
   if (result.message) {
     notifyError('Connexion refusee', result.message)
@@ -133,6 +151,9 @@ onBeforeUnmount(() => {
           <h1 class="auth-title">Reprendre votre partie</h1>
           <p class="subhead auth-subhead">
             Accedez a vos matchs en cours, vos invites d'amis et vos analyses.
+          </p>
+          <p v-if="route.query.reason === 'expired'" class="form-message form-message--error" role="status">
+            Session expiree. Veuillez vous reconnecter.
           </p>
           <div class="auth-status">
             <span class="status-dot" aria-hidden="true"></span>

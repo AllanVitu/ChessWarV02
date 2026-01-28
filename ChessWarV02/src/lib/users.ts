@@ -1,4 +1,5 @@
 import { apiFetch } from './api'
+import { enqueueAction, isNetworkError, isOffline } from './offlineQueue'
 
 export type FriendStatus = 'none' | 'outgoing' | 'incoming' | 'friends' | 'self'
 
@@ -40,6 +41,7 @@ type FriendResponse = {
 export const searchUsers = async (query: string): Promise<UserSearchItem[]> => {
   const response = await apiFetch<{ ok: boolean; users?: UserSearchItem[] }>(
     `users-search?q=${encodeURIComponent(query)}`,
+    { cacheTtlMs: 10000 },
   )
 
   if (!response.ok) return []
@@ -51,7 +53,7 @@ export const getPublicProfile = async (userId: string): Promise<PublicProfile | 
     ok: boolean
     profile?: Omit<PublicProfile, 'friendStatus'>
     friendStatus?: FriendStatus
-  }>(`users-profile?id=${encodeURIComponent(userId)}`)
+  }>(`users-profile?id=${encodeURIComponent(userId)}`, { cacheTtlMs: 60000 })
 
   if (!response.ok || !response.profile) return null
 
@@ -64,6 +66,7 @@ export const getPublicProfile = async (userId: string): Promise<PublicProfile | 
 export const getUserBadges = async (userId: string): Promise<UserBadge[]> => {
   const response = await apiFetch<{ ok: boolean; badges?: UserBadge[] }>(
     `users-badges?id=${encodeURIComponent(userId)}`,
+    { cacheTtlMs: 60000 },
   )
 
   if (!response.ok) return []
@@ -71,10 +74,31 @@ export const getUserBadges = async (userId: string): Promise<UserBadge[]> => {
 }
 
 export const requestFriend = async (userId: string): Promise<FriendResponse> => {
-  return apiFetch<FriendResponse>('friends-request', {
-    method: 'POST',
-    body: JSON.stringify({ userId }),
-  })
+  if (isOffline()) {
+    await enqueueAction('friend-request', { userId })
+    return {
+      ok: true,
+      message: "Demande d'ami en attente de connexion.",
+      friendStatus: 'outgoing',
+    }
+  }
+
+  try {
+    return await apiFetch<FriendResponse>('friends-request', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    })
+  } catch (error) {
+    if (isNetworkError(error) || isOffline()) {
+      await enqueueAction('friend-request', { userId })
+      return {
+        ok: true,
+        message: "Demande d'ami en attente de connexion.",
+        friendStatus: 'outgoing',
+      }
+    }
+    throw error
+  }
 }
 
 export const respondFriendRequest = async (

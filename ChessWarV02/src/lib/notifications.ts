@@ -1,4 +1,5 @@
 import { apiFetch } from './api'
+import { enqueueAction, isNetworkError, isOffline } from './offlineQueue'
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
@@ -84,14 +85,35 @@ export const createMatchInvite = async (
   timeControl = '10+0',
   requesterSide = 'Aleatoire',
 ): Promise<MatchInviteResponse> => {
-  return apiFetch<MatchInviteResponse>('match-invite-create', {
-    method: 'POST',
-    body: JSON.stringify({
-      userId,
-      timeControl,
-      requesterSide,
-    }),
-  })
+  if (isOffline()) {
+    await enqueueAction('match-invite', { userId, timeControl, requesterSide })
+    return {
+      ok: true,
+      message: 'Invitation en attente de connexion.',
+      status: 'pending',
+    }
+  }
+
+  try {
+    return await apiFetch<MatchInviteResponse>('match-invite-create', {
+      method: 'POST',
+      body: JSON.stringify({
+        userId,
+        timeControl,
+        requesterSide,
+      }),
+    })
+  } catch (error) {
+    if (isNetworkError(error) || isOffline()) {
+      await enqueueAction('match-invite', { userId, timeControl, requesterSide })
+      return {
+        ok: true,
+        message: 'Invitation en attente de connexion.',
+        status: 'pending',
+      }
+    }
+    throw error
+  }
 }
 
 export const respondMatchInvite = async (

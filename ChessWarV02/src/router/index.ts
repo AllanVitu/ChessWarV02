@@ -14,6 +14,7 @@ const UserProfileView = () => import('../views/UserProfileView.vue')
 const FriendsView = () => import('../views/FriendsView.vue')
 const SettingsView = () => import('../views/SettingsView.vue')
 const HelpView = () => import('../views/HelpView.vue')
+const PerfView = () => import('../views/PerfView.vue')
 const NotFoundView = () => import('../views/NotFoundView.vue')
 
 const router = createRouter({
@@ -160,6 +161,16 @@ const router = createRouter({
       meta: {
         title: 'Aide',
         description: 'Regles, FAQ et conseils pour bien demarrer.',
+      },
+    },
+    {
+      path: '/perf',
+      name: 'perf',
+      component: PerfView,
+      alias: '/diagnostics',
+      meta: {
+        title: 'Diagnostics',
+        description: 'Mesures de performance et erreurs client.',
       },
     },
     {

@@ -199,8 +199,8 @@ onMounted(async () => {
             >
               <defs>
                 <linearGradient id="eloGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#7eb8ff" stop-opacity="0.35" />
-                  <stop offset="100%" stop-color="#7eb8ff" stop-opacity="0" />
+                  <stop offset="0%" stop-color="var(--halo-secondary-solid)" stop-opacity="0.35" />
+                  <stop offset="100%" stop-color="var(--halo-secondary-solid)" stop-opacity="0" />
                 </linearGradient>
               </defs>
               <path class="elo-area" :d="eloChart.area" fill="url(#eloGradient)" />

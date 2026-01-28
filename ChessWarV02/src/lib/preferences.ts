@@ -5,6 +5,7 @@ export type UiPreferences = {
   timezone: string
   cadence: string
   boardTheme: string
+  haloTheme: 'blue' | 'red' | 'green' | 'violet'
   notifications: {
     matchAlerts: boolean
     matchResults: boolean
@@ -26,6 +27,7 @@ const defaultPreferences: UiPreferences = {
   timezone: 'Europe/Paris',
   cadence: '10+0 Rapide',
   boardTheme: 'Theme botanique',
+  haloTheme: 'blue',
   notifications: {
     matchAlerts: true,
     matchResults: true,
@@ -78,6 +80,20 @@ export const getDefaultPreferences = (): UiPreferences => ({
 export const applyPreferences = (preferences: UiPreferences): void => {
   if (typeof document === 'undefined') return
   const root = document.documentElement
-  root.classList.toggle('theme-dark', preferences.darkMode)
-  root.classList.toggle('ui-simple', preferences.simplifiedUi)
+  const body = document.body
+  const targets = body ? [root, body] : [root]
+  targets.forEach((el) => {
+    el.classList.toggle('theme-dark', preferences.darkMode)
+    el.classList.toggle('ui-simple', preferences.simplifiedUi)
+  })
+  const haloThemes = ['theme-halo-blue', 'theme-halo-red', 'theme-halo-green', 'theme-halo-violet']
+  targets.forEach((el) => {
+    haloThemes.forEach((theme) => el.classList.remove(theme))
+  })
+  const safeHalo = ['blue', 'red', 'green', 'violet'].includes(preferences.haloTheme)
+    ? preferences.haloTheme
+    : 'blue'
+  targets.forEach((el) => {
+    el.classList.add(`theme-halo-${safeHalo}`)
+  })
 }

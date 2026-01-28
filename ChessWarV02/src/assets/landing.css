@@ -88,7 +88,7 @@
 .landing-visual__tile {
   aspect-ratio: 1;
   border-radius: 10px;
-  background: linear-gradient(135deg, rgba(198, 161, 255, 0.35), rgba(155, 110, 230, 0.15));
+  background: linear-gradient(135deg, rgba(226, 198, 138, 0.35), rgba(183, 133, 64, 0.15));
 }
 
 .landing-visual__stats {
@@ -181,7 +181,7 @@
   color: var(--text-muted);
   font-size: 12px;
   padding-top: 12px;
-  border-top: 1px solid rgba(180, 140, 255, 0.15);
+  border-top: 1px solid rgba(214, 176, 102, 0.15);
 }
 
 .landing-footer__links {

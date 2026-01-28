@@ -38,6 +38,12 @@ const languageOptions = ['Francais', 'English', 'Espanol'] as const
 const timezoneOptions = ['Europe/Paris', 'Europe/London', 'America/Montreal'] as const
 const cadenceOptions = ['10+0 Rapide', '5+0 Blitz', '15+10 Classique'] as const
 const boardThemeOptions = ['Theme botanique', 'Theme sable', 'Theme contraste'] as const
+const haloThemeOptions = [
+  { value: 'blue', label: 'Halo bleu nuit' },
+  { value: 'red', label: 'Halo rouge cardinal' },
+  { value: 'green', label: 'Halo vert emeraude' },
+  { value: 'violet', label: 'Halo violet royal' },
+] as const
 
 const notificationSettings = [
   {
@@ -162,6 +168,15 @@ onMounted(() => {
             <select v-model="preferences.boardTheme" class="form-input">
               <option v-for="option in boardThemeOptions" :key="option" :value="option">
                 {{ option }}
+              </option>
+            </select>
+          </label>
+
+          <label class="form-field">
+            <span class="form-label">Couleur du theme</span>
+            <select v-model="preferences.haloTheme" class="form-input">
+              <option v-for="option in haloThemeOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
               </option>
             </select>
           </label>

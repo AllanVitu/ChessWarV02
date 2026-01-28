@@ -93,3 +93,16 @@ self.addEventListener('fetch', (event) => {
     ),
   )
 })
+
+self.addEventListener('sync', (event) => {
+  if (event.tag !== 'warchess-sync') return
+  event.waitUntil(
+    self.clients
+      .matchAll({ includeUncontrolled: true, type: 'window' })
+      .then((clients) => {
+        for (const client of clients) {
+          client.postMessage({ type: 'flush-queue' })
+        }
+      }),
+  )
+})

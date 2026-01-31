@@ -313,11 +313,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
 </script>
 
 <template>
-  <DashboardLayout
-    eyebrow="Bon retour"
-    :title="greetingTitle"
-    :subtitle="greetingSubtitle"
-  >
+  <DashboardLayout eyebrow="Bon retour" :title="greetingTitle" :subtitle="greetingSubtitle">
     <AppModal v-model="onboardingOpen" title="Demarrage rapide">
       <ol class="onboarding-list">
         <li v-for="step in onboardingSteps" :key="step.title" class="onboarding-step">
@@ -352,23 +348,16 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
 
           <div class="hero-body">
             <div class="board" aria-hidden="true">
-              <div
-                v-for="square in squares"
-                :key="square.id"
-                :class="[
-                  'square',
-                  square.dark ? 'square--dark' : 'square--light',
-                  square.isLastMove ? 'square--last' : '',
-                  square.isFocus ? 'square--focus' : '',
-                ]"
-              >
-                <span
-                  v-if="square.piece"
-                  :class="[
-                    'piece',
-                    square.tone === 'light' ? 'piece--light' : 'piece--dark',
-                  ]"
-                >
+              <div v-for="square in squares" :key="square.id" :class="[
+                'square',
+                square.dark ? 'square--dark' : 'square--light',
+                square.isLastMove ? 'square--last' : '',
+                square.isFocus ? 'square--focus' : '',
+              ]">
+                <span v-if="square.piece" :class="[
+                  'piece',
+                  square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                ]">
                   {{ square.symbol }}
                 </span>
               </div>
@@ -387,12 +376,8 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
                   <p class="metric-value">68%</p>
                 </div>
                 <div class="engine-bars">
-                  <span
-                    v-for="(bar, index) in evalBars"
-                    :key="`bar-${index}`"
-                    class="engine-bar"
-                    :style="{ height: `${bar}%` }"
-                  ></span>
+                  <span v-for="(bar, index) in evalBars" :key="`bar-${index}`" class="engine-bar"
+                    :style="{ height: `${bar}%` }"></span>
                 </div>
                 <p class="metric-note">Courbe sur les 8 derniers demi-coups</p>
               </div>
@@ -436,17 +421,8 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
                 <stop offset="100%" stop-color="var(--analysis-orange)" stop-opacity="0" />
               </linearGradient>
             </defs>
-            <path
-              :d="trendPaths.line"
-              fill="none"
-              stroke="url(#trendLine)"
-              stroke-width="3"
-              stroke-linecap="round"
-            />
-            <path
-              :d="trendPaths.area"
-              fill="url(#trendFill)"
-            />
+            <path :d="trendPaths.line" fill="none" stroke="url(#trendLine)" stroke-width="3" stroke-linecap="round" />
+            <path :d="trendPaths.area" fill="url(#trendFill)" />
           </svg>
 
           <div class="trend-footer">
@@ -484,12 +460,10 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
                   <td>{{ game.id }}</td>
                   <td>{{ game.opponent }}</td>
                   <td>
-                    <span
-                      :class="[
-                        'result-pill',
-                        `result--${game.result}`,
-                      ]"
-                    >
+                    <span :class="[
+                      'result-pill',
+                      `result--${game.result}`,
+                    ]">
                       {{ resultLabels[game.result] }}
                     </span>
                   </td>
@@ -513,20 +487,13 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
           <div class="rating-ring">
             <svg viewBox="0 0 120 120" aria-hidden="true">
               <defs>
-              <linearGradient id="ratingGradient" x1="0" y1="0" x2="1" y2="1">
+                <linearGradient id="ratingGradient" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stop-color="#4ade80" />
                   <stop offset="100%" stop-color="#22c55e" />
-              </linearGradient>
+                </linearGradient>
               </defs>
               <circle cx="60" cy="60" r="46" pathLength="100" class="ring-track" />
-              <circle
-                cx="60"
-                cy="60"
-                r="46"
-                pathLength="100"
-                class="ring-value"
-                stroke="url(#ratingGradient)"
-              />
+              <circle cx="60" cy="60" r="46" pathLength="100" class="ring-value" stroke="url(#ratingGradient)" />
             </svg>
             <div class="ring-center">
               <p class="ring-score">{{ profile.rating }}</p>
@@ -670,5 +637,3 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
     </section>
   </DashboardLayout>
 </template>
-
-

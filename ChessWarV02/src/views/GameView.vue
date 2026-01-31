@@ -891,11 +891,8 @@ const squares = computed(() =>
 </script>
 
 <template>
-  <DashboardLayout
-    eyebrow="Partie"
-    :title="`Match ${matchId || 'Libre'}`"
-    :subtitle="`Mode ${modeLabel} - ${opponent} - Cadence ${timeControl}`"
-  >
+  <DashboardLayout eyebrow="Partie" :title="`Match ${matchId || 'Libre'}`"
+    :subtitle="`Mode ${modeLabel} - ${opponent} - Cadence ${timeControl}`">
     <section class="game-layout">
       <div class="game-stack">
         <div class="panel game-board">
@@ -909,17 +906,13 @@ const squares = computed(() =>
 
           <p v-if="onlineNote" class="form-message form-message--success">{{ onlineNote }}</p>
           <p v-if="onlineError" class="form-message form-message--error">{{ onlineError }}</p>
-          <p
-            v-if="clockNotice"
-            :class="['form-message', clockNoticeError ? 'form-message--error' : 'form-message--success']"
-          >
+          <p v-if="clockNotice"
+            :class="['form-message', clockNoticeError ? 'form-message--error' : 'form-message--success']">
             {{ clockNotice }}
           </p>
 
           <div class="player-strip">
-            <div
-              :class="['player-chip', sideToMove === 'white' && 'player-chip--active']"
-            >
+            <div :class="['player-chip', sideToMove === 'white' && 'player-chip--active']">
               <div class="player-avatar">{{ initialsFrom(whiteLabel) }}</div>
               <div class="player-info">
                 <p class="player-name">{{ whiteLabel }}</p>
@@ -928,9 +921,7 @@ const squares = computed(() =>
               <div :class="['player-clock', clockTone(whiteClockMs)]">{{ whiteClockLabel }}</div>
             </div>
             <span class="vs-pill">VS</span>
-            <div
-              :class="['player-chip', sideToMove === 'black' && 'player-chip--active']"
-            >
+            <div :class="['player-chip', sideToMove === 'black' && 'player-chip--active']">
               <div class="player-avatar">{{ initialsFrom(blackLabel) }}</div>
               <div class="player-info">
                 <p class="player-name">{{ blackLabel }}</p>
@@ -942,31 +933,20 @@ const squares = computed(() =>
 
           <div class="board-wrap">
             <div class="board" role="grid" aria-label="Plateau d'echecs">
-              <button
-                v-for="square in squares"
-                :key="square.id"
-                type="button"
-                :class="[
-                  'square',
-                  square.dark ? 'square--dark' : 'square--light',
-                  square.isLast ? 'square--last' : '',
-                  square.isArrival ? 'square--arrival' : '',
-                  square.isSelected ? 'square--selected' : '',
-                  square.isTarget ? 'square--target' : '',
-                ]"
-                :aria-label="square.ariaLabel"
-                :aria-pressed="square.isSelected"
-                role="gridcell"
-                @click="handleSquareClick(square.id, square.piece)"
-              >
-                <span
-                  v-if="square.piece"
-                  :class="[
-                    'piece',
-                    square.tone === 'light' ? 'piece--light' : 'piece--dark',
-                    square.isArrival ? 'piece--impact' : '',
-                  ]"
-                >
+              <button v-for="square in squares" :key="square.id" type="button" :class="[
+                'square',
+                square.dark ? 'square--dark' : 'square--light',
+                square.isLast ? 'square--last' : '',
+                square.isArrival ? 'square--arrival' : '',
+                square.isSelected ? 'square--selected' : '',
+                square.isTarget ? 'square--target' : '',
+              ]" :aria-label="square.ariaLabel" :aria-pressed="square.isSelected" role="gridcell"
+                @click="handleSquareClick(square.id, square.piece)">
+                <span v-if="square.piece" :class="[
+                  'piece',
+                  square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                  square.isArrival ? 'piece--impact' : '',
+                ]">
                   {{ square.symbol }}
                 </span>
               </button>
@@ -986,10 +966,8 @@ const squares = computed(() =>
           <button class="button-ghost game-action" type="button" :disabled="matchEnded" @click="handleDraw">
             Match Nul
           </button>
-          <p
-            v-if="finishNotice"
-            :class="['form-message', finishNoticeError ? 'form-message--error' : 'form-message--success']"
-          >
+          <p v-if="finishNotice"
+            :class="['form-message', finishNoticeError ? 'form-message--error' : 'form-message--success']">
             {{ finishNotice }}
           </p>
 
@@ -1004,10 +982,8 @@ const squares = computed(() =>
                 Retour au tableau
               </button>
             </div>
-            <p
-              v-if="rematchNotice"
-              :class="['form-message', rematchNoticeError ? 'form-message--error' : 'form-message--success']"
-            >
+            <p v-if="rematchNotice"
+              :class="['form-message', rematchNoticeError ? 'form-message--error' : 'form-message--success']">
               {{ rematchNotice }}
             </p>
           </div>
@@ -1062,20 +1038,10 @@ const squares = computed(() =>
             </div>
           </div>
           <div class="chat-input-row">
-            <input
-              v-model="chatInput"
-              type="text"
-              placeholder="Ecrire un message..."
-              aria-label="Message"
-              :disabled="chatPending || onlineLoading"
-              @keydown.enter.prevent="handleSendChat"
-            />
-            <button
-              class="button-primary"
-              type="button"
-              :disabled="chatPending || onlineLoading || !chatInput.trim()"
-              @click="handleSendChat"
-            >
+            <input v-model="chatInput" type="text" placeholder="Ecrire un message..." aria-label="Message"
+              :disabled="chatPending || onlineLoading" @keydown.enter.prevent="handleSendChat" />
+            <button class="button-primary" type="button" :disabled="chatPending || onlineLoading || !chatInput.trim()"
+              @click="handleSendChat">
               {{ chatPending ? 'Envoi...' : 'Envoyer' }}
             </button>
           </div>
@@ -1085,5 +1051,3 @@ const squares = computed(() =>
     </section>
   </DashboardLayout>
 </template>
-
-

@@ -80,13 +80,13 @@ export default defineConfig(({ command }) => ({
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-            handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'api-cache',
               networkTimeoutSeconds: 6,
               cacheableResponse: { statuses: [0, 200] },
               expiration: { maxEntries: 120, maxAgeSeconds: 60 * 5 },
             },
+            handler: 'NetworkFirst',
           },
           {
             urlPattern: ({ request }) => request.destination === 'image',

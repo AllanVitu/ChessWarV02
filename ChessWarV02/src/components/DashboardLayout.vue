@@ -626,7 +626,6 @@ const handleLogout = async () => {
     >
       <template #actions>
         <div class="dashboard-nav-actions">
-          <RouterLink class="button-ghost nav-action" to="/matchs">Matchs</RouterLink>
           <RouterLink class="button-ghost nav-action" to="/amis">Amis</RouterLink>
           <RouterLink class="app-navbar__link nav-action" to="/help">Aide &amp; regles</RouterLink>
           <button class="button-outline nav-action" type="button" @click="handleLogout">

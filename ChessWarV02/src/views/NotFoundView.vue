@@ -5,7 +5,7 @@ import logoUrl from '@/assets/brand-icon.png'
 
 const navItems = [
   { label: 'Accueil', to: '/intro' },
-  { label: 'Jouer', to: '/play' },
+  { label: 'Matchs', to: '/matchs' },
   { label: 'Connexion', to: '/auth' },
 ]
 </script>

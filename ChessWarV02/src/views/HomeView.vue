@@ -89,19 +89,19 @@ const dailyChallenges = [
     title: 'Defi du jour',
     description: "Gagnez une partie rapide en moins de 15 coups.",
     cta: 'Lancer un match',
-    to: '/play',
+    to: '/matchs',
   },
   {
     title: 'Sprint tactique',
     description: 'Enchainez 3 parties blitz pour monter en rythme.',
     cta: 'Jouer blitz',
-    to: '/play',
+    to: '/matchs',
   },
   {
     title: 'Focus ouverture',
     description: "Testez une nouvelle ouverture sur 2 parties.",
     cta: 'Demarrer',
-    to: '/play',
+    to: '/matchs',
   },
 ]
 
@@ -127,7 +127,7 @@ const fallbackChallenge = {
   title: 'Defi du jour',
   description: "Gagnez une partie rapide en moins de 15 coups.",
   cta: 'Lancer un match',
-  to: '/play',
+  to: '/matchs',
 }
 
 const fallbackPuzzle = {
@@ -161,7 +161,7 @@ const checklistSteps = computed(() => {
       id: 'match',
       title: 'Jouer une partie',
       done: autoGames || completedSteps.value.includes('match'),
-      to: '/play',
+      to: '/matchs',
     },
     {
       id: 'friend',
@@ -323,7 +323,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
       </ol>
       <template #footer>
         <button class="button-ghost" type="button" @click="closeOnboarding">Plus tard</button>
-        <RouterLink class="button-primary" to="/play" @click="closeOnboarding">Jouer maintenant</RouterLink>
+        <RouterLink class="button-primary" to="/matchs" @click="closeOnboarding">Jouer maintenant</RouterLink>
       </template>
     </AppModal>
 
@@ -339,7 +339,8 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
               </p>
             </div>
             <div class="hero-actions">
-              <RouterLink class="button-primary" to="/play">Nouvelle partie</RouterLink>
+              <RouterLink class="button-primary" to="/matchs">Nouveau match</RouterLink>
+              <RouterLink class="button-ghost" to="/studio">Studio creatif</RouterLink>
               <button class="button-ghost" type="button" @click="onboardingOpen = true">
                 Mini tutoriel
               </button>

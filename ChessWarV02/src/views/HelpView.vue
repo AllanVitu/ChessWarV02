@@ -4,7 +4,7 @@ import AppNavbar from '@/components/ui/AppNavbar.vue'
 import logoUrl from '@/assets/brand-icon.png'
 
 const navItems = [
-  { label: 'Jouer', to: '/play' },
+  { label: 'Matchs', to: '/matchs' },
   { label: 'Classement', to: '/leaderboard' },
   { label: 'Connexion', to: '/auth' },
 ]
@@ -23,7 +23,7 @@ const navItems = [
         </p>
       </div>
       <div class="help-actions">
-        <RouterLink class="button-primary" to="/play">Jouer maintenant</RouterLink>
+        <RouterLink class="button-primary" to="/matchs">Lancer un match</RouterLink>
         <RouterLink class="button-ghost" to="/intro">Retour a l'accueil</RouterLink>
       </div>
     </div>

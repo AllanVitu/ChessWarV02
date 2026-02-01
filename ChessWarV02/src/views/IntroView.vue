@@ -1,18 +1,128 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import AppNavbar from '@/components/ui/AppNavbar.vue'
+import IntroLoader from '@/components/ui/IntroLoader.vue'
 import logoUrl from '@/assets/brand-icon.png'
+import wordmarkUrl from '@/assets/brand-wordmark.png'
 import { startGuestSession } from '@/lib/guest'
 import { notifyInfo } from '@/lib/toast'
 import { trackEvent } from '@/lib/telemetry'
+import { preloadAssets, type PreloadProgress, type PreloadResult } from '@/lib/preloadAssets'
+
+type LoaderError = {
+  code: string
+  message: string
+  detail?: string
+}
 
 const router = useRouter()
-
 const navItems = [
-  { label: 'Jouer', to: '/play' },
+  { label: 'Matchs', to: '/matchs' },
   { label: 'Classement', to: '/leaderboard' },
   { label: 'Connexion', to: '/auth' },
 ]
+
+const progress = ref<PreloadProgress>({
+  loaded: 0,
+  total: 1,
+  percent: 0,
+  stage: 'initializing',
+})
+const slow = ref(false)
+const error = ref<LoaderError | null>(null)
+const ready = ref(false)
+const attempt = ref(0)
+const lightMode = ref(false)
+let slowTimer: ReturnType<typeof setTimeout> | null = null
+let abortController: AbortController | null = null
+let retryTimer: ReturnType<typeof setTimeout> | null = null
+
+const assets = computed(() => [
+  { url: logoUrl, label: 'Logo principal', weight: 1 },
+  { url: wordmarkUrl, label: 'Wordmark', weight: 1, heavy: true },
+  { url: `${import.meta.env.BASE_URL}icon-512.png`, label: 'Icone HD', weight: 1, heavy: true },
+])
+
+const showLightMode = computed(() => !lightMode.value)
+const isLoading = computed(() => !ready.value && !error.value)
+
+const debugLog = (...args: unknown[]) => {
+  if (import.meta.env.DEV) {
+    console.debug('[intro]', ...args)
+  }
+}
+
+const isChunkError = (message: string) =>
+  message.includes('ChunkLoadError') || message.includes('Failed to fetch dynamically imported module')
+
+const detectWebglSupport = () => {
+  try {
+    const canvas = document.createElement('canvas')
+    return !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+  } catch {
+    return false
+  }
+}
+
+const buildError = (result: PreloadResult) => {
+  if (result.ok) return null
+  const message = result.error.message || 'Une erreur est survenue.'
+  const detail = [result.detail, result.error.stack].filter(Boolean).join('\n')
+  return {
+    code: result.code,
+    message,
+    detail: detail || undefined,
+  }
+}
+
+const startLoading = async () => {
+  if (abortController) {
+    abortController.abort()
+  }
+  abortController = new AbortController()
+  error.value = null
+  ready.value = false
+  slow.value = false
+  progress.value = { loaded: 0, total: 1, percent: 0, stage: 'initializing' }
+
+  if (slowTimer) clearTimeout(slowTimer)
+  slowTimer = setTimeout(() => {
+    slow.value = true
+  }, 10000)
+
+  const manifest = assets.value.filter((item) => (lightMode.value ? !item.heavy : true))
+  debugLog('Preload manifest', manifest)
+
+  const result = await preloadAssets(manifest, {
+    signal: abortController.signal,
+    onProgress: (next) => {
+      progress.value = next
+    },
+  })
+
+  if (slowTimer) {
+    clearTimeout(slowTimer)
+    slowTimer = null
+  }
+
+  if (result.ok) {
+    ready.value = true
+    progress.value = { ...progress.value, stage: 'ready', percent: 100 }
+    return
+  }
+
+  const maybeChunk = result.error.message ? isChunkError(result.error.message) : false
+  if (maybeChunk && attempt.value < 1) {
+    attempt.value += 1
+    retryTimer = setTimeout(() => {
+      void startLoading()
+    }, 1000)
+    return
+  }
+
+  error.value = buildError(result)
+}
 
 const handleGuest = async () => {
   startGuestSession()
@@ -20,10 +130,125 @@ const handleGuest = async () => {
   trackEvent({ name: 'login_guest' })
   await router.push('/dashboard')
 }
+
+const handleRetry = () => {
+  attempt.value = 0
+  void startLoading()
+}
+
+const handleLightMode = () => {
+  lightMode.value = true
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('warchess.lightMode', '1')
+    document.documentElement.classList.add('ui-simple')
+  }
+  attempt.value = 0
+  void startLoading()
+}
+
+const handleCopy = async () => {
+  if (!error.value) return
+  const detail = [
+    `code: ${error.value.code}`,
+    `message: ${error.value.message}`,
+    error.value.detail ? `detail: ${error.value.detail}` : '',
+    `userAgent: ${navigator.userAgent}`,
+  ]
+    .filter(Boolean)
+    .join('\n')
+  try {
+    await navigator.clipboard.writeText(detail)
+  } catch {
+    // Ignore clipboard failures.
+  }
+}
+
+const handleBack = async () => {
+  await router.push('/intro')
+}
+
+const registerGlobalHandlers = () => {
+  const handleError = (event: ErrorEvent) => {
+    if (!isLoading.value) return
+    const message = event.message || 'Erreur inconnue.'
+    const code = isChunkError(message) ? 'CHUNK_LOAD_FAILED' : 'RUNTIME_ERROR'
+    error.value = { code, message, detail: event.error?.stack }
+    abortController?.abort()
+  }
+
+  const handleRejection = (event: PromiseRejectionEvent) => {
+    if (!isLoading.value) return
+    const reason = event.reason instanceof Error ? event.reason : new Error(String(event.reason))
+    const message = reason.message || 'Promesse rejetee.'
+    const code = isChunkError(message) ? 'CHUNK_LOAD_FAILED' : 'UNHANDLED_REJECTION'
+    error.value = { code, message, detail: reason.stack }
+    abortController?.abort()
+  }
+
+  window.addEventListener('error', handleError)
+  window.addEventListener('unhandledrejection', handleRejection)
+
+  return () => {
+    window.removeEventListener('error', handleError)
+    window.removeEventListener('unhandledrejection', handleRejection)
+  }
+}
+
+let unregisterHandlers: (() => void) | null = null
+
+onMounted(() => {
+  unregisterHandlers = registerGlobalHandlers()
+
+  if (typeof window !== 'undefined') {
+    const storedLight = window.localStorage.getItem('warchess.lightMode') === '1'
+    if (storedLight) {
+      lightMode.value = true
+      document.documentElement.classList.add('ui-simple')
+    } else {
+      document.documentElement.classList.remove('ui-simple')
+    }
+  }
+
+  const supportsWebgl = detectWebglSupport()
+  if (!supportsWebgl && !lightMode.value) {
+    error.value = {
+      code: 'WEBGL_UNSUPPORTED',
+      message: 'Votre navigateur ne supporte pas WebGL.',
+      detail: 'Activez l acceleration materielle ou passez en mode leger.',
+    }
+    slow.value = true
+    return
+  }
+
+  void startLoading()
+})
+
+onBeforeUnmount(() => {
+  if (slowTimer) clearTimeout(slowTimer)
+  if (retryTimer) clearTimeout(retryTimer)
+  if (abortController) abortController.abort()
+  if (unregisterHandlers) unregisterHandlers()
+})
 </script>
 
 <template>
-  <section class="landing-page">
+  <IntroLoader
+    v-if="!ready || error"
+    title="WarChess"
+    subtitle="Chargement de l'arene..."
+    :percent="progress.percent"
+    :stage="progress.stage"
+    :current="progress.current"
+    :slow="slow"
+    :error="error"
+    :show-light-mode="showLightMode"
+    @retry="handleRetry"
+    @light-mode="handleLightMode"
+    @copy="handleCopy"
+    @back="handleBack"
+  />
+
+  <section v-else class="landing-page">
     <AppNavbar :items="navItems" brand-label="WarChess" :brand-logo="logoUrl">
       <template #actions>
         <button class="button-ghost landing-guest" type="button" @click="handleGuest">
@@ -40,7 +265,7 @@ const handleGuest = async () => {
           L'arene d'echecs premium pour jouer, progresser et analyser en quelques minutes.
         </p>
         <div class="landing-actions">
-          <RouterLink class="button-primary" to="/play">Jouer maintenant</RouterLink>
+          <RouterLink class="button-primary" to="/matchs">Lancer un match</RouterLink>
           <RouterLink class="button-ghost" to="/help">Voir les regles (2 min)</RouterLink>
         </div>
         <div class="landing-proof">
@@ -147,7 +372,7 @@ const handleGuest = async () => {
         </p>
       </div>
       <div class="landing-actions">
-        <RouterLink class="button-primary" to="/play">Jouer maintenant</RouterLink>
+        <RouterLink class="button-primary" to="/matchs">Lancer un match</RouterLink>
         <RouterLink class="button-ghost" to="/help">Voir les regles</RouterLink>
       </div>
     </section>
@@ -161,6 +386,3 @@ const handleGuest = async () => {
     </footer>
   </section>
 </template>
-
-
-

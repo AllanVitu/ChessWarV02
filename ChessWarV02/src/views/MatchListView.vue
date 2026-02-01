@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { clearMatchesHistory, getMatches, type MatchRecord } from '@/lib/matchesDb'
 
 const matches = ref<MatchRecord[]>([])
 const historyMessage = ref('')
 const historyError = ref(false)
+const router = useRouter()
+const selectedMode = ref<'IA' | 'JcJ'>('IA')
 
 const statusLabels = {
   planifie: 'Planifie',
@@ -70,6 +72,15 @@ const handleClearHistory = async () => {
   historyMessage.value = result.message
   historyError.value = !result.ok
 }
+
+const startNewMatch = async () => {
+  try {
+    window.sessionStorage.setItem('warchess.play.access', '1')
+  } catch {
+    // Ignore storage failures.
+  }
+  await router.push(`/play?allow=1&mode=${selectedMode.value.toLowerCase()}`)
+}
 </script>
 
 <template>
@@ -91,9 +102,30 @@ const handleClearHistory = async () => {
         </div>
 
         <p class="panel-sub">
-          Les matchs IA et locaux sont desactives. Lancez une partie JcJ depuis l'onglet Amis.
+          Tous les nouveaux matchs se lancent depuis ici, puis basculent vers l'arene de jeu IA ou JcJ.
         </p>
-        <RouterLink class="button-primary" to="/amis">Trouver un ami</RouterLink>
+        <div class="mode-toggle">
+          <button
+            class="button-ghost mode-pill"
+            :class="selectedMode === 'IA' ? 'mode-pill--active' : ''"
+            type="button"
+            @click="selectedMode = 'IA'"
+          >
+            IA
+          </button>
+          <button
+            class="button-ghost mode-pill"
+            :class="selectedMode === 'JcJ' ? 'mode-pill--active' : ''"
+            type="button"
+            @click="selectedMode = 'JcJ'"
+          >
+            JcJ
+          </button>
+        </div>
+        <div class="panel-actions">
+          <button class="button-primary" type="button" @click="startNewMatch">Nouveau match</button>
+          <RouterLink class="button-ghost" to="/amis">Inviter un ami</RouterLink>
+        </div>
       </div>
 
       <div class="panel match-list">
@@ -169,4 +201,3 @@ const handleClearHistory = async () => {
     </section>
   </DashboardLayout>
 </template>
-

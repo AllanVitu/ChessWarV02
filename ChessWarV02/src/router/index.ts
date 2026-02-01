@@ -13,6 +13,7 @@ const ProfileAnalysisView = () => import('../views/ProfileAnalysisView.vue')
 const UserProfileView = () => import('../views/UserProfileView.vue')
 const FriendsView = () => import('../views/FriendsView.vue')
 const SettingsView = () => import('../views/SettingsView.vue')
+const StudioView = () => import('../views/StudioView.vue')
 const HelpView = () => import('../views/HelpView.vue')
 const PerfView = () => import('../views/PerfView.vue')
 const NotFoundView = () => import('../views/NotFoundView.vue')
@@ -134,6 +135,15 @@ const router = createRouter({
       },
     },
     {
+      path: '/studio',
+      name: 'studio',
+      component: StudioView,
+      meta: {
+        title: 'Studio',
+        description: 'Configurez vos modules et sessions de jeu.',
+      },
+    },
+    {
       path: '/inscription',
       name: 'inscription',
       component: RegisterView,
@@ -183,6 +193,25 @@ const router = createRouter({
       },
     },
   ],
+})
+
+router.beforeEach((to) => {
+  if (to.name !== 'play') return true
+  const hasId = typeof to.params.id === 'string' && to.params.id.length > 0
+  const allowQuery = typeof to.query.allow === 'string' && to.query.allow === '1'
+  let allowSession = false
+  if (typeof window !== 'undefined') {
+    try {
+      allowSession = window.sessionStorage.getItem('warchess.play.access') === '1'
+      if (allowSession) {
+        window.sessionStorage.removeItem('warchess.play.access')
+      }
+    } catch {
+      allowSession = false
+    }
+  }
+  if (hasId || allowQuery || allowSession) return true
+  return { path: '/matchs' }
 })
 
 export default router

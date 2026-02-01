@@ -73,7 +73,7 @@ watch([activeTab, query], () => {
             Comparez vos performances en temps reel et defiez les meilleurs.
           </p>
           <div class="leaderboard-cta">
-            <RouterLink class="button-primary" to="/play">Lancer un match</RouterLink>
+          <RouterLink class="button-primary" to="/matchs">Lancer un match</RouterLink>
             <RouterLink class="button-ghost" to="/profil/analyse">Voir mon analyse</RouterLink>
           </div>
         </div>

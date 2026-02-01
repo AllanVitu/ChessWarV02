@@ -44,7 +44,8 @@ const logoutLabel = computed(() =>
 
 const navItems = [
   { label: 'Dashboard', to: '/dashboard' },
-  { label: 'Jouer', to: '/play' },
+  { label: 'Matchs', to: '/matchs' },
+  { label: 'Studio', to: '/studio' },
   { label: 'Classement', to: '/leaderboard' },
   { label: 'Profil', to: '/profile' },
   { label: 'Parametres', to: '/settings' },
@@ -878,5 +879,3 @@ const handleLogout = async () => {
     <BottomNav />
   </div>
 </template>
-
-

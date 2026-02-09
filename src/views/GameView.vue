@@ -1282,47 +1282,49 @@ const squares = computed(() =>
           </div>
 
           <div class="board-wrap">
-            <div class="board" role="grid" aria-label="Plateau d'echecs">
-              <button
-                v-for="square in squares"
-                :key="square.id"
-                type="button"
-                :class="[
-                  'square',
-                  square.dark ? 'square--dark' : 'square--light',
-                  square.isLast ? 'square--last' : '',
-                  square.isArrival ? 'square--arrival' : '',
-                  square.isSelected ? 'square--selected' : '',
-                  square.isTarget ? 'square--target' : '',
-                ]"
-                :aria-label="square.ariaLabel"
-                :aria-pressed="square.isSelected"
-                role="gridcell"
-                @click="handleSquareClick(square.id, square.piece)"
-              >
-                <img
-                  v-if="square.piece && square.image"
-                  :src="square.image"
-                  alt=""
-                  aria-hidden="true"
+            <div class="board">
+              <div class="board-grid" role="grid" aria-label="Plateau d'echecs">
+                <button
+                  v-for="square in squares"
+                  :key="square.id"
+                  type="button"
                   :class="[
-                    'piece',
-                    'piece-img',
-                    square.tone === 'light' ? 'piece--light' : 'piece--dark',
-                    square.isArrival ? 'piece--impact' : '',
+                    'square',
+                    square.dark ? 'square--dark' : 'square--light',
+                    square.isLast ? 'square--last' : '',
+                    square.isArrival ? 'square--arrival' : '',
+                    square.isSelected ? 'square--selected' : '',
+                    square.isTarget ? 'square--target' : '',
                   ]"
-                />
-                <span
-                  v-else-if="square.piece"
-                  :class="[
-                    'piece',
-                    square.tone === 'light' ? 'piece--light' : 'piece--dark',
-                    square.isArrival ? 'piece--impact' : '',
-                  ]"
+                  :aria-label="square.ariaLabel"
+                  :aria-pressed="square.isSelected"
+                  role="gridcell"
+                  @click="handleSquareClick(square.id, square.piece)"
                 >
-                  {{ square.symbol }}
-                </span>
-              </button>
+                  <img
+                    v-if="square.piece && square.image"
+                    :src="square.image"
+                    alt=""
+                    aria-hidden="true"
+                    :class="[
+                      'piece',
+                      'piece-img',
+                      square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                      square.isArrival ? 'piece--impact' : '',
+                    ]"
+                  />
+                  <span
+                    v-else-if="square.piece"
+                    :class="[
+                      'piece',
+                      square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                      square.isArrival ? 'piece--impact' : '',
+                    ]"
+                  >
+                    {{ square.symbol }}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

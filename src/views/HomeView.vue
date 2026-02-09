@@ -306,32 +306,34 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
 
           <div class="hero-body">
             <div class="board" aria-hidden="true">
-              <div v-for="square in squares" :key="square.id" :class="[
-                'square',
-                square.dark ? 'square--dark' : 'square--light',
-                square.isLastMove ? 'square--last' : '',
-                square.isFocus ? 'square--focus' : '',
-              ]">
-                <img
-                  v-if="square.piece && square.image"
-                  :src="square.image"
-                  alt=""
-                  aria-hidden="true"
-                  :class="[
-                    'piece',
-                    'piece-img',
-                    square.tone === 'light' ? 'piece--light' : 'piece--dark',
-                  ]"
-                />
-                <span
-                  v-else-if="square.piece"
-                  :class="[
-                    'piece',
-                    square.tone === 'light' ? 'piece--light' : 'piece--dark',
-                  ]"
-                >
-                  {{ square.symbol }}
-                </span>
+              <div class="board-grid">
+                <div v-for="square in squares" :key="square.id" :class="[
+                  'square',
+                  square.dark ? 'square--dark' : 'square--light',
+                  square.isLastMove ? 'square--last' : '',
+                  square.isFocus ? 'square--focus' : '',
+                ]">
+                  <img
+                    v-if="square.piece && square.image"
+                    :src="square.image"
+                    alt=""
+                    aria-hidden="true"
+                    :class="[
+                      'piece',
+                      'piece-img',
+                      square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                    ]"
+                  />
+                  <span
+                    v-else-if="square.piece"
+                    :class="[
+                      'piece',
+                      square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                    ]"
+                  >
+                    {{ square.symbol }}
+                  </span>
+                </div>
               </div>
             </div>
 

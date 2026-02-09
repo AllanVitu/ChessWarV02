@@ -19,6 +19,7 @@ export type UiPreferences = {
 }
 
 const STORAGE_KEY = 'warchess.preferences'
+const allowedBoardThemes = ['Theme sable', 'Theme contraste'] as const
 
 const defaultPreferences: UiPreferences = {
   darkMode: false,
@@ -52,7 +53,7 @@ const readStorage = (): Partial<UiPreferences> => {
 
 export const loadPreferences = (): UiPreferences => {
   const stored = readStorage()
-  return {
+  const merged = {
     ...defaultPreferences,
     ...stored,
     notifications: {
@@ -64,6 +65,10 @@ export const loadPreferences = (): UiPreferences => {
       ...(stored.privacy ?? {}),
     },
   }
+  if (!allowedBoardThemes.includes(merged.boardTheme as (typeof allowedBoardThemes)[number])) {
+    merged.boardTheme = defaultPreferences.boardTheme
+  }
+  return merged
 }
 
 export const savePreferences = (preferences: UiPreferences): void => {
@@ -107,7 +112,7 @@ export const applyPreferences = (preferences: UiPreferences): void => {
     el.classList.add(`theme-halo-${safeHalo}`)
   })
 
-  const boardThemes = ['board-theme-sable', 'board-theme-contraste']
+  const boardThemes = ['board-theme-botanique', 'board-theme-sable', 'board-theme-contraste']
   targets.forEach((el) => {
     boardThemes.forEach((theme) => el.classList.remove(theme))
   })

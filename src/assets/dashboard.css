@@ -653,11 +653,7 @@
 .board {
   width: min(420px, 100%);
   aspect-ratio: 1;
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  grid-template-rows: repeat(8, minmax(0, 1fr));
-  padding: var(--board-grid-inset-top) var(--board-grid-inset-right) var(--board-grid-inset-bottom)
-    var(--board-grid-inset-left);
+  position: relative;
   border-radius: 18px;
   overflow: hidden;
   border: 1px solid var(--board-border);
@@ -667,6 +663,15 @@
   background-position: center;
   background-repeat: no-repeat;
   box-shadow: inset 0 0 0 1px rgba(44, 236, 255, 0.18), 0 0 24px rgba(44, 236, 255, 0.12);
+}
+
+.board-grid {
+  position: absolute;
+  inset: var(--board-grid-inset-top) var(--board-grid-inset-right) var(--board-grid-inset-bottom)
+    var(--board-grid-inset-left);
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-rows: repeat(8, minmax(0, 1fr));
 }
 
 .theme-dark .board {
@@ -813,7 +818,9 @@
 }
 
 .piece--dark.piece-img {
-  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.25));
+  filter:
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.65))
+    drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
 }
 
 .hero-metrics {

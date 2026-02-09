@@ -26,7 +26,7 @@ const defaultPreferences: UiPreferences = {
   language: 'Francais',
   timezone: 'Europe/Paris',
   cadence: '10+0 Rapide',
-  boardTheme: 'Theme botanique',
+  boardTheme: 'Theme sable',
   haloTheme: 'blue',
   notifications: {
     matchAlerts: true,
@@ -105,5 +105,19 @@ export const applyPreferences = (preferences: UiPreferences): void => {
     : 'blue'
   targets.forEach((el) => {
     el.classList.add(`theme-halo-${safeHalo}`)
+  })
+
+  const boardThemes = ['board-theme-sable', 'board-theme-contraste']
+  targets.forEach((el) => {
+    boardThemes.forEach((theme) => el.classList.remove(theme))
+  })
+  const boardThemeMap: Record<string, string> = {
+    'Theme sable': 'board-theme-sable',
+    'Theme contraste': 'board-theme-contraste',
+  }
+  const fallbackBoardClass = boardThemeMap['Theme sable'] ?? 'board-theme-sable'
+  const boardClass = boardThemeMap[preferences.boardTheme] ?? fallbackBoardClass
+  targets.forEach((el) => {
+    el.classList.add(boardClass)
   })
 }

@@ -55,6 +55,13 @@
     'Liberation Mono', monospace;
   --board-light: #ffffff;
   --board-dark: #000000;
+  --board-image: none;
+  --board-tile-light: var(--board-light);
+  --board-tile-dark: var(--board-dark);
+  --board-grid-inset-top: 0%;
+  --board-grid-inset-right: 0%;
+  --board-grid-inset-bottom: 0%;
+  --board-grid-inset-left: 0%;
   --board-border: rgba(44, 236, 255, 0.24);
   --board-glow: rgba(242, 75, 255, 0.26);
 }
@@ -244,6 +251,26 @@
   --halo-secondary-solid: #8fb4ff;
   --bg-overlay: rgba(12, 14, 20, 0.42);
   --bg-overlay-soft: rgba(10, 12, 16, 0.18);
+}
+
+.board-theme-sable {
+  --board-image: url('./boards/board-sable.png');
+  --board-tile-light: transparent;
+  --board-tile-dark: transparent;
+  --board-grid-inset-top: 5.4688%;
+  --board-grid-inset-right: 5.6641%;
+  --board-grid-inset-bottom: 5.3711%;
+  --board-grid-inset-left: 5.6641%;
+}
+
+.board-theme-contraste {
+  --board-image: none;
+  --board-tile-light: #ffffff;
+  --board-tile-dark: #000000;
+  --board-grid-inset-top: 0%;
+  --board-grid-inset-right: 0%;
+  --board-grid-inset-bottom: 0%;
+  --board-grid-inset-left: 0%;
 }
 
 *,

@@ -37,7 +37,7 @@ watch(
 const languageOptions = ['Francais', 'English', 'Espanol'] as const
 const timezoneOptions = ['Europe/Paris', 'Europe/London', 'America/Montreal'] as const
 const cadenceOptions = ['10+0 Rapide', '5+0 Blitz', '15+10 Classique'] as const
-const boardThemeOptions = ['Theme botanique', 'Theme sable', 'Theme contraste'] as const
+const boardThemeOptions = ['Theme sable', 'Theme contraste'] as const
 const haloThemeOptions = [
   { value: 'blue', label: 'Halo bleu nuit' },
   { value: 'red', label: 'Halo rouge cardinal' },

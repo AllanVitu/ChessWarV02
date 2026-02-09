@@ -656,10 +656,16 @@
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   grid-template-rows: repeat(8, minmax(0, 1fr));
+  padding: var(--board-grid-inset-top) var(--board-grid-inset-right) var(--board-grid-inset-bottom)
+    var(--board-grid-inset-left);
   border-radius: 18px;
   overflow: hidden;
   border: 1px solid var(--board-border);
-  background: var(--board-dark);
+  background-color: var(--board-dark);
+  background-image: var(--board-image);
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
   box-shadow: inset 0 0 0 1px rgba(44, 236, 255, 0.18), 0 0 24px rgba(44, 236, 255, 0.12);
 }
 
@@ -686,19 +692,19 @@
 }
 
 .square--light {
-  background: var(--board-light);
+  background: var(--board-tile-light);
 }
 
 .square--dark {
-  background: var(--board-dark);
+  background: var(--board-tile-dark);
 }
 
 .theme-dark .square--light {
-  background: var(--board-light);
+  background: var(--board-tile-light);
 }
 
 .theme-dark .square--dark {
-  background: var(--board-dark);
+  background: var(--board-tile-dark);
 }
 
 .square--last {

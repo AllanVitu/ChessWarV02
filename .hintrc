@@ -7,8 +7,7 @@
       "default",
       {
         "ignore": [
-          "backdrop-filter",
-          "-webkit-mask"
+          "backdrop-filter"
         ]
       }
     ]

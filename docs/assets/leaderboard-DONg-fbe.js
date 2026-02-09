@@ -1,0 +1,1 @@
+import{f as n}from"./index-VbADcaYQ.js";const p=async(a,e=1,t=20)=>{const s=new URLSearchParams({scope:a,page:String(e),pageSize:String(t)}),r=await n(`leaderboard-get?${s.toString()}`);return!r.ok||!r.players?[]:r.players};export{p as g};

@@ -1,108 +1,106 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
+import LineChart from '@/components/charts/LineChart.vue'
 import { getDashboardData, type GameRecord } from '@/lib/localDb'
-import { getProfileAiAnalysis } from '@/lib/profileAnalysis'
-
-const analysis = getProfileAiAnalysis()
+import { getMatches, type MatchRecord } from '@/lib/matchesDb'
+import { buildEloSeries, summarizeMatches, filterMatchesByPeriod } from '@/lib/stats'
 
 const games = ref<GameRecord[]>([])
-const profileRating = ref(1800)
-type PeriodKey = '7j' | '30j' | '90j'
-type PeriodOption = { key: PeriodKey; label: string; games: number }
+const matches = ref<MatchRecord[]>([])
+const profileRating = ref(1200)
 
+type PeriodKey = '7j' | '30j' | '90j'
 const selectedPeriod = ref<PeriodKey>('30j')
 
-const periodOptions: PeriodOption[] = [
-  { key: '7j', label: '7 jours', games: 5 },
-  { key: '30j', label: '30 jours', games: 12 },
-  { key: '90j', label: '90 jours', games: 24 },
-]
+const periodOptions = [
+  { key: '7j', label: '7 jours', days: 7 },
+  { key: '30j', label: '30 jours', days: 30 },
+  { key: '90j', label: '90 jours', days: 90 },
+] as const
 
-const fallbackPeriod: PeriodOption = periodOptions[1] ?? periodOptions[0] ?? {
-  key: '30j',
-  label: '30 jours',
-  games: 12,
-}
+type PeriodOption = (typeof periodOptions)[number]
+const fallbackPeriod: PeriodOption = periodOptions[1] ?? periodOptions[0]
 
-const periodConfig = computed(
+const periodConfig = computed<PeriodOption>(
   () => periodOptions.find((period) => period.key === selectedPeriod.value) ?? fallbackPeriod,
 )
 
-const periodGames = computed(() => {
-  const limit = periodConfig.value.games
-  const slice = games.value.slice(0, limit)
-  return slice.reverse()
-})
+const periodMatches = computed(() =>
+  filterMatchesByPeriod(matches.value, periodConfig.value.days).reverse(),
+)
 
-const resultDelta = (result: GameRecord['result']) => {
-  if (result === 'win') return 18
-  if (result === 'draw') return 6
-  return -12
-}
+const eloSeries = computed(() => buildEloSeries(periodMatches.value, profileRating.value))
+const chartLabels = computed(() => eloSeries.value.map((_, index) => `M${index + 1}`))
+const chartDatasets = computed(() => [
+  { label: 'Elo', data: eloSeries.value, color: 'rgba(242, 167, 101, 0.85)' },
+])
 
-const buildEloSeries = (items: GameRecord[], baseRating: number) => {
-  if (!items.length) {
-    return [baseRating - 6, baseRating]
-  }
-  const deltas = items.map((item) => resultDelta(item.result))
-  const start = baseRating - deltas.reduce((sum, delta) => sum + delta, 0)
-  let current = start
-  const series = [current]
-  for (const delta of deltas) {
-    current += delta
-    series.push(current)
-  }
-  return series
-}
-
-const buildEloChart = (values: number[]) => {
-  const width = 520
-  const height = 160
-  const padding = 18
-  const safeValues = values.length > 1 ? values : [values[0] ?? 0, values[0] ?? 0]
+const eloStats = computed(() => {
+  const safeValues = eloSeries.value.length ? eloSeries.value : [0]
   const min = Math.min(...safeValues)
   const max = Math.max(...safeValues)
-  const span = Math.max(1, max - min)
-  const step = safeValues.length > 1 ? (width - padding * 2) / (safeValues.length - 1) : 0
-  const scaleHeight = height - padding * 2
-
-  const points = safeValues.map((value, index) => {
-    const x = padding + step * index
-    const y = height - padding - ((value - min) / span) * scaleHeight
-    return { x, y, value }
-  })
-
-  const line = points
-    .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x} ${point.y}`)
-    .join(' ')
-  const last = points[points.length - 1] ?? { x: padding, y: height - padding }
-  const area = `${line} L${last.x} ${height - padding} L${padding} ${height - padding} Z`
-
   return {
-    width,
-    height,
-    line,
-    area,
-    points,
     min,
     max,
     start: safeValues[0] ?? 0,
     end: safeValues[safeValues.length - 1] ?? 0,
   }
-}
-
-const eloSeries = computed(() => buildEloSeries(periodGames.value, profileRating.value))
-const eloChart = computed(() => buildEloChart(eloSeries.value))
-const eloLastPoint = computed(() => {
-  const points = eloChart.value.points
-  return points[points.length - 1] ?? { x: 0, y: 0 }
 })
 
 const formatRating = (value: number) => Math.round(value).toString()
 
+const summary = computed(() => summarizeMatches(matches.value))
+
+const keyMetrics = computed(() => [
+  { label: 'Winrate', value: `${summary.value.winRate}%`, detail: `${summary.value.wins}/${summary.value.total}` },
+  {
+    label: 'Elo delta',
+    value: `${summary.value.totalEloDelta >= 0 ? '+' : ''}${summary.value.totalEloDelta}`,
+    detail: 'Sur 30 jours',
+  },
+  {
+    label: 'Precision',
+    value: games.value.length
+      ? `${Math.round(games.value.reduce((sum, game) => sum + (game.accuracy ?? 0), 0) / games.value.length)}%`
+      : '0%',
+    detail: 'Moyenne parties',
+  },
+  { label: 'Matchs JcJ', value: `${summary.value.total}`, detail: 'Historique' },
+])
+
+const focusAreas = computed(() =>
+  games.value.length
+    ? [
+        { label: 'Regularite', progress: Math.min(100, summary.value.winRate) },
+        {
+          label: 'Precision',
+          progress: Math.min(
+            100,
+            Math.round(
+              games.value.reduce((sum, game) => sum + (game.accuracy ?? 0), 0) / games.value.length,
+            ),
+          ),
+        },
+      ]
+    : [],
+)
+
+const highlights = computed(() => {
+  if (!games.value.length) return []
+  const openingCounts = games.value.reduce<Record<string, number>>((acc, item) => {
+    const key = item.opening || 'Inconnue'
+    acc[key] = (acc[key] ?? 0) + 1
+    return acc
+  }, {})
+  const favoriteOpening =
+    Object.entries(openingCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '---'
+  return [{ title: 'Ouverture favorite', detail: favoriteOpening, tag: 'Stable' }]
+})
+
 const periodStats = computed(() => {
-  const items = periodGames.value
+  const items = games.value
   const total = items.length
   if (!total) {
     return [
@@ -138,7 +136,8 @@ const periodStats = computed(() => {
 onMounted(async () => {
   const data = await getDashboardData()
   games.value = data.games ?? []
-  profileRating.value = data.profile.rating ?? 1800
+  profileRating.value = data.profile.rating ?? 1200
+  matches.value = await getMatches()
 })
 </script>
 
@@ -147,6 +146,7 @@ onMounted(async () => {
     eyebrow="Analyse"
     title="Analyse du profil"
     subtitle="Synthese de performance et tendances recentes."
+    :breadcrumbs="[{ label: 'Profil', to: '/profile' }, { label: 'Analyse' }]"
   >
     <section class="content-grid">
       <div class="left-column">
@@ -157,11 +157,11 @@ onMounted(async () => {
               <h2 class="panel-headline">Niveau et progression</h2>
               <p class="panel-sub">Suivi des stats cles sur vos 30 derniers matchs.</p>
             </div>
-            <span class="badge-soft">Semaine 02</span>
+            <span class="badge-soft">{{ periodConfig.label }}</span>
           </div>
 
           <div class="stats-grid">
-            <div v-for="metric in analysis.keyMetrics" :key="metric.label" class="panel stat-card">
+            <div v-for="metric in keyMetrics" :key="metric.label" class="panel stat-card">
               <p class="stat-label">{{ metric.label }}</p>
               <p class="stat-value">{{ metric.value }}</p>
               <div class="stat-meta">
@@ -192,49 +192,29 @@ onMounted(async () => {
           </div>
 
           <div class="elo-chart">
-            <svg
-              :viewBox="`0 0 ${eloChart.width} ${eloChart.height}`"
-              role="img"
-              aria-label="Evolution de votre Elo"
-            >
-              <defs>
-                <linearGradient id="eloGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="var(--halo-secondary-solid)" stop-opacity="0.35" />
-                  <stop offset="100%" stop-color="var(--halo-secondary-solid)" stop-opacity="0" />
-                </linearGradient>
-              </defs>
-              <path class="elo-area" :d="eloChart.area" fill="url(#eloGradient)" />
-              <path class="elo-line" :d="eloChart.line" />
-              <circle
-                v-if="eloChart.points.length"
-                class="elo-dot"
-                :cx="eloLastPoint.x"
-                :cy="eloLastPoint.y"
-                r="4"
-              />
-            </svg>
+            <LineChart :labels="chartLabels" :datasets="chartDatasets" />
             <div class="elo-range">
-              <span>{{ formatRating(eloChart.min) }}</span>
-              <span>{{ formatRating(eloChart.max) }}</span>
+              <span>{{ formatRating(eloStats.min) }}</span>
+              <span>{{ formatRating(eloStats.max) }}</span>
             </div>
           </div>
 
           <div class="elo-metrics">
             <div class="metric-card">
               <p class="metric-label">Depart</p>
-              <p class="metric-value">{{ formatRating(eloChart.start) }}</p>
+              <p class="metric-value">{{ formatRating(eloStats.start) }}</p>
               <p class="metric-note">Debut de periode</p>
             </div>
             <div class="metric-card">
               <p class="metric-label">Fin</p>
-              <p class="metric-value">{{ formatRating(eloChart.end) }}</p>
+              <p class="metric-value">{{ formatRating(eloStats.end) }}</p>
               <p class="metric-note">Actuel</p>
             </div>
             <div class="metric-card">
               <p class="metric-label">Variation</p>
               <p class="metric-value">
-                {{ Math.round(eloChart.end - eloChart.start) >= 0 ? '+' : '' }}{{
-                  Math.round(eloChart.end - eloChart.start)
+                {{ Math.round(eloStats.end - eloStats.start) >= 0 ? '+' : '' }}{{
+                  Math.round(eloStats.end - eloStats.start)
                 }}
               </p>
               <p class="metric-note">Sur la periode</p>
@@ -256,11 +236,11 @@ onMounted(async () => {
               <p class="panel-title">Axes prioritaires</p>
               <h3 class="panel-headline">Progression ciblee</h3>
             </div>
-            <button class="range-pill" type="button">Mensuel</button>
+            <span class="range-pill">Mensuel</span>
           </div>
 
-          <div class="progress-list analysis-progress">
-            <div v-for="focus in analysis.focusAreas" :key="focus.label" class="progress-item">
+          <div v-if="focusAreas.length" class="progress-list analysis-progress">
+            <div v-for="focus in focusAreas" :key="focus.label" class="progress-item">
               <div class="progress-labels">
                 <span>{{ focus.label }}</span>
                 <span>{{ focus.progress }}%</span>
@@ -270,6 +250,7 @@ onMounted(async () => {
               </div>
             </div>
           </div>
+          <p v-else class="panel-sub">Aucune donnee de progression disponible.</p>
         </div>
 
         <div class="panel">
@@ -280,8 +261,8 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div class="session-list">
-            <div v-for="item in analysis.highlights" :key="item.title" class="session-item">
+          <div v-if="highlights.length" class="session-list">
+            <div v-for="item in highlights" :key="item.title" class="session-item">
               <div>
                 <p class="session-title">{{ item.title }}</p>
                 <p class="session-time">{{ item.detail }}</p>
@@ -289,6 +270,7 @@ onMounted(async () => {
               <span class="badge-soft">{{ item.tag }}</span>
             </div>
           </div>
+          <p v-else class="panel-sub">Aucun highlight pour le moment.</p>
         </div>
       </div>
 
@@ -296,18 +278,26 @@ onMounted(async () => {
         <div class="panel">
           <div class="panel-header">
             <div>
-              <p class="panel-title">Points d'alerte</p>
-              <h3 class="panel-headline">A corriger</h3>
+              <p class="panel-title">Resume JcJ</p>
+              <h3 class="panel-headline">Stats essentielles</h3>
             </div>
           </div>
 
-          <div class="session-list">
-            <div v-for="item in analysis.alerts" :key="item.title" class="session-item">
-              <div>
-                <p class="session-title">{{ item.title }}</p>
-                <p class="session-time">{{ item.detail }}</p>
-              </div>
-              <span class="badge-soft">{{ item.tag }}</span>
+          <div class="hero-metrics">
+            <div class="metric-card">
+              <p class="metric-label">Matchs termines</p>
+              <p class="metric-value">{{ summary.total }}</p>
+              <p class="metric-note">{{ summary.wins }} victoires</p>
+            </div>
+            <div class="metric-card">
+              <p class="metric-label">Winrate</p>
+              <p class="metric-value">{{ summary.winRate }}%</p>
+              <p class="metric-note">{{ summary.draws }} nuls</p>
+            </div>
+            <div class="metric-card">
+              <p class="metric-label">Elo delta</p>
+              <p class="metric-value">{{ summary.totalEloDelta >= 0 ? '+' : '' }}{{ summary.totalEloDelta }}</p>
+              <p class="metric-note">Sur 30 jours</p>
             </div>
           </div>
         </div>
@@ -315,39 +305,15 @@ onMounted(async () => {
         <div class="panel">
           <div class="panel-header">
             <div>
-              <p class="panel-title">Analyse IA</p>
-              <h3 class="panel-headline">Lecture automatique</h3>
+              <p class="panel-title">Navigation</p>
+              <h3 class="panel-headline">Actions utiles</h3>
             </div>
           </div>
 
-          <div class="hero-metrics">
-            <div v-for="signal in analysis.aiSignals" :key="signal.label" class="metric-card">
-              <p class="metric-label">{{ signal.label }}</p>
-              <p class="metric-value">{{ signal.value }}</p>
-              <p class="metric-note">{{ signal.note }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel leaderboard-card">
-          <div class="panel-header">
-            <div>
-              <p class="panel-title">Adversaires cle</p>
-              <h3 class="panel-headline">Styles a preparer</h3>
-            </div>
-          </div>
-
-          <div class="leaderboard-list">
-            <div v-for="rival in analysis.rivals" :key="rival.name" class="leaderboard-item">
-              <div class="leaderboard-user">
-                <div class="leaderboard-avatar">{{ rival.name.slice(0, 1) }}</div>
-                <div>
-                  <p class="leaderboard-name">{{ rival.name }}</p>
-                  <p class="leaderboard-meta">{{ rival.note }}</p>
-                </div>
-              </div>
-              <span class="leaderboard-delta">{{ rival.delta }}</span>
-            </div>
+          <div class="card-actions">
+            <RouterLink class="button-primary" to="/matchs">Voir historique</RouterLink>
+            <RouterLink class="button-ghost" to="/leaderboard">Classement</RouterLink>
+            <RouterLink class="button-ghost" to="/profile">Profil</RouterLink>
           </div>
         </div>
       </aside>

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import AppTabs from '@/components/ui/AppTabs.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import { getLeaderboard, type LeaderboardPlayer, type LeaderboardScope } from '@/lib/leaderboard'
 
 const tabs = [
   { id: 'global', label: 'Global' },
@@ -11,32 +12,29 @@ const tabs = [
   { id: 'friends', label: 'Amis' },
 ]
 
-const activeTab = ref('global')
+const activeTab = ref<LeaderboardScope>('global')
 const query = ref('')
 const page = ref(1)
 const pageSize = 10
+const players = ref<LeaderboardPlayer[]>([])
+const loading = ref(false)
+const error = ref('')
 
-const leaderboard = {
-  global: [
-    { id: 'p-01', rank: 1, name: 'I. Alvarez', rating: 2548, delta: '+12' },
-    { id: 'p-02', rank: 2, name: 'C. Russo', rating: 2492, delta: '+8' },
-    { id: 'p-03', rank: 3, name: 'T. Holm', rating: 2451, delta: '+5' },
-    { id: 'p-04', rank: 4, name: 'J. Park', rating: 2422, delta: '+4' },
-    { id: 'p-05', rank: 5, name: 'S. Nguyen', rating: 2384, delta: '+2' },
-  ],
-  monthly: [
-    { id: 'p-06', rank: 1, name: 'M. Silva', rating: 2362, delta: '+24' },
-    { id: 'p-07', rank: 2, name: 'L. Bernard', rating: 2328, delta: '+18' },
-    { id: 'p-08', rank: 3, name: 'D. Miller', rating: 2291, delta: '+14' },
-  ],
-  friends: [
-    { id: 'p-09', rank: 1, name: 'A. Carter', rating: 2012, delta: '+6' },
-    { id: 'p-10', rank: 2, name: 'N. Lopez', rating: 1988, delta: '+4' },
-  ],
-} as const
+const fetchLeaderboard = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    players.value = await getLeaderboard(activeTab.value, 1, 50)
+  } catch (err) {
+    error.value = (err as Error).message
+    players.value = []
+  } finally {
+    loading.value = false
+  }
+}
 
 const filteredPlayers = computed(() => {
-  const list = leaderboard[activeTab.value as keyof typeof leaderboard] ?? []
+  const list = players.value ?? []
   const trimmed = query.value.trim().toLowerCase()
   if (!trimmed) return list
   return list.filter((player) => player.name.toLowerCase().includes(trimmed))
@@ -55,6 +53,14 @@ const resetQuery = () => {
 
 watch([activeTab, query], () => {
   page.value = 1
+})
+
+watch(activeTab, () => {
+  void fetchLeaderboard()
+})
+
+onMounted(async () => {
+  await fetchLeaderboard()
 })
 </script>
 
@@ -105,7 +111,21 @@ watch([activeTab, query], () => {
         </div>
 
         <EmptyState
-          v-if="!filteredPlayers.length"
+          v-if="loading"
+          title="Chargement du classement"
+          subtitle="Synchronisation des statistiques en cours."
+        />
+
+        <EmptyState
+          v-else-if="error"
+          title="Classement indisponible"
+          :subtitle="error"
+        >
+          <button class="button-ghost" type="button" @click="fetchLeaderboard">Reessayer</button>
+        </EmptyState>
+
+        <EmptyState
+          v-else-if="!filteredPlayers.length"
           title="Aucun joueur trouve"
           subtitle="Essayez un autre filtre ou une recherche differente."
         >
@@ -123,7 +143,7 @@ watch([activeTab, query], () => {
               </div>
             </div>
             <span class="leaderboard-rating">{{ player.rating }}</span>
-            <span class="leaderboard-delta">{{ player.delta }}</span>
+            <span class="leaderboard-delta">{{ player.delta >= 0 ? '+' : '' }}{{ player.delta }}</span>
             <RouterLink class="button-ghost" :to="`/joueur/${player.id}`">Voir</RouterLink>
           </div>
           <button

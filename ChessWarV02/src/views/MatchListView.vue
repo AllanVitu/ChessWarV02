@@ -1,19 +1,50 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
+import AppModal from '@/components/ui/AppModal.vue'
 import { clearMatchesHistory, getMatches, type MatchRecord } from '@/lib/matchesDb'
+import type { DifficultyKey } from '@/lib/chessEngine'
+import {
+  getMatchmakingStatus,
+  joinMatchmaking,
+  leaveMatchmaking,
+  type MatchmakingMode,
+  type MatchmakingStatus,
+} from '@/lib/matchmaking'
 
 const matches = ref<MatchRecord[]>([])
 const historyMessage = ref('')
 const historyError = ref(false)
 const router = useRouter()
-const selectedMode = ref<'IA' | 'JcJ'>('IA')
+const selectedMode = ref<'IA' | 'JcJ' | 'Histoire'>('IA')
+const aiModalOpen = ref(false)
+const aiDifficulty = ref<DifficultyKey>('intermediaire')
+const aiSide = ref<'Blancs' | 'Noirs' | 'Aleatoire'>('Aleatoire')
+const aiTime = ref('10+0')
+const pvpMode = ref<MatchmakingMode>('ranked')
+const pvpSide = ref<'Blancs' | 'Noirs' | 'Aleatoire'>('Aleatoire')
+const pvpTime = ref('10+0')
+const matchmaking = ref<MatchmakingStatus>({ status: 'idle' })
+const matchmakingMessage = ref('')
+const matchmakingError = ref(false)
+let matchmakingTimer: ReturnType<typeof setInterval> | null = null
+
+const aiDifficultyOptions: Array<{ value: DifficultyKey; label: string }> = [
+  { value: 'facile', label: 'Facile' },
+  { value: 'intermediaire', label: 'Intermediaire' },
+  { value: 'difficile', label: 'Difficile' },
+  { value: 'maitre', label: 'Maitre' },
+]
+
+const aiTimeOptions = ['5+0', '10+0', '15+10', '20+0', '30+0']
 
 const statusLabels = {
-  planifie: 'Planifie',
-  en_cours: 'En cours',
-  termine: 'Termine',
+  waiting: 'En attente',
+  ready: 'Pret',
+  started: 'En cours',
+  finished: 'Termine',
+  aborted: 'Annule',
 }
 
 const getInitials = (name: string) => {
@@ -28,15 +59,21 @@ const getInitials = (name: string) => {
 }
 
 const actionLabel = (status: MatchRecord['status']) => {
-  if (status === 'planifie') return 'Lancer'
-  if (status === 'en_cours') return 'Reprendre'
+  if (status === 'waiting' || status === 'ready') return 'Ouvrir'
+  if (status === 'started') return 'Reprendre'
   return 'Revoir'
 }
 
-const modeLabel = (mode: MatchRecord['mode']) => (mode === 'JcJ' ? 'Ami' : 'Ami')
+const modeLabel = (mode: MatchRecord['mode']) => {
+  if (mode === 'IA') return 'IA'
+  if (mode === 'Histoire') return 'Histoire'
+  return 'JcJ'
+}
 
 const totalMatches = computed(() => matches.value.length)
-const hasHistoryMatches = computed(() => matches.value.some((match) => match.status === 'termine'))
+const hasHistoryMatches = computed(() =>
+  matches.value.some((match) => match.status === 'finished' || match.status === 'aborted'),
+)
 const matchesPage = ref(1)
 const matchesPageSize = 6
 const visibleMatches = computed(() =>
@@ -52,7 +89,38 @@ watch(matches, () => {
 
 onMounted(async () => {
   matches.value = await getMatches()
+  matchmaking.value = await getMatchmakingStatus()
+  if (matchmaking.value.status === 'queued') {
+    startMatchmakingPoll()
+  }
 })
+
+onBeforeUnmount(() => {
+  stopMatchmakingPoll()
+})
+
+const stopMatchmakingPoll = () => {
+  if (matchmakingTimer) {
+    clearInterval(matchmakingTimer)
+    matchmakingTimer = null
+  }
+}
+
+const startMatchmakingPoll = () => {
+  if (matchmakingTimer) return
+  matchmakingTimer = setInterval(async () => {
+    await refreshMatchmakingStatus()
+  }, 3000)
+}
+
+const refreshMatchmakingStatus = async () => {
+  const status = await getMatchmakingStatus()
+  matchmaking.value = status
+  if (status.status === 'matched' && status.matchId) {
+    stopMatchmakingPoll()
+    await router.push(`/jeu/${status.matchId}`)
+  }
+}
 
 const handleClearHistory = async () => {
   historyMessage.value = ''
@@ -73,13 +141,67 @@ const handleClearHistory = async () => {
   historyError.value = !result.ok
 }
 
-const startNewMatch = async () => {
+const setPlayAccess = () => {
   try {
     window.sessionStorage.setItem('warchess.play.access', '1')
   } catch {
     // Ignore storage failures.
   }
-  await router.push(`/play?allow=1&mode=${selectedMode.value.toLowerCase()}`)
+}
+
+const startAiMatch = async () => {
+  setPlayAccess()
+  aiModalOpen.value = false
+  const params = new URLSearchParams({
+    allow: '1',
+    mode: 'ia',
+    difficulty: aiDifficulty.value,
+    side: aiSide.value,
+    time: aiTime.value,
+  })
+  await router.push(`/play?${params.toString()}`)
+}
+
+const startNewMatch = async () => {
+  if (selectedMode.value === 'IA') {
+    aiModalOpen.value = true
+    return
+  }
+  if (selectedMode.value === 'Histoire') {
+    await router.push('/histoire')
+    return
+  }
+  matchmakingMessage.value = ''
+  matchmakingError.value = false
+  try {
+    const status = await joinMatchmaking({
+      mode: pvpMode.value,
+      timeControl: pvpTime.value,
+      side: pvpSide.value,
+    })
+    matchmaking.value = status
+    if (status.status === 'matched' && status.matchId) {
+      await router.push(`/jeu/${status.matchId}`)
+      return
+    }
+    matchmakingMessage.value = 'Recherche en cours...'
+    startMatchmakingPoll()
+  } catch (error) {
+    matchmakingMessage.value = (error as Error).message
+    matchmakingError.value = true
+  }
+}
+
+const cancelMatchmaking = async () => {
+  await leaveMatchmaking()
+  matchmaking.value = { status: 'idle' }
+  matchmakingMessage.value = 'File annulee.'
+  matchmakingError.value = false
+  stopMatchmakingPoll()
+}
+
+const handleMatchAction = async (match: MatchRecord) => {
+  await router.push(`/jeu/${match.id}`)
 }
 </script>
 
@@ -89,6 +211,63 @@ const startNewMatch = async () => {
     title="Centre des matchs"
     subtitle="Creez, lancez et suivez vos parties en un seul endroit."
   >
+    <AppModal v-model="aiModalOpen" title="Match IA">
+      <div class="form-stack">
+        <label class="form-field">
+          <span class="form-label">Difficulte</span>
+          <select v-model="aiDifficulty" class="form-input">
+            <option v-for="option in aiDifficultyOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+
+        <div class="form-field">
+          <span class="form-label">Couleur</span>
+          <div class="segmented">
+            <button
+              class="segmented-button"
+              :class="aiSide === 'Blancs' ? 'segmented-button--active' : ''"
+              type="button"
+              @click="aiSide = 'Blancs'"
+            >
+              Blancs
+            </button>
+            <button
+              class="segmented-button"
+              :class="aiSide === 'Noirs' ? 'segmented-button--active' : ''"
+              type="button"
+              @click="aiSide = 'Noirs'"
+            >
+              Noirs
+            </button>
+            <button
+              class="segmented-button"
+              :class="aiSide === 'Aleatoire' ? 'segmented-button--active' : ''"
+              type="button"
+              @click="aiSide = 'Aleatoire'"
+            >
+              Aleatoire
+            </button>
+          </div>
+        </div>
+
+        <label class="form-field">
+          <span class="form-label">Temps</span>
+          <select v-model="aiTime" class="form-input">
+            <option v-for="time in aiTimeOptions" :key="time" :value="time">
+              {{ time }}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <template #footer>
+        <button class="button-ghost" type="button" @click="aiModalOpen = false">Annuler</button>
+        <button class="button-primary" type="button" @click="startAiMatch">Lancer</button>
+      </template>
+    </AppModal>
+
     <section class="match-layout">
       <div class="panel match-create">
         <div class="panel-header">
@@ -115,6 +294,14 @@ const startNewMatch = async () => {
           </button>
           <button
             class="button-ghost mode-pill"
+            :class="selectedMode === 'Histoire' ? 'mode-pill--active' : ''"
+            type="button"
+            @click="selectedMode = 'Histoire'"
+          >
+            Histoire
+          </button>
+          <button
+            class="button-ghost mode-pill"
             :class="selectedMode === 'JcJ' ? 'mode-pill--active' : ''"
             type="button"
             @click="selectedMode = 'JcJ'"
@@ -122,10 +309,82 @@ const startNewMatch = async () => {
             JcJ
           </button>
         </div>
+        <div v-if="selectedMode === 'JcJ'" class="form-stack matchmake-form">
+          <label class="form-field">
+            <span class="form-label">Type de match</span>
+            <div class="segmented">
+              <button
+                class="segmented-button"
+                :class="pvpMode === 'ranked' ? 'segmented-button--active' : ''"
+                type="button"
+                @click="pvpMode = 'ranked'"
+              >
+                Classe
+              </button>
+              <button
+                class="segmented-button"
+                :class="pvpMode === 'friendly' ? 'segmented-button--active' : ''"
+                type="button"
+                @click="pvpMode = 'friendly'"
+              >
+                Amical
+              </button>
+            </div>
+          </label>
+
+          <div class="form-field">
+            <span class="form-label">Couleur</span>
+            <div class="segmented">
+              <button
+                class="segmented-button"
+                :class="pvpSide === 'Blancs' ? 'segmented-button--active' : ''"
+                type="button"
+                @click="pvpSide = 'Blancs'"
+              >
+                Blancs
+              </button>
+              <button
+                class="segmented-button"
+                :class="pvpSide === 'Noirs' ? 'segmented-button--active' : ''"
+                type="button"
+                @click="pvpSide = 'Noirs'"
+              >
+                Noirs
+              </button>
+              <button
+                class="segmented-button"
+                :class="pvpSide === 'Aleatoire' ? 'segmented-button--active' : ''"
+                type="button"
+                @click="pvpSide = 'Aleatoire'"
+              >
+                Aleatoire
+              </button>
+            </div>
+          </div>
+
+          <label class="form-field">
+            <span class="form-label">Temps</span>
+            <select v-model="pvpTime" class="form-input">
+              <option v-for="time in aiTimeOptions" :key="`pvp-${time}`" :value="time">
+                {{ time }}
+              </option>
+            </select>
+          </label>
+        </div>
         <div class="panel-actions">
           <button class="button-primary" type="button" @click="startNewMatch">Nouveau match</button>
           <RouterLink class="button-ghost" to="/amis">Inviter un ami</RouterLink>
         </div>
+        <div v-if="selectedMode === 'JcJ' && matchmaking.status === 'queued'" class="panel-matchmaking">
+          <p class="panel-sub">File en cours: {{ matchmaking.mode }} - {{ matchmaking.timeControl }}</p>
+          <button class="button-ghost" type="button" @click="cancelMatchmaking">Annuler la file</button>
+        </div>
+        <p
+          v-if="matchmakingMessage"
+          :class="['form-message', matchmakingError ? 'form-message--error' : 'form-message--success']"
+        >
+          {{ matchmakingMessage }}
+        </p>
       </div>
 
       <div class="panel match-list">
@@ -162,7 +421,7 @@ const startNewMatch = async () => {
                 </div>
               </div>
               <span :class="['match-status', `match-status--${match.status}`]">
-                {{ statusLabels[match.status] }}
+                {{ statusLabels[match.status] ?? 'Inconnu' }}
               </span>
             </div>
 
@@ -176,7 +435,9 @@ const startNewMatch = async () => {
               <span class="match-move">Dernier coup: {{ match.lastMove }}</span>
               <div class="match-actions">
                 <RouterLink class="button-ghost" :to="`/jeu/${match.id}`">Ouvrir</RouterLink>
-                <button class="button-primary" type="button">{{ actionLabel(match.status) }}</button>
+                <button class="button-primary" type="button" @click="handleMatchAction(match)">
+                  {{ actionLabel(match.status) }}
+                </button>
               </div>
               </div>
             </article>

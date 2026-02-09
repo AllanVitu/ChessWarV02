@@ -1,18 +1,59 @@
 # WarChess
 
-SPA d'echecs premium (Vue 3 + Vite) avec dashboard, parties, classements et analyse. Optimisee pour mobile, performance et accessibilite.
+Application d echecs premium (Vue 3 + Vite) avec mode histoire, matchmaking JcJ temps reel et dashboard analytique.
 
 ## Routes principales
 - `/#/intro` Landing
 - `/#/auth` Connexion / invite
 - `/#/dashboard` Tableau de bord
 - `/#/matchs` Centre des matchs
-- `/#/play` Partie (cachee, uniquement apres creation d'un match)
+- `/#/play` Partie (cachee, uniquement apres creation d un match)
 - `/#/leaderboard` Classement
 - `/#/profile` Profil
+- `/#/profil/analyse` Analyse du profil
 - `/#/settings` Parametres
-- `/#/studio` Atelier / modules
+- `/#/histoire` Campagne
+- `/#/histoire/:id` Detail chapitre
 - `/#/help` Regles / FAQ
+
+## Etats de match JcJ
+- `waiting` : salle creee, attente des joueurs
+- `ready` : les deux joueurs sont prets, compte a rebours serveur
+- `started` : partie en cours, chrono server time
+- `finished` : partie terminee (mate, nulle, abandon, timeout)
+- `aborted` : annule (deconnexion avant demarrage)
+
+## Endpoints API (principaux)
+### Auth
+- `POST /api/auth-register`
+- `POST /api/auth-login`
+- `POST /api/auth-logout`
+- `GET /api/auth-session`
+
+### Dashboard
+- `GET /api/dashboard-get`
+- `POST /api/dashboard-save`
+
+### Matchs JcJ
+- `GET /api/matches-get`
+- `POST /api/matches-add`
+- `POST /api/matches-clear`
+
+### Match realtime
+- `GET /api/match-room-get?matchId=...`
+- `GET /api/match-stream?matchId=...&token=...`
+- `POST /api/match-ready`
+- `POST /api/match-presence`
+- `POST /api/match-move-add`
+- `POST /api/match-finish`
+
+### Matchmaking
+- `POST /api/matchmake-join`
+- `GET /api/matchmake-status`
+- `POST /api/matchmake-leave`
+
+### Classement
+- `GET /api/leaderboard-get?scope=global|monthly|friends&page=1&pageSize=20`
 
 ## Demarrer
 ```sh
@@ -26,8 +67,9 @@ npm run build
 npm run preview
 ```
 
-## Variables d'environnement
+## Variables d environnement
 - `VITE_API_BASE` URL API (ex: `/api`)
+- `VITE_WS_BASE` URL WebSocket (facultatif)
 - `VITE_SITE_URL` domaine canonical (ex: `https://warchess.app`)
 - `VITE_ANALYTICS_ENDPOINT` endpoint analytics (facultatif)
 - `VITE_ERROR_ENDPOINT` endpoint erreurs (facultatif)
@@ -41,36 +83,16 @@ npm run preview
 ### O2Switch (PostgreSQL + PHP)
 1) Creez une base PostgreSQL dans cPanel.
 2) Importez `database/schema-o2switch-postgres.sql`.
-3) Configurez `public/api/_shared/config.php` ou les variables d'environnement.
+3) Configurez `public/api/_shared/config.php` ou les variables d environnement.
 4) Deployer `dist` a la racine du domaine.
 
-## SEO / partage
-- Mettre a jour `https://warchess.app` dans `index.html`, `public/robots.txt`, `public/sitemap.xml`.
-- OG image par defaut: `/icon-512.png` (remplacez par un visuel 1200x630 si besoin).
-
-## Intro loader (preload)
-Le loader de `/intro` precharge une liste d'assets et fournit une progression realiste.
-
-### Ajouter un asset au manifest
-Dans `src/views/IntroView.vue`, ajoutez un item dans `assets`:
-```ts
-{ url: someUrl, label: 'Nom', weight: 1, heavy: true }
-```
-- `weight` ajuste le poids dans le calcul du pourcentage.
-- `heavy: true` est ignore en mode leger.
-
-### Tester les fallbacks
-1) **Simuler un 404**: modifiez temporairement une URL d'asset vers un fichier inexistant.
-2) **Simuler hors-ligne**: utilisez l'onglet Network > Offline dans les DevTools.
-3) **Simuler ChunkLoadError**: bloquez un chunk via DevTools ou renommez un fichier `dist/assets/*.js`.
+## Notes de migration
+- La table `matches` utilise une cle composite `(user_id, id)`.
+- `match_rooms` expose `ready_at`, `start_at`, `finished_at`, `aborted_at`, `*_ready_at`, `*_seen_at`.
+- Ajouter les tables `match_queue` et les index associes.
 
 ## Checklist de validation
-- Landing visible en < 200ms avec loader.
-- H1 + promesse + CTA "Lancer un match" sur `/intro`.
-- Mode invite accessible depuis `/auth` et `/intro`.
-- Bottom nav mobile actif.
-- Etats UI: hover/active/disabled/loading.
-- Accessibilite: clavier, focus visible, aria-live sur toasts.
-- Lighthouse cible: Perf > 90, A11y > 90, SEO > 90.
-- OG preview OK (Discord/WhatsApp).
-- 404 et offline banner affiches.
+- Deux joueurs lancent un match => demarrage synchronise au countdown serveur.
+- Refresh en cours => reprise avec temps restant correct.
+- Deconnexion pendant `ready` => `aborted`.
+- Fin au temps => `finished` sur les deux clients.

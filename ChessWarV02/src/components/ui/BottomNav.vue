@@ -25,6 +25,12 @@ const navItems: NavItem[] = [
     icon: 'M7 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm3 3h4v4h-4z',
   },
   {
+    label: 'Histoire',
+    to: '/histoire',
+    matches: ['/histoire'],
+    icon: 'M5 4h7a2 2 0 0 1 2 2v14H7a2 2 0 0 0-2 2V4zm14 0h-7a2 2 0 0 0-2 2v14h7a2 2 0 0 1 2 2V4z',
+  },
+  {
     label: 'Classement',
     to: '/leaderboard',
     matches: ['/leaderboard', '/classement'],

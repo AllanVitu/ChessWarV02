@@ -4,17 +4,23 @@ import { RouterLink, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import { getDashboardData, type DashboardDb, type DashboardProfile } from '@/lib/localDb'
-import { buildTrendPaths, getProfileAiAnalysis } from '@/lib/profileAnalysis'
-import { getMatches } from '@/lib/matchesDb'
+import { getMatches, type MatchRecord } from '@/lib/matchesDb'
 import { getSessionToken } from '@/lib/api'
+import { getLeaderboard, type LeaderboardPlayer } from '@/lib/leaderboard'
+import { summarizeMatches } from '@/lib/stats'
+import { getStoryChapters, getStoryProgress, setActiveChapter, type StoryChapter } from '@/lib/story'
+import { getPieceImage } from '@/lib/pieceAssets'
 
 const dashboard = ref<DashboardDb | null>(null)
+const matches = ref<MatchRecord[]>([])
+const leaderboard = ref<LeaderboardPlayer[]>([])
 const router = useRouter()
+
 const fallbackProfile: DashboardProfile = {
   id: '',
   name: 'Invite',
   title: '',
-  rating: 0,
+  rating: 1200,
   motto: '',
   location: '',
   lastSeen: '',
@@ -23,12 +29,11 @@ const fallbackProfile: DashboardProfile = {
 }
 
 const profile = computed(() => dashboard.value?.profile ?? fallbackProfile)
-const games = computed(() => dashboard.value?.games ?? [])
 const goals = computed(() => dashboard.value?.goals ?? [])
 const greetingTitle = computed(() =>
-  dashboard.value ? `Bonjour, ${dashboard.value.profile.name}` : 'Bonjour',
+  dashboard.value ? `Bonjour, ${dashboard.value.profile.name || 'joueur'}` : 'Bonjour',
 )
-const greetingSubtitle = computed(() => dashboard.value?.profile.motto ?? 'Analyse en cours.')
+const greetingSubtitle = computed(() => dashboard.value?.profile.motto ?? 'Pret pour un nouveau match ?')
 const onboardingOpen = ref(false)
 const onboardingKey = 'warchess.onboarding.dismissed'
 
@@ -48,11 +53,7 @@ const onboardingSteps = [
 ]
 
 const checklistKey = 'warchess.checklist.completed'
-const dailyKey = 'warchess.daily.completed'
-const puzzleKey = 'warchess.daily.puzzle'
 const completedSteps = ref<string[]>([])
-const dailyDone = ref(false)
-const puzzleRevealed = ref(false)
 
 const readStorageList = (key: string) => {
   if (typeof window === 'undefined') return []
@@ -61,15 +62,6 @@ const readStorageList = (key: string) => {
     return stored ? (JSON.parse(stored) as string[]) : []
   } catch {
     return []
-  }
-}
-
-const readStorageFlag = (key: string) => {
-  if (typeof window === 'undefined') return false
-  try {
-    return window.localStorage.getItem(key) === '1'
-  } catch {
-    return false
   }
 }
 
@@ -82,73 +74,9 @@ const writeStorage = (key: string, value: string) => {
   }
 }
 
-const todayKey = computed(() => new Date().toISOString().slice(0, 10))
-
-const dailyChallenges = [
-  {
-    title: 'Defi du jour',
-    description: "Gagnez une partie rapide en moins de 15 coups.",
-    cta: 'Lancer un match',
-    to: '/matchs',
-  },
-  {
-    title: 'Sprint tactique',
-    description: 'Enchainez 3 parties blitz pour monter en rythme.',
-    cta: 'Jouer blitz',
-    to: '/matchs',
-  },
-  {
-    title: 'Focus ouverture',
-    description: "Testez une nouvelle ouverture sur 2 parties.",
-    cta: 'Demarrer',
-    to: '/matchs',
-  },
-]
-
-const dailyPuzzle = [
-  {
-    title: 'Puzzle rapide',
-    description: 'Mat en 2 coups.',
-    solution: '1. Qxf7+ Kxf7 2. Bc4+',
-  },
-  {
-    title: 'Puzzle rapide',
-    description: "Gagnez la dame en 2 coups.",
-    solution: '1. Nd5! exd5 2. Qe7#',
-  },
-  {
-    title: 'Puzzle rapide',
-    description: 'Tactique de fourchette.',
-    solution: '1. Nc7+ Kd8 2. Nxa8',
-  },
-]
-
-const fallbackChallenge = {
-  title: 'Defi du jour',
-  description: "Gagnez une partie rapide en moins de 15 coups.",
-  cta: 'Lancer un match',
-  to: '/matchs',
-}
-
-const fallbackPuzzle = {
-  title: 'Puzzle rapide',
-  description: 'Mat en 2 coups.',
-  solution: '1. Qxf7+ Kxf7 2. Bc4+',
-}
-
-const challengeOfDay = computed(() => {
-  const index = Math.abs(Number(todayKey.value.replace(/-/g, ''))) % dailyChallenges.length
-  return dailyChallenges[index] ?? fallbackChallenge
-})
-
-const puzzleOfDay = computed(() => {
-  const index = Math.abs(Number(todayKey.value.replace(/-/g, ''))) % dailyPuzzle.length
-  return dailyPuzzle[index] ?? fallbackPuzzle
-})
-
 const checklistSteps = computed(() => {
-  const autoProfile = profile.value.name && profile.value.name !== 'Invite'
-  const autoGames = games.value.length > 0
+  const autoProfile = Boolean(profile.value.name && profile.value.name !== 'Invite')
+  const autoGames = matches.value.length > 0
   const autoFriend = completedSteps.value.includes('friend')
   return [
     {
@@ -181,36 +109,102 @@ const toggleChecklist = (id: string) => {
   writeStorage(checklistKey, JSON.stringify(completedSteps.value))
 }
 
-const markDailyDone = () => {
-  dailyDone.value = true
-  writeStorage(`${dailyKey}:${todayKey.value}`, '1')
-}
-
-const togglePuzzle = () => {
-  puzzleRevealed.value = !puzzleRevealed.value
-  writeStorage(`${puzzleKey}:${todayKey.value}`, puzzleRevealed.value ? '1' : '0')
-}
-
 const resumeKey = 'warchess.resume.checked'
 const resumeActiveMatch = async () => {
   if (typeof window === 'undefined') return
   if (window.sessionStorage.getItem(resumeKey)) return
   window.sessionStorage.setItem(resumeKey, '1')
   if (!getSessionToken()) return
-  const active = (await getMatches()).find((match) => match.status === 'en_cours')
+  const active = matches.value.find((match) => match.status === 'started')
   if (active) {
     await router.push(`/jeu/${active.id}`)
   }
 }
 
+const actionCards = [
+  {
+    title: 'Nouveau match',
+    description: 'Lancez un duel classe ou amical.',
+    to: '/matchs',
+  },
+  {
+    title: 'Mode histoire',
+    description: 'Progressez chapitre par chapitre.',
+    to: '/histoire',
+  },
+  {
+    title: 'Analyse',
+    description: 'Suivez votre progression.',
+    to: '/profil/analyse',
+  },
+  {
+    title: 'Classement',
+    description: 'Comparez votre Elo.',
+    to: '/leaderboard',
+  },
+]
+
+const summary = computed(() => summarizeMatches(matches.value))
+
+const quickStats = computed(() => [
+  {
+    label: 'Elo',
+    value: profile.value.rating.toString(),
+    detail: profile.value.title || 'Classement actuel',
+  },
+  {
+    label: 'Winrate',
+    value: `${summary.value.winRate}%`,
+    detail: `${summary.value.wins}/${summary.value.total} victoires`,
+  },
+  {
+    label: 'Serie',
+    value: `${summary.value.streak} victoires`,
+    detail: 'Streak actif',
+  },
+  {
+    label: 'Elo delta',
+    value: `${summary.value.totalEloDelta >= 0 ? '+' : ''}${summary.value.totalEloDelta}`,
+    detail: '30 derniers jours',
+  },
+])
+
+const recentMatches = computed(() => matches.value.slice(0, 6))
+const statusLabels: Record<string, string> = {
+  waiting: 'En attente',
+  ready: 'Pret',
+  started: 'En cours',
+  finished: 'Termine',
+  aborted: 'Annule',
+}
+
+const storyChapters = getStoryChapters()
+const storyProgress = ref(getStoryProgress())
+const nextChapter = computed<StoryChapter | null>(() => {
+  if (!storyChapters.length) return null
+  const completed = new Set(storyProgress.value.completed)
+  return storyChapters.find((chapter) => !completed.has(chapter.id)) ?? storyChapters[0] ?? null
+})
+const nextChapterLink = computed(() =>
+  nextChapter.value ? `/histoire/${nextChapter.value.id}` : '/histoire',
+)
+
+const leaderboardPreview = computed(() => leaderboard.value.slice(0, 5))
+
+const handleStartChapter = (chapterId: number) => {
+  setActiveChapter(chapterId)
+}
+
 onMounted(async () => {
   dashboard.value = await getDashboardData()
+  matches.value = await getMatches()
+  if (getSessionToken()) {
+    leaderboard.value = await getLeaderboard('global', 1, 10)
+  }
   if (typeof window !== 'undefined' && !window.localStorage.getItem(onboardingKey)) {
     onboardingOpen.value = true
   }
   completedSteps.value = readStorageList(checklistKey)
-  dailyDone.value = readStorageFlag(`${dailyKey}:${todayKey.value}`)
-  puzzleRevealed.value = readStorageFlag(`${puzzleKey}:${todayKey.value}`)
   await resumeActiveMatch()
 })
 
@@ -224,58 +218,21 @@ watch(onboardingOpen, (value, previous) => {
   }
 })
 
-const quickStats = [
-  { label: 'Taux de victoire', value: '62%', change: '+4,2%', detail: '30 dernieres parties' },
-  { label: 'Precision moyenne', value: '88%', change: '+1,6%', detail: 'Tendance saison' },
-  { label: "Serie d'entrainement", value: '12 jours', change: '+3', detail: 'Rythme actuel' },
-  { label: 'Taux de gaffes', value: '1,8%', change: '-0,4%', detail: 'Plus bas = mieux' },
-]
-
-const engineMetrics = [
-  { label: 'Evaluation', value: '+1,2', note: 'Aux blancs de jouer' },
-  { label: 'Meilleure ligne', value: 'e4 e5 Nf3', note: 'Profondeur 3 demi-coups' },
-  { label: 'Menaces', value: '2 actives', note: 'Securite du roi' },
-]
-
-const evalBars = [24, 46, 38, 62, 48, 70, 56, 44]
-
-const analysis = getProfileAiAnalysis()
-const trendPaths = computed(() => buildTrendPaths(analysis.trend, 520, 180, 20))
-
-const sessions = [
-  { title: 'Sprint tactique', time: '11:00', length: '15 min' },
-  { title: "Laboratoire d'ouverture", time: '14:30', length: '30 min' },
-  { title: 'Revue de finale', time: '19:00', length: '40 min' },
-]
-
-const leaderboard = [
-  { name: 'I. Alvarez', rating: 2548, delta: '+12' },
-  { name: 'C. Russo', rating: 2492, delta: '+8' },
-  { name: 'T. Holm', rating: 2451, delta: '+5' },
-  { name: 'J. Park', rating: 2422, delta: '+4' },
-]
-
-const resultLabels: Record<string, string> = {
-  win: 'Victoire',
-  loss: 'Defaite',
-  draw: 'Nul',
-}
-
 const boardFiles = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 const boardRanks = [8, 7, 6, 5, 4, 3, 2, 1]
 const pieceSymbols: Record<string, string> = {
-  p: '♟',
-  r: '♜',
-  n: '♞',
-  b: '♝',
-  q: '♛',
-  k: '♚',
-  P: '♙',
-  R: '♖',
-  N: '♘',
-  B: '♗',
-  Q: '♕',
-  K: '♔',
+  p: 'p',
+  r: 'r',
+  n: 'n',
+  b: 'b',
+  q: 'q',
+  k: 'k',
+  P: 'P',
+  R: 'R',
+  N: 'N',
+  B: 'B',
+  Q: 'Q',
+  K: 'K',
 }
 
 const boardState = [
@@ -305,6 +262,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
       piece,
       tone,
       symbol: pieceSymbols[piece] ?? '',
+      image: piece ? getPieceImage(piece) : '',
       isLastMove: lastMoveSquares.has(squareId),
       isFocus: squareId === focusSquare,
     }
@@ -333,14 +291,13 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
           <div class="hero-header">
             <div>
               <p class="panel-title">Salle de match</p>
-              <h2 class="panel-headline">Analyse en direct du plateau</h2>
+              <h2 class="panel-headline">Vue d ensemble du terrain</h2>
               <p class="panel-sub">
-                Suivez l'evaluation, les lignes candidates et la pression tactique d'un coup d'oeil.
+                Pilotez votre progression, vos matchs et vos objectifs depuis un seul espace.
               </p>
             </div>
             <div class="hero-actions">
               <RouterLink class="button-primary" to="/matchs">Nouveau match</RouterLink>
-              <RouterLink class="button-ghost" to="/studio">Studio creatif</RouterLink>
               <button class="button-ghost" type="button" @click="onboardingOpen = true">
                 Mini tutoriel
               </button>
@@ -355,122 +312,79 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
                 square.isLastMove ? 'square--last' : '',
                 square.isFocus ? 'square--focus' : '',
               ]">
-                <span v-if="square.piece" :class="[
-                  'piece',
-                  square.tone === 'light' ? 'piece--light' : 'piece--dark',
-                ]">
+                <img
+                  v-if="square.piece && square.image"
+                  :src="square.image"
+                  alt=""
+                  aria-hidden="true"
+                  :class="[
+                    'piece',
+                    'piece-img',
+                    square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                  ]"
+                />
+                <span
+                  v-else-if="square.piece"
+                  :class="[
+                    'piece',
+                    square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                  ]"
+                >
                   {{ square.symbol }}
                 </span>
               </div>
             </div>
 
             <div class="hero-metrics">
-              <div v-for="metric in engineMetrics" :key="metric.label" class="metric-card">
-                <p class="metric-label">{{ metric.label }}</p>
-                <p class="metric-value">{{ metric.value }}</p>
-                <p class="metric-note">{{ metric.note }}</p>
-              </div>
-
-              <div class="engine-card">
-                <div class="engine-header">
-                  <p class="metric-label">Elan</p>
-                  <p class="metric-value">68%</p>
-                </div>
-                <div class="engine-bars">
-                  <span v-for="(bar, index) in evalBars" :key="`bar-${index}`" class="engine-bar"
-                    :style="{ height: `${bar}%` }"></span>
-                </div>
-                <p class="metric-note">Courbe sur les 8 derniers demi-coups</p>
+              <div v-for="stat in quickStats" :key="stat.label" class="metric-card">
+                <p class="metric-label">{{ stat.label }}</p>
+                <p class="metric-value">{{ stat.value }}</p>
+                <p class="metric-note">{{ stat.detail }}</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="stats-grid">
-          <div v-for="stat in quickStats" :key="stat.label" class="panel stat-card reveal delay-1">
-            <p class="stat-label">{{ stat.label }}</p>
-            <p class="stat-value">{{ stat.value }}</p>
-            <div class="stat-meta">
-              <span class="stat-change">{{ stat.change }}</span>
-              <span class="stat-detail">{{ stat.detail }}</span>
+        <div class="rubric-grid">
+          <article v-for="card in actionCards" :key="card.title" class="panel rubric-card reveal delay-1">
+            <p class="rubric-title">{{ card.title }}</p>
+            <p class="rubric-sub">{{ card.description }}</p>
+            <div class="card-actions">
+              <RouterLink class="button-ghost" :to="card.to">Ouvrir</RouterLink>
             </div>
-          </div>
+          </article>
         </div>
 
-        <div class="panel trend-card reveal delay-2">
-          <div class="panel-header">
-            <div>
-              <p class="panel-title">Analyse IA du profil</p>
-              <h3 class="panel-headline">Vitesse de classement</h3>
-            </div>
-            <button class="range-pill" type="button">Hebdomadaire</button>
-          </div>
-
-          <svg class="trend-chart" viewBox="0 0 520 180" aria-hidden="true">
-            <defs>
-              <linearGradient id="trendLine" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="var(--analysis-blue)" />
-                <stop offset="33%" stop-color="var(--analysis-green)" />
-                <stop offset="66%" stop-color="var(--analysis-red)" />
-                <stop offset="100%" stop-color="var(--analysis-orange)" />
-              </linearGradient>
-              <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="var(--analysis-blue)" stop-opacity="0.3" />
-                <stop offset="45%" stop-color="var(--analysis-green)" stop-opacity="0.22" />
-                <stop offset="75%" stop-color="var(--analysis-red)" stop-opacity="0.16" />
-                <stop offset="92%" stop-color="var(--analysis-orange)" stop-opacity="0.1" />
-                <stop offset="100%" stop-color="var(--analysis-orange)" stop-opacity="0" />
-              </linearGradient>
-            </defs>
-            <path :d="trendPaths.line" fill="none" stroke="url(#trendLine)" stroke-width="3" stroke-linecap="round" />
-            <path :d="trendPaths.area" fill="url(#trendFill)" />
-          </svg>
-
-          <div class="trend-footer">
-            <div v-for="item in analysis.trendHighlights" :key="item.label" class="trend-item">
-              <p class="trend-label">{{ item.label }}</p>
-              <p class="trend-value">{{ item.value }}</p>
-              <p class="trend-note">{{ item.note }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel table-card reveal delay-3">
+        <div class="panel table-card reveal delay-2">
           <div class="panel-header">
             <div>
               <p class="panel-title">Parties recentes</p>
-              <h3 class="panel-headline">Details des matchs</h3>
+              <h3 class="panel-headline">Historique JcJ</h3>
             </div>
-            <button class="range-pill" type="button">10 dernieres</button>
+            <RouterLink class="range-pill" to="/matchs">Voir tout</RouterLink>
           </div>
 
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Partie</th>
+                  <th>Match</th>
                   <th>Adversaire</th>
-                  <th>Resultat</th>
-                  <th>Ouverture</th>
-                  <th>Coups</th>
-                  <th>Precision</th>
+                  <th>Statut</th>
+                  <th>Cadence</th>
+                  <th>Dernier coup</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="game in games" :key="game.id">
-                  <td>{{ game.id }}</td>
-                  <td>{{ game.opponent }}</td>
-                  <td>
-                    <span :class="[
-                      'result-pill',
-                      `result--${game.result}`,
-                    ]">
-                      {{ resultLabels[game.result] }}
-                    </span>
-                  </td>
-                  <td>{{ game.opening }}</td>
-                  <td>{{ game.moves }}</td>
-                  <td>{{ game.accuracy }}%</td>
+                <tr v-for="match in recentMatches" :key="match.id">
+                  <td>{{ match.id }}</td>
+                  <td>{{ match.opponent }}</td>
+                  <td>{{ statusLabels[match.status] ?? match.status }}</td>
+                  <td>{{ match.timeControl }}</td>
+                  <td>{{ match.lastMove || '-' }}</td>
+                </tr>
+                <tr v-if="!recentMatches.length">
+                  <td colspan="5">Aucun match termine.</td>
                 </tr>
               </tbody>
             </table>
@@ -482,7 +396,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
         <div class="panel rating-card reveal">
           <div class="rating-header">
             <p class="panel-title">Score Elo</p>
-            <p class="rating-meta">{{ profile.location }}</p>
+            <p class="rating-meta">{{ profile.location || 'Profil' }}</p>
           </div>
 
           <div class="rating-ring">
@@ -505,11 +419,11 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
           <div class="rating-footer">
             <div>
               <p class="metric-label">Titre</p>
-              <p class="metric-value">Objectif MI</p>
+              <p class="metric-value">{{ profile.title || '---' }}</p>
             </div>
             <div>
               <p class="metric-label">Derniere activite</p>
-              <p class="metric-value">{{ profile.lastSeen }}</p>
+              <p class="metric-value">{{ profile.lastSeen || '---' }}</p>
             </div>
           </div>
         </div>
@@ -541,45 +455,39 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
         <div class="panel reveal delay-2">
           <div class="panel-header">
             <div>
-              <p class="panel-title">{{ challengeOfDay.title }}</p>
-              <h3 class="panel-headline">Objectif du jour</h3>
+              <p class="panel-title">Mode histoire</p>
+              <h3 class="panel-headline">Prochain chapitre</h3>
             </div>
           </div>
 
-          <p class="panel-sub">{{ challengeOfDay.description }}</p>
+          <div v-if="nextChapter" class="session-item">
+            <div>
+              <p class="session-title">{{ nextChapter.title }}</p>
+              <p class="session-time">{{ nextChapter.summary }}</p>
+            </div>
+            <span class="badge-soft">{{ nextChapter.difficulty }}</span>
+          </div>
           <div class="card-actions">
-            <RouterLink class="button-primary" :to="challengeOfDay.to">{{ challengeOfDay.cta }}</RouterLink>
-            <button class="button-ghost" type="button" :disabled="dailyDone" @click="markDailyDone">
-              {{ dailyDone ? 'Valide' : 'Marquer termine' }}
-            </button>
+            <RouterLink
+              class="button-primary"
+              :to="nextChapterLink"
+              @click="nextChapter && handleStartChapter(nextChapter.id)"
+            >
+              Continuer
+            </RouterLink>
+            <RouterLink class="button-ghost" to="/histoire">Voir tous les chapitres</RouterLink>
           </div>
         </div>
 
-        <div class="panel reveal delay-3">
+        <div class="panel focus-card reveal delay-2">
           <div class="panel-header">
             <div>
-              <p class="panel-title">{{ puzzleOfDay.title }}</p>
-              <h3 class="panel-headline">Puzzle rapide</h3>
+              <p class="panel-title">Focus d entrainement</p>
+              <h3 class="panel-headline">Objectifs personnels</h3>
             </div>
-            <button class="range-pill" type="button" @click="togglePuzzle">
-              {{ puzzleRevealed ? 'Masquer' : 'Voir solution' }}
-            </button>
           </div>
 
-          <p class="panel-sub">{{ puzzleOfDay.description }}</p>
-          <p v-if="puzzleRevealed" class="empty-state__subtitle">{{ puzzleOfDay.solution }}</p>
-        </div>
-
-        <div class="panel focus-card reveal delay-1">
-          <div class="panel-header">
-            <div>
-              <p class="panel-title">Focus d'entrainement</p>
-              <h3 class="panel-headline">Indicateurs de progression</h3>
-            </div>
-            <button class="range-pill" type="button">Mensuel</button>
-          </div>
-
-          <div class="progress-list">
+          <div v-if="goals.length" class="progress-list">
             <div v-for="goal in goals" :key="goal.label" class="progress-item">
               <div class="progress-labels">
                 <span>{{ goal.label }}</span>
@@ -590,26 +498,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
               </div>
             </div>
           </div>
-        </div>
-
-        <div class="panel session-card reveal delay-2">
-          <div class="panel-header">
-            <div>
-              <p class="panel-title">Prochaines sessions</p>
-              <h3 class="panel-headline">Plan du jour</h3>
-            </div>
-            <button class="range-pill" type="button">Aujourd'hui</button>
-          </div>
-
-          <div class="session-list">
-            <div v-for="session in sessions" :key="session.title" class="session-item">
-              <div>
-                <p class="session-title">{{ session.title }}</p>
-                <p class="session-time">{{ session.time }}</p>
-              </div>
-              <span class="session-length">{{ session.length }}</span>
-            </div>
-          </div>
+          <p v-else class="panel-sub">Aucun objectif defini pour le moment.</p>
         </div>
 
         <div class="panel leaderboard-card reveal delay-3">
@@ -618,11 +507,11 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
               <p class="panel-title">Meilleurs joueurs</p>
               <h3 class="panel-headline">Elite du classement</h3>
             </div>
-            <button class="range-pill" type="button">Region</button>
+            <RouterLink class="range-pill" to="/leaderboard">Classement</RouterLink>
           </div>
 
-          <div class="leaderboard-list">
-            <div v-for="player in leaderboard" :key="player.name" class="leaderboard-item">
+          <div v-if="leaderboardPreview.length" class="leaderboard-list">
+            <div v-for="player in leaderboardPreview" :key="player.id" class="leaderboard-item">
               <div class="leaderboard-user">
                 <div class="leaderboard-avatar">{{ player.name.slice(0, 1) }}</div>
                 <div>
@@ -630,9 +519,12 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
                   <p class="leaderboard-meta">Elo {{ player.rating }}</p>
                 </div>
               </div>
-              <span class="leaderboard-delta">{{ player.delta }}</span>
+              <span class="leaderboard-delta">
+                {{ player.delta >= 0 ? '+' : '' }}{{ player.delta }}
+              </span>
             </div>
           </div>
+          <p v-else class="panel-sub">Classement indisponible.</p>
         </div>
       </aside>
     </section>

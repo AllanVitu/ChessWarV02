@@ -43,6 +43,9 @@ const haloThemeOptions = [
   { value: 'red', label: 'Halo rouge cardinal' },
   { value: 'green', label: 'Halo vert emeraude' },
   { value: 'violet', label: 'Halo violet royal' },
+  { value: 'amber', label: 'Halo ambre solaire' },
+  { value: 'teal', label: 'Halo turquoise lagon' },
+  { value: 'slate', label: 'Halo ardoise lunaire' },
 ] as const
 
 const notificationSettings = [
@@ -174,11 +177,28 @@ onMounted(() => {
 
           <label class="form-field">
             <span class="form-label">Couleur du theme</span>
-            <select v-model="preferences.haloTheme" class="form-input">
-              <option v-for="option in haloThemeOptions" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
+            <div class="theme-picker" role="radiogroup" aria-label="Couleur du theme">
+              <label
+                v-for="option in haloThemeOptions"
+                :key="option.value"
+                class="theme-option"
+                :class="[
+                  `theme-halo-${option.value}`,
+                  preferences.darkMode ? 'theme-dark' : '',
+                  preferences.haloTheme === option.value ? 'theme-option--active' : '',
+                ]"
+              >
+                <input
+                  v-model="preferences.haloTheme"
+                  class="theme-option-input"
+                  type="radio"
+                  name="haloTheme"
+                  :value="option.value"
+                />
+                <span class="theme-swatch" aria-hidden="true"></span>
+                <span class="theme-option-label">{{ option.label }}</span>
+              </label>
+            </div>
           </label>
         </form>
       </div>

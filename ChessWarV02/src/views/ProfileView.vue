@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { getDashboardData, saveDashboardData, type DashboardDb } from '@/lib/localDb'
 import { getCurrentUser, updatePassword } from '@/lib/auth'
@@ -288,7 +289,20 @@ const savePassword = async () => {
           {{ passwordMessage }}
         </p>
       </div>
+
+      <div class="panel profile-card">
+        <div class="panel-header">
+          <div>
+            <p class="panel-title">Navigation</p>
+            <h3 class="panel-headline">Raccourcis utiles</h3>
+          </div>
+        </div>
+        <div class="card-actions">
+          <RouterLink class="button-primary" to="/matchs">Voir historique</RouterLink>
+          <RouterLink class="button-ghost" to="/leaderboard">Classement</RouterLink>
+          <RouterLink class="button-ghost" to="/settings">Parametres</RouterLink>
+        </div>
+      </div>
     </section>
   </DashboardLayout>
 </template>
-

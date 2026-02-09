@@ -6,6 +6,8 @@ const RegisterView = () => import('../views/RegisterView.vue')
 const ForgotPasswordView = () => import('../views/ForgotPasswordView.vue')
 const HomeView = () => import('../views/HomeView.vue')
 const MatchListView = () => import('../views/MatchListView.vue')
+const StoryView = () => import('../views/StoryView.vue')
+const StoryChapterView = () => import('../views/StoryChapterView.vue')
 const GameView = () => import('../views/GameView.vue')
 const LeaderboardView = () => import('../views/LeaderboardView.vue')
 const ProfileView = () => import('../views/ProfileView.vue')
@@ -13,7 +15,6 @@ const ProfileAnalysisView = () => import('../views/ProfileAnalysisView.vue')
 const UserProfileView = () => import('../views/UserProfileView.vue')
 const FriendsView = () => import('../views/FriendsView.vue')
 const SettingsView = () => import('../views/SettingsView.vue')
-const StudioView = () => import('../views/StudioView.vue')
 const HelpView = () => import('../views/HelpView.vue')
 const PerfView = () => import('../views/PerfView.vue')
 const NotFoundView = () => import('../views/NotFoundView.vue')
@@ -65,6 +66,24 @@ const router = createRouter({
       meta: {
         title: 'Matchs',
         description: 'Creez et gerez vos parties en cours.',
+      },
+    },
+    {
+      path: '/histoire',
+      name: 'histoire',
+      component: StoryView,
+      meta: {
+        title: 'Mode histoire',
+        description: 'Progressez dans une campagne de chapitres a difficulte croissante.',
+      },
+    },
+    {
+      path: '/histoire/:id',
+      name: 'histoire-chapitre',
+      component: StoryChapterView,
+      meta: {
+        title: 'Chapitre',
+        description: 'Detail du chapitre et lancement de la mission.',
       },
     },
     {
@@ -132,15 +151,6 @@ const router = createRouter({
       meta: {
         title: 'Parametres',
         description: "Ajustez l'interface, les notifications et la confidentialite.",
-      },
-    },
-    {
-      path: '/studio',
-      name: 'studio',
-      component: StudioView,
-      meta: {
-        title: 'Studio',
-        description: 'Configurez vos modules et sessions de jeu.',
       },
     },
     {

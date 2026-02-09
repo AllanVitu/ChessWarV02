@@ -9,7 +9,7 @@ export type SeoMeta = {
 const DEFAULT_META: Required<SeoMeta> = {
   title: 'WarChess | Echecs nouvelle generation',
   description: "WarChess, plateforme d'echecs moderne pour jouer et progresser.",
-  image: '/icon-512.png',
+  image: '/favicon-512x512.png',
 }
 
 const getSiteUrl = (): string => {

@@ -9,10 +9,13 @@ import {
   addMatchMove,
   finishMatch,
   getMatchRoom,
+  markMatchReady,
   openMatchSocket,
   openMatchStream,
+  sendMatchPresence,
   type MatchOnlineState,
   type MatchSocketMessage,
+  type MatchStatus,
   type OnlineMessage,
   type OnlineMove,
 } from '@/lib/matchOnline'
@@ -22,10 +25,13 @@ import {
   createInitialBoard,
   formatMove,
   getLegalMoves,
+  getAiMove,
+  type DifficultyKey,
   type Move,
   type Side,
 } from '@/lib/chessEngine'
 import { trackEvent } from '@/lib/telemetry'
+import { getPieceImage } from '@/lib/pieceAssets'
 
 const route = useRoute()
 const router = useRouter()
@@ -37,7 +43,9 @@ const onlineSide = ref<'white' | 'black'>('white')
 const onlineSideToMove = ref<'white' | 'black'>('white')
 const onlineWhiteId = ref<string | null>(null)
 const onlineBlackId = ref<string | null>(null)
-const onlineStatus = ref('active')
+const onlineWhiteReadyAt = ref<string | null>(null)
+const onlineBlackReadyAt = ref<string | null>(null)
+const onlineStatus = ref<MatchStatus>('waiting')
 const onlineMode = ref<MatchRecord['mode'] | null>(null)
 const onlineOpponent = ref<string | null>(null)
 const onlineTimeControl = ref<string | null>(null)
@@ -66,29 +74,93 @@ const localMatchEnded = ref(false)
 const currentUserId = ref('')
 let onlinePollTimer: ReturnType<typeof setInterval> | null = null
 let trackedMatch = ''
+const localSeed = ref(Math.floor(Math.random() * 1000))
+const aiPending = ref(false)
+let aiTimer: ReturnType<typeof setTimeout> | null = null
+const serverOffsetMs = ref(0)
+const readyCountdown = ref(0)
+let readyTimer: ReturnType<typeof setInterval> | null = null
+let presenceTimer: ReturnType<typeof setInterval> | null = null
 
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 const forceOnline = computed(() => isUuid(matchId.value))
+const queryValue = (value: unknown) => {
+  if (Array.isArray(value)) return value[0] ?? ''
+  return typeof value === 'string' ? value : ''
+}
+
+const localModeQuery = computed(() => queryValue(route.query.mode).toLowerCase())
+const localMode = computed<MatchRecord['mode']>(() => {
+  if (localModeQuery.value === 'ia') return 'IA'
+  if (localModeQuery.value === 'histoire') return 'Histoire'
+  return 'Local'
+})
+const localSide = computed<'Blancs' | 'Noirs' | 'Aleatoire'>(() => {
+  const value = queryValue(route.query.side)
+  if (value === 'Blancs' || value === 'Noirs' || value === 'Aleatoire') return value
+  return 'Aleatoire'
+})
+const localTimeControl = computed(() => {
+  const value = queryValue(route.query.time).trim()
+  if (!value) return '10+0'
+  if (/^\d+(?:\+\d+)?$/.test(value)) return value
+  return '10+0'
+})
+const localDifficulty = computed<DifficultyKey>(() => {
+  const value = queryValue(route.query.difficulty)
+  if (value === 'facile' || value === 'intermediaire' || value === 'difficile' || value === 'maitre') {
+    return value
+  }
+  return 'intermediaire'
+})
+const localChapter = computed(() => {
+  const value = Number.parseInt(queryValue(route.query.chapter), 10)
+  return Number.isFinite(value) ? value : 0
+})
+
 const mode = computed<MatchRecord['mode']>(() => {
-  if (!matchId.value) return 'Local'
+  if (!matchId.value) return localMode.value
   return forceOnline.value ? 'JcJ' : match.value?.mode ?? onlineMode.value ?? 'JcJ'
 })
 const isOnline = computed(() => mode.value === 'JcJ')
+const isAiMatch = computed(() => mode.value === 'IA' || mode.value === 'Histoire')
 const modeLabel = computed(() => (mode.value === 'JcJ' ? 'En ligne' : mode.value))
 const opponent = computed(() => {
+  if (isAiMatch.value) return 'IA'
   const direct = match.value?.opponent ?? onlineOpponent.value
   if (direct) return direct
   return 'Adversaire'
 })
-const timeControl = computed(() => match.value?.timeControl ?? onlineTimeControl.value ?? '10+0')
-const sideLabel = computed(() => (mode.value === 'Local' ? 'Camp joueur 1' : 'Votre couleur'))
-const opponentLabel = computed(() => (mode.value === 'Local' ? 'Joueur 2' : 'Adversaire'))
+const timeControl = computed(() => {
+  if (!matchId.value) return localTimeControl.value
+  return match.value?.timeControl ?? onlineTimeControl.value ?? '10+0'
+})
+const sideLabel = computed(() =>
+  mode.value === 'Local' && !isAiMatch.value ? 'Camp joueur 1' : 'Votre couleur',
+)
+const opponentLabel = computed(() =>
+  mode.value === 'Local' && !isAiMatch.value ? 'Joueur 2' : 'Adversaire',
+)
+const modeSubtitle = computed(() => {
+  if (mode.value === 'Histoire' && localChapter.value) {
+    return `Mode ${modeLabel.value} - Chapitre ${localChapter.value} - Cadence ${timeControl.value}`
+  }
+  return `Mode ${modeLabel.value} - ${opponent.value} - Cadence ${timeControl.value}`
+})
 const onlineNote = computed(() => {
   if (!isOnline.value) return ''
   if (onlineLoading.value) return 'Connexion au match en ligne...'
   if (onlinePending.value) return 'Envoi du coup...'
-  if (onlineStatus.value !== 'active') return 'Match termine. Vous pouvez proposer une revanche.'
+  if (onlineStatus.value === 'waiting') return 'En attente des joueurs.'
+  if (onlineStatus.value === 'ready') {
+    return readyCountdown.value > 0
+      ? `Demarrage dans ${readyCountdown.value}s`
+      : 'Demarrage en cours...'
+  }
+  if (onlineStatus.value === 'finished' || onlineStatus.value === 'aborted') {
+    return 'Match termine. Vous pouvez proposer une revanche.'
+  }
   return sideToMove.value === playerSide.value ? 'A vous de jouer.' : "En attente du coup adverse."
 })
 
@@ -118,6 +190,9 @@ watch(
     stopOnlineStream()
     stopOnlinePolling()
     stopClock()
+    stopAiTimer()
+    stopReadyTimer()
+    stopPresenceTimer()
     onlineMoves.value = []
     onlineMessages.value = []
     onlineError.value = ''
@@ -126,7 +201,9 @@ watch(
     onlineSideToMove.value = 'white'
     onlineWhiteId.value = null
     onlineBlackId.value = null
-    onlineStatus.value = 'active'
+    onlineWhiteReadyAt.value = null
+    onlineBlackReadyAt.value = null
+    onlineStatus.value = 'waiting'
     onlineMode.value = null
     onlineOpponent.value = null
     onlineTimeControl.value = null
@@ -144,9 +221,11 @@ watch(
     clockNotice.value = ''
     clockNoticeError.value = false
     localMatchEnded.value = false
+    serverOffsetMs.value = 0
+    readyCountdown.value = 0
     if (!matchId.value) {
       match.value = null
-      resetLocalClocks()
+      resetLocalMatchState()
       return
     }
 
@@ -159,7 +238,7 @@ watch(
     if (match.value?.mode === 'JcJ') {
       await loadOnlineMatch()
     } else if (match.value) {
-      resetLocalClocks()
+      resetLocalMatchState(false)
     } else if (shouldLoadOnline) {
       await loadOnlineMatch()
     }
@@ -167,21 +246,41 @@ watch(
   { immediate: true },
 )
 
-const sidePreference = computed(() => match.value?.side ?? 'Aleatoire')
+const localConfigKey = computed(
+  () =>
+    `${localMode.value}|${localSide.value}|${localTimeControl.value}|${localDifficulty.value}|${localChapter.value}`,
+)
+
+watch(localConfigKey, () => {
+  if (matchId.value) return
+  resetLocalMatchState()
+})
+
+const sidePreference = computed(() => {
+  if (match.value?.side) return match.value.side
+  if (!matchId.value) return localSide.value
+  return 'Aleatoire'
+})
 const playerSide = computed<Side>(() => {
   if (isOnline.value) return onlineSide.value
   if (sidePreference.value === 'Blancs') return 'white'
   if (sidePreference.value === 'Noirs') return 'black'
-  const seed = Number.parseInt(matchId.value.slice(-1) || '0', 10)
+  const seed = matchId.value ? Number.parseInt(matchId.value.slice(-1) || '0', 10) : localSeed.value
   return seed % 2 === 0 ? 'white' : 'black'
 })
+const aiSide = computed<Side | null>(() => (isAiMatch.value ? (playerSide.value === 'white' ? 'black' : 'white') : null))
 
 const matchEnded = computed(() =>
-  isOnline.value ? onlineStatus.value !== 'active' : localMatchEnded.value,
+  isOnline.value ? ['finished', 'aborted'].includes(onlineStatus.value) : localMatchEnded.value,
 )
 const opponentId = computed(() => {
   if (!isOnline.value) return ''
   return playerSide.value === 'white' ? onlineBlackId.value ?? '' : onlineWhiteId.value ?? ''
+})
+
+const playerReady = computed(() => {
+  if (!isOnline.value) return false
+  return playerSide.value === 'white' ? !!onlineWhiteReadyAt.value : !!onlineBlackReadyAt.value
 })
 
 const parseTimeControl = (value: string) => {
@@ -215,7 +314,7 @@ const blackClockLabel = computed(() => formatClock(blackClockMs.value))
 
 const clockActive = computed(() => {
   if (isOnline.value) {
-    return onlineStatus.value === 'active' && !onlineLoading.value && !onlinePending.value
+    return onlineStatus.value === 'started' && !onlineLoading.value && !onlinePending.value
   }
   return !localMatchEnded.value
 })
@@ -235,18 +334,18 @@ const squareToCoords = (square: string) => {
   return { row: 8 - rank, col: col === -1 ? 0 : col }
 }
 const pieceSymbols: Record<string, string> = {
-  p: '♟',
-  r: '♜',
-  n: '♞',
-  b: '♝',
-  q: '♛',
-  k: '♚',
-  P: '♙',
-  R: '♖',
-  N: '♘',
-  B: '♗',
-  Q: '♕',
-  K: '♔',
+  p: 'p',
+  r: 'r',
+  n: 'n',
+  b: 'b',
+  q: 'q',
+  k: 'k',
+  P: 'P',
+  R: 'R',
+  N: 'N',
+  B: 'B',
+  Q: 'Q',
+  K: 'K',
 }
 
 const pieceNames: Record<string, string> = {
@@ -276,24 +375,39 @@ const targetSquares = computed(() => new Set(movesFromSelected.value.map((move) 
 const canUserMove = computed(() => {
   if (isOnline.value) {
     return (
-      onlineStatus.value === 'active' &&
+      onlineStatus.value === 'started' &&
       !onlineLoading.value &&
       !onlinePending.value &&
       sideToMove.value === playerSide.value
     )
   }
   if (localMatchEnded.value) return false
+  if (isAiMatch.value) {
+    return sideToMove.value === playerSide.value && !aiPending.value
+  }
   return true
 })
 
 const whiteLabel = computed(() => {
-  if (mode.value === 'Local') return 'Joueur 1'
+  if (mode.value === 'Local' && !isAiMatch.value) return 'Joueur 1'
+  if (isAiMatch.value) return playerSide.value === 'white' ? 'Vous' : 'IA'
   return playerSide.value === 'white' ? 'Vous' : opponent.value
 })
 
 const blackLabel = computed(() => {
-  if (mode.value === 'Local') return 'Joueur 2'
+  if (mode.value === 'Local' && !isAiMatch.value) return 'Joueur 2'
+  if (isAiMatch.value) return playerSide.value === 'black' ? 'Vous' : 'IA'
   return playerSide.value === 'black' ? 'Vous' : opponent.value
+})
+
+const aiDifficultyLabel = computed(() => {
+  const labels: Record<DifficultyKey, string> = {
+    facile: 'Facile',
+    intermediaire: 'Intermediaire',
+    difficile: 'Difficile',
+    maitre: 'Maitre',
+  }
+  return labels[localDifficulty.value] ?? 'Intermediaire'
 })
 
 const initialsFrom = (label: string) => {
@@ -348,7 +462,9 @@ const applyOnlineState = (state: MatchOnlineState) => {
   onlineSideToMove.value = state.sideToMove
   onlineWhiteId.value = state.whiteId ?? null
   onlineBlackId.value = state.blackId ?? null
-  onlineStatus.value = state.status ?? 'active'
+  onlineWhiteReadyAt.value = state.whiteReadyAt ?? null
+  onlineBlackReadyAt.value = state.blackReadyAt ?? null
+  onlineStatus.value = state.status ?? 'waiting'
   onlineMode.value = (state.mode as MatchRecord['mode'] | null) ?? 'JcJ'
   if (state.opponent) {
     onlineOpponent.value = state.opponent
@@ -358,8 +474,19 @@ const applyOnlineState = (state: MatchOnlineState) => {
   }
   sideToMove.value = state.sideToMove
   onlinePending.value = false
+  updateServerOffset(state)
   applyOnlineMoves(onlineMoves.value)
   syncOnlineClocks(state)
+  syncReadyCountdown(state)
+}
+
+const getServerNow = () => Date.now() + serverOffsetMs.value
+
+const updateServerOffset = (state: MatchOnlineState) => {
+  if (!state.serverTime) return
+  const server = new Date(state.serverTime).getTime()
+  if (!Number.isFinite(server)) return
+  serverOffsetMs.value = server - Date.now()
 }
 
 const stopClock = () => {
@@ -367,6 +494,28 @@ const stopClock = () => {
     clearInterval(clockTimer)
     clockTimer = null
   }
+}
+
+const stopReadyTimer = () => {
+  if (readyTimer) {
+    clearInterval(readyTimer)
+    readyTimer = null
+  }
+}
+
+const stopPresenceTimer = () => {
+  if (presenceTimer) {
+    clearInterval(presenceTimer)
+    presenceTimer = null
+  }
+}
+
+const stopAiTimer = () => {
+  if (aiTimer) {
+    clearTimeout(aiTimer)
+    aiTimer = null
+  }
+  aiPending.value = false
 }
 
 const checkTimeout = () => {
@@ -379,13 +528,13 @@ const checkTimeout = () => {
 
 const startClock = () => {
   stopClock()
-  clockTickAt.value = Date.now()
+  clockTickAt.value = isOnline.value ? getServerNow() : Date.now()
   clockTimer = setInterval(() => {
     if (!clockActive.value || matchEnded.value) {
-      clockTickAt.value = Date.now()
+      clockTickAt.value = isOnline.value ? getServerNow() : Date.now()
       return
     }
-    const now = Date.now()
+    const now = isOnline.value ? getServerNow() : Date.now()
     const elapsed = now - clockTickAt.value
     clockTickAt.value = now
     if (sideToMove.value === 'white') {
@@ -399,7 +548,7 @@ const startClock = () => {
 
 const commitClockTick = () => {
   if (!clockActive.value || matchEnded.value) return
-  const now = Date.now()
+  const now = isOnline.value ? getServerNow() : Date.now()
   const elapsed = now - clockTickAt.value
   clockTickAt.value = now
   if (sideToMove.value === 'white') {
@@ -431,6 +580,52 @@ const resetLocalClocks = () => {
   startClock()
 }
 
+const resetLocalMatchState = (refreshSeed = true) => {
+  stopAiTimer()
+  stopClock()
+  board.value = createInitialBoard()
+  sideToMove.value = 'white'
+  selectedSquare.value = null
+  lastMove.value = null
+  moveHistory.value = []
+  if (refreshSeed) {
+    localSeed.value = Math.floor(Math.random() * 1000)
+  }
+  resetLocalClocks()
+  queueAiMove()
+}
+
+const queueAiMove = () => {
+  if (!isAiMatch.value || !aiSide.value) return
+  if (matchEnded.value || localMatchEnded.value) return
+  if (sideToMove.value !== aiSide.value) return
+  if (aiPending.value) return
+
+  aiPending.value = true
+  const delay = 450 + Math.floor(Math.random() * 650)
+  aiTimer = setTimeout(() => {
+    aiTimer = null
+    if (!isAiMatch.value || !aiSide.value) {
+      aiPending.value = false
+      return
+    }
+    if (matchEnded.value || localMatchEnded.value || sideToMove.value !== aiSide.value) {
+      aiPending.value = false
+      return
+    }
+    const move = getAiMove(board.value, aiSide.value, localDifficulty.value)
+    aiPending.value = false
+    if (!move) {
+      localMatchEnded.value = true
+      clockNotice.value = 'IA bloquee. Match termine.'
+      clockNoticeError.value = true
+      stopClock()
+      return
+    }
+    applyAndRecord(move)
+  }, delay)
+}
+
 const syncOnlineClocks = (state: MatchOnlineState) => {
   const { initialMs, incrementMs } = clockConfig.value
   let whiteLeft = initialMs
@@ -440,7 +635,7 @@ const syncOnlineClocks = (state: MatchOnlineState) => {
     const time = new Date(value).getTime()
     return Number.isFinite(time) ? time : null
   }
-  const startAt = parseTimestamp(state.createdAt) ?? Date.now()
+  const startAt = parseTimestamp(state.startAt ?? state.createdAt) ?? getServerNow()
   let lastTime = startAt
 
   for (const move of state.moves ?? []) {
@@ -455,8 +650,8 @@ const syncOnlineClocks = (state: MatchOnlineState) => {
     lastTime = moveTime
   }
 
-  if (state.status === 'active') {
-    const elapsed = Math.max(0, Date.now() - lastTime)
+  if (state.status === 'started') {
+    const elapsed = Math.max(0, getServerNow() - lastTime)
     if (state.sideToMove === 'white') {
       whiteLeft = Math.max(0, whiteLeft - elapsed)
     } else {
@@ -469,7 +664,7 @@ const syncOnlineClocks = (state: MatchOnlineState) => {
     blackLeft = initialMs
   }
   if (
-    state.status === 'active' &&
+    state.status === 'started' &&
     (!state.moves || state.moves.length === 0) &&
     (whiteLeft <= 0 || blackLeft <= 0)
   ) {
@@ -480,13 +675,41 @@ const syncOnlineClocks = (state: MatchOnlineState) => {
   whiteClockMs.value = whiteLeft
   blackClockMs.value = blackLeft
   clockTickAt.value = Date.now()
-  timeoutTriggered.value = state.status !== 'active'
+  timeoutTriggered.value = state.status !== 'started'
   checkTimeout()
 
-  if (state.status === 'active') {
+  if (state.status === 'started') {
     startClock()
   } else {
     stopClock()
+  }
+}
+
+const syncReadyCountdown = (state: MatchOnlineState) => {
+  if (state.status !== 'ready' || !state.startAt) {
+    readyCountdown.value = 0
+    stopReadyTimer()
+    return
+  }
+
+  const startTime = new Date(state.startAt).getTime()
+  if (!Number.isFinite(startTime)) {
+    readyCountdown.value = 0
+    stopReadyTimer()
+    return
+  }
+
+  const compute = () => {
+    const diff = Math.ceil((startTime - getServerNow()) / 1000)
+    readyCountdown.value = Math.max(0, diff)
+    if (readyCountdown.value <= 0) {
+      stopReadyTimer()
+    }
+  }
+
+  compute()
+  if (!readyTimer) {
+    readyTimer = setInterval(compute, 250)
   }
 }
 
@@ -552,6 +775,19 @@ const startOnlinePolling = () => {
   onlinePollTimer = setInterval(async () => {
     await refreshOnlineState(true)
   }, 3000)
+}
+
+const startPresenceTimer = () => {
+  if (presenceTimer || !matchId.value) return
+  presenceTimer = setInterval(async () => {
+    if (!matchId.value) return
+    try {
+      const state = await sendMatchPresence(matchId.value)
+      applyOnlineState(state)
+    } catch {
+      // Ignore presence failures.
+    }
+  }, 8000)
 }
 
 const startOnlineStream = () => {
@@ -623,11 +859,22 @@ const loadOnlineMatch = async () => {
     const state = await getMatchRoom(matchId.value)
     applyOnlineState(state)
     startOnlineRealtime()
+    startPresenceTimer()
   } catch (error) {
     onlineError.value = (error as Error).message
     startOnlinePolling()
   } finally {
     onlineLoading.value = false
+  }
+}
+
+const handleReady = async () => {
+  if (!matchId.value || !isOnline.value) return
+  try {
+    const state = await markMatchReady(matchId.value)
+    applyOnlineState(state)
+  } catch (error) {
+    onlineError.value = (error as Error).message
   }
 }
 
@@ -655,11 +902,14 @@ const applyAndRecord = (move: Move) => {
   selectedSquare.value = null
   sideToMove.value = sideToMove.value === 'white' ? 'black' : 'white'
   clockTickAt.value = Date.now()
+  if (!isOnline.value && isAiMatch.value) {
+    queueAiMove()
+  }
 }
 
 const submitOnlineMove = async (move: Move) => {
   if (!matchId.value) return
-  if (onlineStatus.value !== 'active') return
+  if (onlineStatus.value !== 'started') return
   onlinePending.value = true
   onlineError.value = ''
   stopClock()
@@ -837,6 +1087,11 @@ const handleDraw = async () => {
   await router.push('/dashboard')
 }
 
+const handleResetMatch = () => {
+  if (isOnline.value) return
+  resetLocalMatchState()
+}
+
 const handleLeaveMatch = async () => {
   await router.push('/dashboard')
 }
@@ -856,6 +1111,9 @@ onBeforeUnmount(() => {
   stopOnlineStream()
   stopOnlinePolling()
   stopClock()
+  stopAiTimer()
+  stopReadyTimer()
+  stopPresenceTimer()
 })
 
 const squares = computed(() =>
@@ -877,6 +1135,7 @@ const squares = computed(() =>
         id: squareId,
         piece,
         symbol: pieceSymbols[piece] ?? '',
+        image: piece ? getPieceImage(piece) : '',
         dark: isDark,
         tone,
         isSelected,
@@ -891,8 +1150,7 @@ const squares = computed(() =>
 </script>
 
 <template>
-  <DashboardLayout eyebrow="Partie" :title="`Match ${matchId || 'Libre'}`"
-    :subtitle="`Mode ${modeLabel} - ${opponent} - Cadence ${timeControl}`">
+  <DashboardLayout eyebrow="Partie" :title="`Match ${matchId || 'Libre'}`" :subtitle="modeSubtitle">
     <section class="game-layout">
       <div class="game-stack">
         <div class="panel game-board">
@@ -942,11 +1200,26 @@ const squares = computed(() =>
                 square.isTarget ? 'square--target' : '',
               ]" :aria-label="square.ariaLabel" :aria-pressed="square.isSelected" role="gridcell"
                 @click="handleSquareClick(square.id, square.piece)">
-                <span v-if="square.piece" :class="[
-                  'piece',
-                  square.tone === 'light' ? 'piece--light' : 'piece--dark',
-                  square.isArrival ? 'piece--impact' : '',
-                ]">
+                <img
+                  v-if="square.piece && square.image"
+                  :src="square.image"
+                  alt=""
+                  aria-hidden="true"
+                  :class="[
+                    'piece',
+                    'piece-img',
+                    square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                    square.isArrival ? 'piece--impact' : '',
+                  ]"
+                />
+                <span
+                  v-else-if="square.piece"
+                  :class="[
+                    'piece',
+                    square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                    square.isArrival ? 'piece--impact' : '',
+                  ]"
+                >
                   {{ square.symbol }}
                 </span>
               </button>
@@ -960,11 +1233,38 @@ const squares = computed(() =>
             <h3 class="panel-headline">Fin de match</h3>
             <p class="panel-sub">Gerez la partie en cours en un clic.</p>
           </div>
-          <button class="button-ghost game-action" type="button" :disabled="matchEnded" @click="handleAbandon">
+          <div v-if="isOnline && (onlineStatus === 'waiting' || onlineStatus === 'ready')" class="game-ready">
+            <p class="panel-title">Synchronisation</p>
+            <p class="panel-sub">
+              {{ playerReady ? 'Presence confirmee.' : 'Confirmez votre presence pour lancer la partie.' }}
+            </p>
+            <button
+              class="button-primary"
+              type="button"
+              :disabled="playerReady || onlineLoading"
+              @click="handleReady"
+            >
+              {{ playerReady ? 'Pret' : 'Je suis pret' }}
+            </button>
+          </div>
+          <button
+            class="button-ghost game-action"
+            type="button"
+            :disabled="matchEnded || (isOnline && onlineStatus !== 'started')"
+            @click="handleAbandon"
+          >
             Abandonner
           </button>
-          <button class="button-ghost game-action" type="button" :disabled="matchEnded" @click="handleDraw">
+          <button
+            class="button-ghost game-action"
+            type="button"
+            :disabled="matchEnded || (isOnline && onlineStatus !== 'started')"
+            @click="handleDraw"
+          >
             Match Nul
+          </button>
+          <button class="button-ghost game-action" type="button" :disabled="isOnline" @click="handleResetMatch">
+            Reinitialiser le match
           </button>
           <p v-if="finishNotice"
             :class="['form-message', finishNoticeError ? 'form-message--error' : 'form-message--success']">
@@ -1011,6 +1311,14 @@ const squares = computed(() =>
             <p class="metric-label">Cadence</p>
             <p class="metric-value">{{ timeControl }}</p>
           </div>
+          <div v-if="isAiMatch">
+            <p class="metric-label">Difficulte</p>
+            <p class="metric-value">{{ aiDifficultyLabel }}</p>
+          </div>
+          <div v-if="mode === 'Histoire' && localChapter">
+            <p class="metric-label">Chapitre</p>
+            <p class="metric-value">#{{ localChapter }}</p>
+          </div>
         </div>
 
         <div class="panel-subsection">
@@ -1051,3 +1359,4 @@ const squares = computed(() =>
     </section>
   </DashboardLayout>
 </template>
+

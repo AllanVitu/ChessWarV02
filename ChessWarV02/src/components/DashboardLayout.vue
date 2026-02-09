@@ -24,11 +24,13 @@ type DashboardLayoutProps = {
   eyebrow?: string
   title: string
   subtitle?: string
+  breadcrumbs?: Array<{ label: string; to?: string }>
 }
 
 const props = withDefaults(defineProps<DashboardLayoutProps>(), {
   eyebrow: 'Bon retour',
   subtitle: '',
+  breadcrumbs: () => [],
 })
 
 const router = useRouter()
@@ -45,7 +47,7 @@ const logoutLabel = computed(() =>
 const navItems = [
   { label: 'Dashboard', to: '/dashboard' },
   { label: 'Matchs', to: '/matchs' },
-  { label: 'Studio', to: '/studio' },
+  { label: 'Histoire', to: '/histoire' },
   { label: 'Classement', to: '/leaderboard' },
   { label: 'Profil', to: '/profile' },
   { label: 'Parametres', to: '/settings' },
@@ -652,6 +654,15 @@ const handleLogout = async () => {
     <main id="main-content" class="main">
       <header class="topbar">
         <div class="welcome">
+          <nav v-if="props.breadcrumbs.length" class="breadcrumbs" aria-label="Fil d ariane">
+            <template v-for="(crumb, index) in props.breadcrumbs" :key="`${crumb.label}-${index}`">
+              <RouterLink v-if="crumb.to" class="breadcrumbs__link" :to="crumb.to">
+                {{ crumb.label }}
+              </RouterLink>
+              <span v-else class="breadcrumbs__current">{{ crumb.label }}</span>
+              <span v-if="index < props.breadcrumbs.length - 1" class="breadcrumbs__sep">/</span>
+            </template>
+          </nav>
           <p class="eyebrow">{{ props.eyebrow }}</p>
           <h1 class="headline">{{ props.title }}</h1>
           <p v-if="props.subtitle" class="subhead">{{ props.subtitle }}</p>

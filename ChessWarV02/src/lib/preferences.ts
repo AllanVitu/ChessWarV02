@@ -5,7 +5,7 @@ export type UiPreferences = {
   timezone: string
   cadence: string
   boardTheme: string
-  haloTheme: 'blue' | 'red' | 'green' | 'violet'
+  haloTheme: 'blue' | 'red' | 'green' | 'violet' | 'amber' | 'teal' | 'slate'
   notifications: {
     matchAlerts: boolean
     matchResults: boolean
@@ -86,11 +86,21 @@ export const applyPreferences = (preferences: UiPreferences): void => {
     el.classList.toggle('theme-dark', preferences.darkMode)
     el.classList.toggle('ui-simple', preferences.simplifiedUi)
   })
-  const haloThemes = ['theme-halo-blue', 'theme-halo-red', 'theme-halo-green', 'theme-halo-violet']
+  const haloThemes = [
+    'theme-halo-blue',
+    'theme-halo-red',
+    'theme-halo-green',
+    'theme-halo-violet',
+    'theme-halo-amber',
+    'theme-halo-teal',
+    'theme-halo-slate',
+  ]
   targets.forEach((el) => {
     haloThemes.forEach((theme) => el.classList.remove(theme))
   })
-  const safeHalo = ['blue', 'red', 'green', 'violet'].includes(preferences.haloTheme)
+  const safeHalo = ['blue', 'red', 'green', 'violet', 'amber', 'teal', 'slate'].includes(
+    preferences.haloTheme,
+  )
     ? preferences.haloTheme
     : 'blue'
   targets.forEach((el) => {

@@ -1,7 +1,7 @@
 import { apiFetch, getSessionToken } from './api'
 
-export type MatchMode = 'Local' | 'IA' | 'JcJ'
-export type MatchStatus = 'planifie' | 'en_cours' | 'termine'
+export type MatchMode = 'Local' | 'IA' | 'JcJ' | 'Histoire'
+export type MatchStatus = 'waiting' | 'ready' | 'started' | 'finished' | 'aborted'
 export type DifficultyKey = 'facile' | 'intermediaire' | 'difficile' | 'maitre'
 
 export type MatchRecord = {
@@ -9,7 +9,11 @@ export type MatchRecord = {
   mode: MatchMode
   opponent: string
   status: MatchStatus
+  result?: 'win' | 'loss' | 'draw' | null
+  eloDelta?: number | null
   createdAt: string
+  startedAt?: string | null
+  finishedAt?: string | null
   lastMove: string
   timeControl: string
   side: 'Blancs' | 'Noirs' | 'Aleatoire'
@@ -20,6 +24,22 @@ const defaultMatches: MatchRecord[] = []
 
 let matchesCache: MatchRecord[] | null = null
 let matchesPromise: Promise<MatchRecord[]> | null = null
+
+const normalizeMatchStatus = (status: string): MatchStatus => {
+  if (status === 'planifie') return 'waiting'
+  if (status === 'en_cours') return 'started'
+  if (status === 'termine') return 'finished'
+  if (status === 'abandonne') return 'aborted'
+  if (status === 'waiting' || status === 'ready' || status === 'started' || status === 'finished' || status === 'aborted') {
+    return status
+  }
+  return 'waiting'
+}
+
+const normalizeMatch = (match: MatchRecord): MatchRecord => ({
+  ...match,
+  status: normalizeMatchStatus(match.status),
+})
 
 export const clearMatchesCache = (): void => {
   matchesCache = null
@@ -37,7 +57,7 @@ export const getMatches = async (): Promise<MatchRecord[]> => {
     matchesPromise = apiFetch<{ ok: boolean; matches?: MatchRecord[] }>('matches-get')
       .then((response) => (response.ok && response.matches?.length ? response.matches : defaultMatches))
       .catch(() => defaultMatches)
-      .then((next) => next.filter((match) => match.mode === 'JcJ'))
+      .then((next) => next.filter((match) => match.mode === 'JcJ').map(normalizeMatch))
       .then((next) => {
         matchesCache = next
         return next
@@ -65,12 +85,14 @@ export const addMatch = async (match: MatchRecord): Promise<MatchRecord[]> => {
     })
 
     const next = response.ok && response.matches?.length ? response.matches : [...(await getMatches()), match]
-    matchesCache = next
-    return next
+    const normalized = next.map(normalizeMatch)
+    matchesCache = normalized
+    return normalized
   } catch {
     const next = [...(await getMatches()), match]
-    matchesCache = next
-    return next
+    const normalized = next.map(normalizeMatch)
+    matchesCache = normalized
+    return normalized
   }
 }
 
@@ -84,7 +106,7 @@ export const clearMatchesHistory = async (
 ): Promise<{ ok: boolean; message: string; matches: MatchRecord[] }> => {
   const current = await getMatches()
   const filtered =
-    scope === 'all' ? [] : current.filter((match) => match.status !== 'termine')
+    scope === 'all' ? [] : current.filter((match) => match.status !== 'finished' && match.status !== 'aborted')
 
   if (!getSessionToken()) {
     matchesCache = filtered

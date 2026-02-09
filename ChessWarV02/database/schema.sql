@@ -46,16 +46,21 @@ CREATE TABLE IF NOT EXISTS games (
 );
 
 CREATE TABLE IF NOT EXISTS matches (
-  id TEXT PRIMARY KEY,
+  id TEXT NOT NULL,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   mode TEXT NOT NULL,
   opponent TEXT NOT NULL,
   status TEXT NOT NULL,
+  result TEXT,
+  elo_delta INTEGER,
   created_at TEXT NOT NULL,
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ,
   last_move TEXT NOT NULL,
   time_control TEXT NOT NULL,
   side TEXT NOT NULL,
-  difficulty TEXT
+  difficulty TEXT,
+  PRIMARY KEY (user_id, id)
 );
 
 CREATE TABLE IF NOT EXISTS friend_requests (
@@ -90,13 +95,30 @@ CREATE TABLE IF NOT EXISTS match_rooms (
   match_id UUID PRIMARY KEY,
   white_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   black_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  status TEXT NOT NULL DEFAULT 'active',
+  status TEXT NOT NULL DEFAULT 'waiting',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ready_at TIMESTAMPTZ,
+  start_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ,
+  aborted_at TIMESTAMPTZ,
+  white_ready_at TIMESTAMPTZ,
+  black_ready_at TIMESTAMPTZ,
+  white_seen_at TIMESTAMPTZ,
+  black_seen_at TIMESTAMPTZ,
   side_to_move TEXT NOT NULL DEFAULT 'white',
   last_move TEXT NOT NULL DEFAULT '-',
   move_count INTEGER NOT NULL DEFAULT 0,
   CHECK (white_id <> black_id)
+);
+
+CREATE TABLE IF NOT EXISTS match_queue (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  mode TEXT NOT NULL,
+  time_control TEXT NOT NULL,
+  side_preference TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS match_moves (
@@ -130,5 +152,8 @@ CREATE INDEX IF NOT EXISTS idx_match_invites_recipient ON match_invites(recipien
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_match_invites_pair ON match_invites(requester_id, recipient_id, match_id);
 CREATE INDEX IF NOT EXISTS idx_match_rooms_white ON match_rooms(white_id);
 CREATE INDEX IF NOT EXISTS idx_match_rooms_black ON match_rooms(black_id);
+CREATE INDEX IF NOT EXISTS idx_match_rooms_status ON match_rooms(status);
+CREATE INDEX IF NOT EXISTS idx_match_queue_mode ON match_queue(mode);
+CREATE INDEX IF NOT EXISTS idx_match_queue_created ON match_queue(created_at);
 CREATE INDEX IF NOT EXISTS idx_match_moves_match ON match_moves(match_id);
 CREATE INDEX IF NOT EXISTS idx_match_messages_match ON match_messages(match_id);

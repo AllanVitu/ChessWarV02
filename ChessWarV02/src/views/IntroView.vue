@@ -41,7 +41,7 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null
 const assets = computed(() => [
   { url: logoUrl, label: 'Logo principal', weight: 1 },
   { url: wordmarkUrl, label: 'Wordmark', weight: 1, heavy: true },
-  { url: `${import.meta.env.BASE_URL}icon-512.png`, label: 'Icone HD', weight: 1, heavy: true },
+  { url: `${import.meta.env.BASE_URL}android-chrome-512x512.png`, label: 'Icone HD', weight: 1, heavy: true },
 ])
 
 const showLightMode = computed(() => !lightMode.value)

@@ -30,18 +30,27 @@ export type OnlineMessage = {
   createdAt: string
 }
 
+export type MatchStatus = 'waiting' | 'ready' | 'started' | 'finished' | 'aborted'
+
 export type MatchOnlineState = {
   matchId: string
   whiteId?: string | null
   blackId?: string | null
-  status: string
+  status: MatchStatus
   sideToMove: OnlineSide
   lastMove: string
   moveCount: number
   createdAt?: string | null
   updatedAt?: string | null
+  readyAt?: string | null
+  startAt?: string | null
+  finishedAt?: string | null
+  abortedAt?: string | null
+  whiteReadyAt?: string | null
+  blackReadyAt?: string | null
+  serverTime?: string | null
   yourSide: OnlineSide
-  mode?: 'Local' | 'IA' | 'JcJ' | null
+  mode?: 'Local' | 'IA' | 'JcJ' | 'Histoire' | null
   opponent?: string | null
   timeControl?: string | null
   side?: 'Blancs' | 'Noirs' | 'Aleatoire' | null
@@ -126,6 +135,30 @@ export const finishMatch = async (
 
   if (!response.ok || !response.match) {
     throw new Error('Impossible de terminer le match.')
+  }
+  return response.match
+}
+
+export const markMatchReady = async (matchId: string): Promise<MatchOnlineState> => {
+  const response = await apiFetch<{ ok: boolean; match?: MatchOnlineState }>('match-ready', {
+    method: 'POST',
+    body: JSON.stringify({ matchId }),
+  })
+
+  if (!response.ok || !response.match) {
+    throw new Error('Impossible de confirmer la presence.')
+  }
+  return response.match
+}
+
+export const sendMatchPresence = async (matchId: string): Promise<MatchOnlineState> => {
+  const response = await apiFetch<{ ok: boolean; match?: MatchOnlineState }>('match-presence', {
+    method: 'POST',
+    body: JSON.stringify({ matchId }),
+  })
+
+  if (!response.ok || !response.match) {
+    throw new Error('Presence non enregistree.')
   }
   return response.match
 }

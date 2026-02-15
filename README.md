@@ -70,6 +70,7 @@ npm run preview
 ## Variables d environnement
 - `VITE_API_BASE` URL API (ex: `/api`)
 - `VITE_WS_BASE` URL WebSocket (facultatif)
+- `VITE_MATCH_TRANSPORT` transport match (`auto`, `ws`, `sse`, `poll`) pour forcer un seul canal temps reel
 - `VITE_SITE_URL` domaine canonical (ex: `https://warchess.app`)
 - `VITE_ANALYTICS_ENDPOINT` endpoint analytics (facultatif)
 - `VITE_ERROR_ENDPOINT` endpoint erreurs (facultatif)
@@ -89,6 +90,7 @@ npm run preview
 ## Notes de migration
 - La table `matches` utilise une cle composite `(user_id, id)`.
 - `match_rooms` expose `ready_at`, `start_at`, `finished_at`, `aborted_at`, `*_ready_at`, `*_seen_at`.
+- La table `match_moves` inclut `promotion` (TEXT NULL) pour les coups de promotion.
 - Ajouter les tables `match_queue` et les index associes.
 
 ## Checklist de validation

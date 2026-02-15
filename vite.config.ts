@@ -77,6 +77,7 @@ export default defineConfig(({ command }) => ({
       manifest: false,
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon-512.png', 'robots.txt'],
       workbox: {
+        globIgnores: ['**/*.wasm'],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/'),

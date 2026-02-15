@@ -5,6 +5,7 @@ require_once __DIR__ . '/_shared/db.php';
 require_once __DIR__ . '/_shared/auth.php';
 require_once __DIR__ . '/_shared/helpers.php';
 require_once __DIR__ . '/_shared/match.php';
+require_once __DIR__ . '/_shared/chess_rules.php';
 require_once __DIR__ . '/_shared/realtime.php';
 
 handle_options();
@@ -28,6 +29,7 @@ $payload = request_json();
 $match_id = trim((string) ($payload['matchId'] ?? ''));
 $from = strtolower(trim((string) ($payload['from'] ?? '')));
 $to = strtolower(trim((string) ($payload['to'] ?? '')));
+$promotion = strtolower(trim((string) ($payload['promotion'] ?? '')));
 $notation = trim((string) ($payload['notation'] ?? ''));
 
 if ($match_id === '' || $from === '' || $to === '') {
@@ -44,9 +46,14 @@ if (!preg_match('/^[a-h][1-8]$/', $from) || !preg_match('/^[a-h][1-8]$/', $to)) 
   json_response(400, ['ok' => false, 'message' => 'Coup invalide.']);
   exit;
 }
+if ($from === $to) {
+  json_response(400, ['ok' => false, 'message' => 'Coup invalide.']);
+  exit;
+}
 
-if ($notation === '') {
-  $notation = $from . '-' . $to;
+if ($promotion !== '' && !in_array($promotion, ['q', 'r', 'b', 'n'], true)) {
+  json_response(400, ['ok' => false, 'message' => 'Promotion invalide.']);
+  exit;
 }
 
 $pdo = db();
@@ -89,23 +96,78 @@ try {
     exit;
   }
 
-  $next_ply = isset($room['move_count']) ? (int) $room['move_count'] + 1 : 1;
-  $next_side = $expected_side === 'white' ? 'black' : 'white';
+  $history_moves = fetch_match_moves($match_id);
+  $replay = chess_replay_moves($history_moves);
+  if (!($replay['ok'] ?? false)) {
+    $pdo->rollBack();
+    json_response(409, ['ok' => false, 'message' => 'Historique du match invalide.']);
+    exit;
+  }
 
-  db_query(
-    'INSERT INTO match_moves
-     (match_id, ply, side, from_square, to_square, notation)
-     VALUES
-     (:match_id, :ply, :side, :from_square, :to_square, :notation)',
-    [
-      'match_id' => $match_id,
-      'ply' => $next_ply,
-      'side' => $expected_side,
-      'from_square' => $from,
-      'to_square' => $to,
-      'notation' => $notation,
-    ]
+  $state = $replay['state'];
+  $state_turn = (string) ($state['turn'] ?? $expected_side);
+  if ($state_turn !== $expected_side) {
+    $expected_side = $state_turn;
+    if ($player_side !== $expected_side) {
+      $pdo->rollBack();
+      json_response(409, ['ok' => false, 'message' => 'Ce n\'est pas votre tour.']);
+      exit;
+    }
+  }
+
+  $legal_move = chess_find_legal_move(
+    $state,
+    $from,
+    $to,
+    $promotion !== '' ? $promotion : null
   );
+  if (!$legal_move) {
+    $pdo->rollBack();
+    json_response(409, ['ok' => false, 'message' => 'Coup illegal.']);
+    exit;
+  }
+
+  $next_state = chess_apply_move_state($state, $legal_move);
+  $next_side = (string) ($next_state['turn'] ?? ($expected_side === 'white' ? 'black' : 'white'));
+  $effective_promotion = (string) ($legal_move['promotion'] ?? '');
+  if ($notation === '') {
+    $notation = $from . '-' . $to . ($effective_promotion !== '' ? '=' . strtoupper($effective_promotion) : '');
+  }
+
+  $next_ply = count($history_moves) + 1;
+
+  if (match_moves_supports_promotion()) {
+    db_query(
+      'INSERT INTO match_moves
+       (match_id, ply, side, from_square, to_square, promotion, notation)
+       VALUES
+       (:match_id, :ply, :side, :from_square, :to_square, :promotion, :notation)',
+      [
+        'match_id' => $match_id,
+        'ply' => $next_ply,
+        'side' => $expected_side,
+        'from_square' => $from,
+        'to_square' => $to,
+        'promotion' => $effective_promotion !== '' ? $effective_promotion : null,
+        'notation' => $notation,
+      ]
+    );
+  } else {
+    db_query(
+      'INSERT INTO match_moves
+       (match_id, ply, side, from_square, to_square, notation)
+       VALUES
+       (:match_id, :ply, :side, :from_square, :to_square, :notation)',
+      [
+        'match_id' => $match_id,
+        'ply' => $next_ply,
+        'side' => $expected_side,
+        'from_square' => $from,
+        'to_square' => $to,
+        'notation' => $notation,
+      ]
+    );
+  }
 
   db_query(
     'UPDATE match_rooms

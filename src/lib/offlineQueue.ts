@@ -167,10 +167,11 @@ const executeAction = async (action: OfflineAction) => {
       const from = action.payload.from as string | undefined
       const to = action.payload.to as string | undefined
       const notation = action.payload.notation as string | undefined
+      const promotion = action.payload.promotion as string | undefined
       if (!matchId || !from || !to || !notation) return
       await apiFetch('match-move-add', {
         method: 'POST',
-        body: JSON.stringify({ matchId, from, to, notation }),
+        body: JSON.stringify({ matchId, from, to, notation, promotion }),
         dedupe: false,
       })
       return

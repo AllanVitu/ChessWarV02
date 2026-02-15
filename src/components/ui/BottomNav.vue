@@ -21,7 +21,7 @@ const navItems: NavItem[] = [
   {
     label: 'Matchs',
     to: '/matchs',
-    matches: ['/matchs', '/matches', '/play', '/jeu'],
+    matches: ['/matchs', '/matches', '/play', '/jeu', '/entrainement', '/training'],
     icon: 'M7 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm3 3h4v4h-4z',
   },
   {

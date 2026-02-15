@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS match_moves (
   side TEXT NOT NULL,
   from_square TEXT NOT NULL,
   to_square TEXT NOT NULL,
+  promotion TEXT,
   notation TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (match_id, ply)

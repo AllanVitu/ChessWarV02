@@ -19,6 +19,7 @@ export type OnlineMove = {
   from: string
   to: string
   notation: string
+  promotion?: 'q' | 'r' | 'b' | 'n'
   createdAt: string
 }
 
@@ -78,7 +79,7 @@ export const getMatchRoom = async (matchId: string): Promise<MatchOnlineState> =
 
 export const addMatchMove = async (
   matchId: string,
-  move: { from: string; to: string; notation: string },
+  move: { from: string; to: string; notation: string; promotion?: 'q' | 'r' | 'b' | 'n' },
 ): Promise<MatchOnlineState> => {
   if (isOffline()) {
     await enqueueAction('match-move', { matchId, ...move })
@@ -93,6 +94,7 @@ export const addMatchMove = async (
         from: move.from,
         to: move.to,
         notation: move.notation,
+        promotion: move.promotion,
       }),
     })
 

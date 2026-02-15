@@ -6,6 +6,7 @@ const RegisterView = () => import('../views/RegisterView.vue')
 const ForgotPasswordView = () => import('../views/ForgotPasswordView.vue')
 const HomeView = () => import('../views/HomeView.vue')
 const MatchListView = () => import('../views/MatchListView.vue')
+const TrainingView = () => import('../views/TrainingView.vue')
 const StoryView = () => import('../views/StoryView.vue')
 const StoryChapterView = () => import('../views/StoryChapterView.vue')
 const GameView = () => import('../views/GameView.vue')
@@ -66,6 +67,16 @@ const router = createRouter({
       meta: {
         title: 'Matchs',
         description: 'Creez et gerez vos parties en cours.',
+      },
+    },
+    {
+      path: '/entrainement',
+      name: 'entrainement',
+      component: TrainingView,
+      alias: '/training',
+      meta: {
+        title: 'Entrainement',
+        description: 'Puzzles tactiques, mini-lessons et exercices personnalises.',
       },
     },
     {

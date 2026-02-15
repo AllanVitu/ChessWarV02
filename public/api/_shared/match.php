@@ -13,6 +13,25 @@ function match_chat_available(): bool
   return table_exists('match_messages');
 }
 
+function match_moves_supports_promotion(): bool
+{
+  static $supports = null;
+  if ($supports !== null) {
+    return $supports;
+  }
+
+  $column = db_fetch_one(
+    "SELECT 1
+     FROM information_schema.columns
+     WHERE table_schema = current_schema()
+       AND table_name = 'match_moves'
+       AND column_name = 'promotion'
+     LIMIT 1"
+  );
+  $supports = (bool) $column;
+  return $supports;
+}
+
 function fetch_match_room(string $match_id): ?array
 {
   return db_fetch_one(
@@ -56,8 +75,18 @@ function side_for_user(string $user_id, array $room): string
 
 function fetch_match_moves(string $match_id): array
 {
+  if (!match_moves_supports_promotion()) {
+    return db_fetch_all(
+      'SELECT ply, side, from_square, to_square, notation, created_at
+       FROM match_moves
+       WHERE match_id = :match_id
+       ORDER BY ply ASC',
+      ['match_id' => $match_id]
+    );
+  }
+
   return db_fetch_all(
-    'SELECT ply, side, from_square, to_square, notation, created_at
+    'SELECT ply, side, from_square, to_square, promotion, notation, created_at
      FROM match_moves
      WHERE match_id = :match_id
      ORDER BY ply ASC',
@@ -99,6 +128,7 @@ function build_match_payload(string $user_id, array $room): array
       'side' => $move['side'] ?? 'white',
       'from' => $move['from_square'],
       'to' => $move['to_square'],
+      'promotion' => $move['promotion'] ?: null,
       'notation' => $move['notation'],
       'createdAt' => $move['created_at'],
     ];

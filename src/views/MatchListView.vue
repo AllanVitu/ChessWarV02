@@ -4,7 +4,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import { clearMatchesHistory, getMatches, type MatchRecord } from '@/lib/matchesDb'
-import type { DifficultyKey } from '@/lib/chessEngine'
+import type { BotPersona, DifficultyKey } from '@/lib/chessEngine'
 import {
   getMatchmakingStatus,
   joinMatchmaking,
@@ -20,6 +20,7 @@ const router = useRouter()
 const selectedMode = ref<'IA' | 'JcJ' | 'Histoire'>('IA')
 const aiModalOpen = ref(false)
 const aiDifficulty = ref<DifficultyKey>('intermediaire')
+const aiPersona = ref<BotPersona>('equilibre')
 const aiSide = ref<'Blancs' | 'Noirs' | 'Aleatoire'>('Aleatoire')
 const aiTime = ref('10+0')
 const pvpMode = ref<MatchmakingMode>('ranked')
@@ -35,6 +36,13 @@ const aiDifficultyOptions: Array<{ value: DifficultyKey; label: string }> = [
   { value: 'intermediaire', label: 'Intermediaire' },
   { value: 'difficile', label: 'Difficile' },
   { value: 'maitre', label: 'Maitre' },
+]
+
+const aiPersonaOptions: Array<{ value: BotPersona; label: string }> = [
+  { value: 'equilibre', label: 'Equilibre' },
+  { value: 'agressif', label: 'Agressif' },
+  { value: 'solide', label: 'Solide' },
+  { value: 'fou', label: 'Chaos' },
 ]
 
 const aiTimeOptions = ['5+0', '10+0', '15+10', '20+0', '30+0']
@@ -156,6 +164,7 @@ const startAiMatch = async () => {
     allow: '1',
     mode: 'ia',
     difficulty: aiDifficulty.value,
+    persona: aiPersona.value,
     side: aiSide.value,
     time: aiTime.value,
   })
@@ -217,6 +226,15 @@ const handleMatchAction = async (match: MatchRecord) => {
           <span class="form-label">Difficulte</span>
           <select v-model="aiDifficulty" class="form-input">
             <option v-for="option in aiDifficultyOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+
+        <label class="form-field">
+          <span class="form-label">Personnalite</span>
+          <select v-model="aiPersona" class="form-input">
+            <option v-for="option in aiPersonaOptions" :key="option.value" :value="option.value">
               {{ option.label }}
             </option>
           </select>
@@ -373,6 +391,7 @@ const handleMatchAction = async (match: MatchRecord) => {
         </div>
         <div class="panel-actions">
           <button class="button-primary" type="button" @click="startNewMatch">Nouveau match</button>
+          <RouterLink class="button-ghost" to="/entrainement">Entrainement</RouterLink>
           <RouterLink class="button-ghost" to="/amis">Inviter un ami</RouterLink>
         </div>
         <div v-if="selectedMode === 'JcJ' && matchmaking.status === 'queued'" class="panel-matchmaking">

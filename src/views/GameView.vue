@@ -8,6 +8,13 @@ import {
   type MatchRecord,
 } from "@/lib/matchesDb";
 import { getCurrentUser } from "@/lib/auth";
+import { saveLocalGameRecord } from "@/lib/localDb";
+import {
+  disposeStockfishReview,
+  reviewGameWithStockfish,
+  type StockfishGameReview,
+} from "@/lib/stockfishReview";
+import { getPuzzleById, type PuzzleItem } from "@/lib/puzzles";
 import {
   addMatchMessage,
   addMatchMove,
@@ -26,14 +33,21 @@ import {
 import { createMatchInvite } from "@/lib/notifications";
 import {
   applyMove,
-  createInitialBoard,
+  createInitialFen,
+  exportPgnFromMoves,
+  fenToBoard,
   formatMove,
+  getGameStatus,
+  getTurnFromFen,
+  isValidFen,
+  loadPgn,
   getLegalMoves,
-  getAiMove,
+  type BotPersona,
   type DifficultyKey,
   type Move,
   type Side,
 } from "@/lib/chessEngine";
+import { disposeAiWorker, requestAiMove } from "@/lib/chessAiWorker";
 import { trackEvent } from "@/lib/telemetry";
 import { getPieceImage } from "@/lib/pieceAssets";
 
@@ -87,6 +101,21 @@ const serverOffsetMs = ref(0);
 const readyCountdown = ref(0);
 let readyTimer: ReturnType<typeof setInterval> | null = null;
 let presenceTimer: ReturnType<typeof setInterval> | null = null;
+type RealtimeTransport = "auto" | "ws" | "sse" | "poll";
+type ActiveRealtimeTransport = Exclude<RealtimeTransport, "auto">;
+
+const resolveRealtimeTransport = (): RealtimeTransport => {
+  const raw = String(import.meta.env.VITE_MATCH_TRANSPORT || "")
+    .trim()
+    .toLowerCase();
+  if (raw === "ws" || raw === "sse" || raw === "poll" || raw === "auto") {
+    return raw;
+  }
+  return "auto";
+};
+
+const preferredRealtimeTransport = resolveRealtimeTransport();
+const activeRealtimeTransport = ref<ActiveRealtimeTransport | null>(null);
 
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -128,9 +157,33 @@ const localDifficulty = computed<DifficultyKey>(() => {
   }
   return "intermediaire";
 });
+const localPersona = computed<BotPersona>(() => {
+  const value = queryValue(route.query.persona).toLowerCase();
+  if (
+    value === "equilibre" ||
+    value === "agressif" ||
+    value === "solide" ||
+    value === "fou"
+  ) {
+    return value;
+  }
+  return "equilibre";
+});
 const localChapter = computed(() => {
   const value = Number.parseInt(queryValue(route.query.chapter), 10);
   return Number.isFinite(value) ? value : 0;
+});
+const localPuzzleId = computed(() => queryValue(route.query.puzzle).trim());
+const activePuzzle = computed<PuzzleItem | null>(() => {
+  if (matchId.value) return null;
+  if (!localPuzzleId.value) return null;
+  return getPuzzleById(localPuzzleId.value);
+});
+const localStartFen = computed(() => {
+  if (activePuzzle.value) return activePuzzle.value.fen;
+  const fen = queryValue(route.query.fen).trim();
+  if (fen && isValidFen(fen)) return fen;
+  return createInitialFen();
 });
 
 const mode = computed<MatchRecord["mode"]>(() => {
@@ -168,6 +221,9 @@ const modeSubtitle = computed(() => {
   if (mode.value === "Histoire" && localChapter.value) {
     return `Mode ${modeLabel.value} - Chapitre ${localChapter.value} - Cadence ${timeControl.value}`;
   }
+  if (!isOnline.value && activePuzzle.value) {
+    return `Mode Puzzle - ${activePuzzle.value.title} - Cadence ${timeControl.value}`;
+  }
   return `Mode ${modeLabel.value} - ${opponent.value} - Cadence ${timeControl.value}`;
 });
 const onlineNote = computed(() => {
@@ -186,6 +242,13 @@ const onlineNote = computed(() => {
   return sideToMove.value === playerSide.value
     ? "A vous de jouer."
     : "En attente du coup adverse.";
+});
+const realtimeTransportLabel = computed(() => {
+  if (!isOnline.value) return "";
+  if (activeRealtimeTransport.value === "ws") return "WebSocket";
+  if (activeRealtimeTransport.value === "sse") return "SSE";
+  if (activeRealtimeTransport.value === "poll") return "Polling";
+  return "N/A";
 });
 
 const ensureCurrentUserId = async () => {
@@ -230,6 +293,7 @@ watch(
     onlineMode.value = null;
     onlineOpponent.value = null;
     onlineTimeControl.value = null;
+    activeRealtimeTransport.value = null;
     chatInput.value = "";
     chatPending.value = false;
     chatError.value = "";
@@ -246,6 +310,9 @@ watch(
     localMatchEnded.value = false;
     serverOffsetMs.value = 0;
     readyCountdown.value = 0;
+    reviewLoading.value = false;
+    reviewError.value = "";
+    reviewResult.value = null;
     if (!matchId.value) {
       match.value = null;
       resetLocalMatchState();
@@ -271,7 +338,7 @@ watch(
 
 const localConfigKey = computed(
   () =>
-    `${localMode.value}|${localSide.value}|${localTimeControl.value}|${localDifficulty.value}|${localChapter.value}`,
+    `${localMode.value}|${localSide.value}|${localTimeControl.value}|${localDifficulty.value}|${localPersona.value}|${localChapter.value}|${localPuzzleId.value}|${localStartFen.value}`,
 );
 
 watch(localConfigKey, () => {
@@ -356,20 +423,44 @@ const clockActive = computed(() => {
   return !localMatchEnded.value;
 });
 
-const board = ref(createInitialBoard());
-const sideToMove = ref<Side>("white");
+const gameFen = ref(createInitialFen());
+const board = ref(fenToBoard(gameFen.value));
+const sideToMove = ref<Side>(getTurnFromFen(gameFen.value));
 const selectedSquare = ref<string | null>(null);
 const lastMove = ref<{ from: string; to: string } | null>(null);
 const moveHistory = ref<{ ply: number; side: Side; notation: string }[]>([]);
+const rawMoves = ref<Array<{ from: string; to: string; promotion?: "q" | "r" | "b" | "n" }>>([]);
+const gameStatus = computed(() => getGameStatus(gameFen.value));
+const pgnValue = computed(() => exportPgnFromMoves(rawMoves.value));
+const importFen = ref("");
+const importPgn = ref("");
+const analysisError = ref("");
+const puzzleNotice = ref("");
+const puzzleNoticeError = ref(false);
+const puzzleSolved = ref(false);
+const reviewLoading = ref(false);
+const reviewError = ref("");
+const reviewResult = ref<StockfishGameReview | null>(null);
+
+type AnalysisNode = {
+  id: string;
+  parentId: string | null;
+  fen: string;
+  moveUci: string | null;
+  notation: string | null;
+  children: string[];
+  ply: number;
+};
+
+const analysisRootId = "analysis-root";
+const analysisNodes = ref<Record<string, AnalysisNode>>({});
+const analysisCurrentId = ref(analysisRootId);
+const analysisMainlinePath = ref<string[]>([analysisRootId]);
+const analysisSelectedSquare = ref<string | null>(null);
+let analysisNodeCounter = 0;
 
 const boardFiles = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const boardRanks = [8, 7, 6, 5, 4, 3, 2, 1];
-const squareToCoords = (square: string) => {
-  const file = square[0] ?? "";
-  const rank = Number(square[1]);
-  const col = boardFiles.indexOf(file);
-  return { row: 8 - rank, col: col === -1 ? 0 : col };
-};
 const pieceSymbols: Record<string, string> = {
   p: "p",
   r: "r",
@@ -400,7 +491,16 @@ const pieceNames: Record<string, string> = {
   K: "roi blanc",
 };
 
-const legalMoves = computed(() => getLegalMoves(board.value, sideToMove.value));
+const legalMoves = computed(() => getLegalMoves(gameFen.value, sideToMove.value));
+
+watch(
+  gameFen,
+  (fen) => {
+    board.value = fenToBoard(fen);
+    sideToMove.value = getTurnFromFen(fen);
+  },
+  { immediate: true },
+);
 
 const movesFromSelected = computed(() => {
   if (!selectedSquare.value) return [];
@@ -410,6 +510,112 @@ const movesFromSelected = computed(() => {
 const targetSquares = computed(
   () => new Set(movesFromSelected.value.map((move) => move.to)),
 );
+
+const nextAnalysisId = () => {
+  analysisNodeCounter += 1;
+  return `analysis-${analysisNodeCounter}`;
+};
+
+const rebuildAnalysisTree = () => {
+  analysisNodeCounter = 0;
+  const root: AnalysisNode = {
+    id: analysisRootId,
+    parentId: null,
+    fen: createInitialFen(),
+    moveUci: null,
+    notation: null,
+    children: [],
+    ply: 0,
+  };
+  const nodes: Record<string, AnalysisNode> = {
+    [analysisRootId]: root,
+  };
+  const mainline: string[] = [analysisRootId];
+  let cursor = root;
+
+  for (const move of rawMoves.value) {
+    const applied = applyMove(cursor.fen, move);
+    if (!applied.move) break;
+    const id = nextAnalysisId();
+    const node: AnalysisNode = {
+      id,
+      parentId: cursor.id,
+      fen: applied.fen,
+      moveUci: `${applied.move.from}${applied.move.to}${applied.move.promotion ?? ""}`,
+      notation: formatMove(applied.move),
+      children: [],
+      ply: cursor.ply + 1,
+    };
+    nodes[id] = node;
+    const parentNode = nodes[cursor.id];
+    if (!parentNode) break;
+    parentNode.children = [...parentNode.children, id];
+    mainline.push(id);
+    cursor = node;
+  }
+
+  analysisNodes.value = nodes;
+  analysisMainlinePath.value = mainline;
+  analysisCurrentId.value = mainline[mainline.length - 1] ?? analysisRootId;
+  analysisSelectedSquare.value = null;
+};
+
+watch(
+  rawMoves,
+  () => {
+    if (!isOnline.value) {
+      rebuildAnalysisTree();
+    }
+    evaluatePuzzleProgress();
+  },
+  { deep: true, immediate: true },
+);
+
+const analysisCurrentNode = computed<AnalysisNode>(() => {
+  return (
+    analysisNodes.value[analysisCurrentId.value] ?? {
+      id: analysisRootId,
+      parentId: null,
+      fen: createInitialFen(),
+      moveUci: null,
+      notation: null,
+      children: [],
+      ply: 0,
+    }
+  );
+});
+
+const analysisFen = computed(() => analysisCurrentNode.value.fen);
+const analysisTurn = computed<Side>(() => getTurnFromFen(analysisFen.value));
+const analysisBoard = computed(() => fenToBoard(analysisFen.value));
+const analysisLegalMoves = computed(() =>
+  getLegalMoves(analysisFen.value, analysisTurn.value),
+);
+const analysisMovesFromSelected = computed(() => {
+  if (!analysisSelectedSquare.value) return [];
+  return analysisLegalMoves.value.filter(
+    (move) => move.from === analysisSelectedSquare.value,
+  );
+});
+const analysisTargetSquares = computed(
+  () => new Set(analysisMovesFromSelected.value.map((move) => move.to)),
+);
+const analysisChildren = computed(() =>
+  analysisCurrentNode.value.children
+    .map((id) => analysisNodes.value[id])
+    .filter((node): node is AnalysisNode => Boolean(node)),
+);
+
+const analysisPath = computed(() => {
+  const path: AnalysisNode[] = [];
+  let node: AnalysisNode | undefined = analysisCurrentNode.value;
+  while (node) {
+    path.unshift(node);
+    if (!node.parentId) break;
+    node = analysisNodes.value[node.parentId];
+  }
+  return path;
+});
 
 const canUserMove = computed(() => {
   if (isOnline.value) {
@@ -449,6 +655,28 @@ const aiDifficultyLabel = computed(() => {
   return labels[localDifficulty.value] ?? "Intermediaire";
 });
 
+const aiPersonaLabel = computed(() => {
+  const labels: Record<BotPersona, string> = {
+    equilibre: "Equilibre",
+    agressif: "Agressif",
+    solide: "Solide",
+    fou: "Chaos",
+  };
+  return labels[localPersona.value] ?? "Equilibre";
+});
+
+const gamePhaseLabel = computed(() => {
+  if (gameStatus.value.isCheckmate) return "Echec et mat";
+  if (gameStatus.value.isStalemate) return "Pat";
+  if (gameStatus.value.isDraw) return "Nulle";
+  if (gameStatus.value.inCheck) {
+    return sideToMove.value === "white"
+      ? "Blancs en echec"
+      : "Noirs en echec";
+  }
+  return "En cours";
+});
+
 const initialsFrom = (label: string) => {
   const clean = label.trim();
   if (!clean) return "?";
@@ -463,26 +691,36 @@ const initialsFrom = (label: string) => {
 };
 
 const applyOnlineMoves = (moves: OnlineMove[]) => {
-  let nextBoard = createInitialBoard();
+  let nextFen = createInitialFen();
   const history: { ply: number; side: Side; notation: string }[] = [];
+  const raw: Array<{ from: string; to: string; promotion?: "q" | "r" | "b" | "n" }> = [];
   let last: { from: string; to: string } | null = null;
 
   for (const move of moves) {
-    const coords = squareToCoords(move.from);
-    const piece = nextBoard[coords.row]?.[coords.col] ?? "";
-    if (!piece) {
+    const applied = applyMove(nextFen, {
+      from: move.from,
+      to: move.to,
+      promotion: move.promotion,
+    });
+    if (!applied.move) {
       continue;
     }
-    nextBoard = applyMove(nextBoard, { from: move.from, to: move.to, piece });
+    nextFen = applied.fen;
+    raw.push({
+      from: applied.move.from,
+      to: applied.move.to,
+      promotion: applied.move.promotion,
+    });
     history.push({
       ply: move.ply,
       side: move.side === "white" ? "white" : "black",
-      notation: move.notation,
+      notation: move.notation || formatMove(applied.move),
     });
     last = { from: move.from, to: move.to };
   }
 
-  board.value = nextBoard;
+  gameFen.value = nextFen;
+  rawMoves.value = raw;
   moveHistory.value = history;
   lastMove.value = last;
   selectedSquare.value = null;
@@ -513,7 +751,6 @@ const applyOnlineState = (state: MatchOnlineState) => {
   if (state.timeControl) {
     onlineTimeControl.value = state.timeControl;
   }
-  sideToMove.value = state.sideToMove;
   onlinePending.value = false;
   updateServerOffset(state);
   applyOnlineMoves(onlineMoves.value);
@@ -624,11 +861,20 @@ const resetLocalClocks = () => {
 const resetLocalMatchState = (refreshSeed = true) => {
   stopAiTimer();
   stopClock();
-  board.value = createInitialBoard();
-  sideToMove.value = "white";
+  gameFen.value = localStartFen.value;
   selectedSquare.value = null;
   lastMove.value = null;
   moveHistory.value = [];
+  rawMoves.value = [];
+  importFen.value = localStartFen.value === createInitialFen() ? "" : localStartFen.value;
+  importPgn.value = "";
+  analysisError.value = "";
+  puzzleNotice.value = "";
+  puzzleNoticeError.value = false;
+  puzzleSolved.value = false;
+  reviewLoading.value = false;
+  reviewError.value = "";
+  reviewResult.value = null;
   if (refreshSeed) {
     localSeed.value = Math.floor(Math.random() * 1000);
   }
@@ -646,28 +892,35 @@ const queueAiMove = () => {
   const delay = 450 + Math.floor(Math.random() * 650);
   aiTimer = setTimeout(() => {
     aiTimer = null;
-    if (!isAiMatch.value || !aiSide.value) {
+    void (async () => {
+      if (!isAiMatch.value || !aiSide.value) {
+        aiPending.value = false;
+        return;
+      }
+      if (
+        matchEnded.value ||
+        localMatchEnded.value ||
+        sideToMove.value !== aiSide.value
+      ) {
+        aiPending.value = false;
+        return;
+      }
+      const move = await requestAiMove(
+        gameFen.value,
+        aiSide.value,
+        localDifficulty.value,
+        localPersona.value,
+      ).catch(() => null);
       aiPending.value = false;
-      return;
-    }
-    if (
-      matchEnded.value ||
-      localMatchEnded.value ||
-      sideToMove.value !== aiSide.value
-    ) {
-      aiPending.value = false;
-      return;
-    }
-    const move = getAiMove(board.value, aiSide.value, localDifficulty.value);
-    aiPending.value = false;
-    if (!move) {
-      localMatchEnded.value = true;
-      clockNotice.value = "IA bloquee. Match termine.";
-      clockNoticeError.value = true;
-      stopClock();
-      return;
-    }
-    applyAndRecord(move);
+      if (!move) {
+        localMatchEnded.value = true;
+        clockNotice.value = "IA bloquee. Match termine.";
+        clockNoticeError.value = true;
+        stopClock();
+        return;
+      }
+      applyAndRecord(move);
+    })();
   }, delay);
 };
 
@@ -764,6 +1017,9 @@ const stopOnlineSocket = () => {
   const socket = onlineSocket;
   onlineSocket = null;
   socket.close();
+  if (activeRealtimeTransport.value === "ws") {
+    activeRealtimeTransport.value = null;
+  }
 };
 
 const stopOnlineStream = () => {
@@ -771,12 +1027,18 @@ const stopOnlineStream = () => {
     onlineStream.close();
     onlineStream = null;
   }
+  if (activeRealtimeTransport.value === "sse") {
+    activeRealtimeTransport.value = null;
+  }
 };
 
 const stopOnlinePolling = () => {
   if (onlinePollTimer) {
     clearInterval(onlinePollTimer);
     onlinePollTimer = null;
+  }
+  if (activeRealtimeTransport.value === "poll") {
+    activeRealtimeTransport.value = null;
   }
 };
 
@@ -817,7 +1079,10 @@ const handleSocketMessage = async (payload: MatchSocketMessage) => {
 };
 
 const startOnlinePolling = () => {
+  stopOnlineSocket();
+  stopOnlineStream();
   if (onlinePollTimer) return;
+  activeRealtimeTransport.value = "poll";
   onlinePollTimer = setInterval(async () => {
     await refreshOnlineState(true);
   }, 3000);
@@ -837,8 +1102,10 @@ const startPresenceTimer = () => {
 };
 
 const startOnlineStream = () => {
-  if (!matchId.value) return;
+  if (!matchId.value) return false;
+  stopOnlineSocket();
   stopOnlineStream();
+  stopOnlinePolling();
   onlineStream = openMatchStream(
     matchId.value,
     (payload) => {
@@ -856,7 +1123,51 @@ const startOnlineStream = () => {
   );
   if (!onlineStream) {
     startOnlinePolling();
+    return false;
   }
+  activeRealtimeTransport.value = "sse";
+  return true;
+};
+
+const startOnlineSocketChannel = () => {
+  if (!matchId.value) return false;
+  stopOnlineSocket();
+  stopOnlineStream();
+  stopOnlinePolling();
+  const socket = openMatchSocket(
+    matchId.value,
+    (payload) => {
+      void handleSocketMessage(payload);
+    },
+  );
+
+  if (!socket) {
+    return false;
+  }
+
+  onlineSocket = socket;
+  activeRealtimeTransport.value = "ws";
+
+  const fallback = () => {
+    if (onlineSocket !== socket) return;
+    onlineSocket = null;
+    if (!onlineError.value) {
+      onlineError.value = "Connexion temps reel interrompue.";
+    }
+    if (
+      preferredRealtimeTransport === "ws" ||
+      preferredRealtimeTransport === "auto"
+    ) {
+      if (startOnlineStream()) return;
+    }
+    startOnlinePolling();
+  };
+
+  socket.addEventListener("error", fallback);
+  socket.addEventListener("close", () => {
+    fallback();
+  });
+  return true;
 };
 
 const startOnlineRealtime = () => {
@@ -864,33 +1175,29 @@ const startOnlineRealtime = () => {
   stopOnlinePolling();
   stopOnlineStream();
   stopOnlineSocket();
-  const socket = openMatchSocket(
-    matchId.value,
-    (payload) => {
-      void handleSocketMessage(payload);
-    },
-    () => {
-      if (!onlineError.value) {
-        onlineError.value = "Connexion temps reel interrompue.";
-      }
-      startOnlineStream();
-    },
-  );
 
-  if (!socket) {
-    startOnlineStream();
+  if (preferredRealtimeTransport === "poll") {
+    startOnlinePolling();
     return;
   }
 
-  onlineSocket = socket;
-  socket.addEventListener("close", () => {
-    if (onlineSocket !== socket) return;
-    onlineSocket = null;
-    if (!onlineError.value) {
-      onlineError.value = "Connexion temps reel interrompue.";
+  if (preferredRealtimeTransport === "sse") {
+    if (!startOnlineStream()) {
+      startOnlinePolling();
     }
-    startOnlineStream();
-  });
+    return;
+  }
+
+  if (preferredRealtimeTransport === "ws") {
+    if (!startOnlineSocketChannel() && !startOnlineStream()) {
+      startOnlinePolling();
+    }
+    return;
+  }
+
+  if (startOnlineSocketChannel()) return;
+  if (startOnlineStream()) return;
+  startOnlinePolling();
 };
 
 const loadOnlineMatch = async () => {
@@ -931,24 +1238,143 @@ const isOwnedBySide = (piece: string, side: Side) => {
     : piece === piece.toLowerCase();
 };
 
+const localEndLabel = (reason: ReturnType<typeof getGameStatus>["reason"]) => {
+  if (reason === "checkmate") return "Echec et mat.";
+  if (reason === "stalemate") return "Pat. Match nul.";
+  if (reason === "threefold-repetition") return "Nulle par repetition.";
+  if (reason === "insufficient-material") {
+    return "Nulle: materiel insuffisant.";
+  }
+  if (reason === "fifty-moves") return "Nulle: regle des 50 coups.";
+  if (reason === "draw") return "Match nul.";
+  return "Partie terminee.";
+};
+
+const buildFallbackReview = () => {
+  const played = Math.max(1, moveHistory.value.length);
+  const blunders = Math.max(0, Math.round(played * 0.05));
+  const mistakes = Math.max(0, Math.round(played * 0.12));
+  const best = Math.max(0, played - blunders - mistakes);
+  const accuracy = Math.max(0, Math.min(100, 100 - mistakes * 5 - blunders * 14));
+  return { accuracy, best, mistakes, blunders };
+};
+
+const persistLocalGame = (result: "win" | "loss" | "draw") => {
+  const gameId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const fallback = buildFallbackReview();
+  const snapshotMoves = rawMoves.value.map((move) => ({ ...move }));
+  const snapshotPgn = pgnValue.value;
+  const snapshotFen = gameFen.value;
+  const snapshotMoveCount = moveHistory.value.length;
+  const snapshotOpponent = isAiMatch.value
+    ? `IA ${aiPersonaLabel.value} ${aiDifficultyLabel.value}`
+    : "Local";
+  const snapshotDate = new Date().toISOString();
+
+  saveLocalGameRecord({
+    id: gameId,
+    opponent: snapshotOpponent,
+    result,
+    opening: "Inconnue",
+    date: snapshotDate,
+    moves: snapshotMoveCount,
+    accuracy: fallback.accuracy,
+    pgn: snapshotPgn,
+    finalFen: snapshotFen,
+    review: {
+      best: fallback.best,
+      mistakes: fallback.mistakes,
+      blunders: fallback.blunders,
+    },
+  });
+
+  reviewLoading.value = true;
+  reviewError.value = "";
+  reviewResult.value = null;
+
+  void reviewGameWithStockfish(snapshotMoves)
+    .then((review) => {
+      reviewResult.value = review;
+      saveLocalGameRecord({
+        id: gameId,
+        opponent: snapshotOpponent,
+        result,
+        opening: "Inconnue",
+        date: snapshotDate,
+        moves: snapshotMoveCount,
+        accuracy: review.accuracy,
+        pgn: snapshotPgn,
+        finalFen: snapshotFen,
+        review: {
+          best: review.best + review.good,
+          good: review.good,
+          inaccuracies: review.inaccuracies,
+          mistakes: review.mistakes,
+          blunders: review.blunders,
+        },
+      });
+    })
+    .catch((error) => {
+      reviewError.value = (error as Error).message || "Review indisponible.";
+    })
+    .finally(() => {
+      reviewLoading.value = false;
+    });
+};
+
 const applyAndRecord = (move: Move) => {
   if (!isOnline.value) {
     commitClockTick();
     applyIncrement(sideToMove.value);
     checkTimeout();
   }
-  board.value = applyMove(board.value, move);
+  const applied = applyMove(gameFen.value, {
+    from: move.from,
+    to: move.to,
+    promotion: move.promotion,
+  });
+  if (!applied.move) return;
+  gameFen.value = applied.fen;
+  rawMoves.value = [
+    ...rawMoves.value,
+    {
+      from: applied.move.from,
+      to: applied.move.to,
+      promotion: applied.move.promotion,
+    },
+  ];
   moveHistory.value = [
     ...moveHistory.value,
     {
       ply: moveHistory.value.length + 1,
       side: sideToMove.value,
-      notation: formatMove(move),
+      notation: formatMove(applied.move),
     },
   ];
-  lastMove.value = { from: move.from, to: move.to };
+  lastMove.value = { from: applied.move.from, to: applied.move.to };
   selectedSquare.value = null;
-  sideToMove.value = sideToMove.value === "white" ? "black" : "white";
+
+  const status = getGameStatus(applied.fen);
+  if (!isOnline.value && status.isGameOver) {
+    localMatchEnded.value = true;
+    stopClock();
+    clockNotice.value = localEndLabel(status.reason);
+    clockNoticeError.value = false;
+    if (status.reason === "checkmate" && status.winner) {
+      persistLocalGame(status.winner === playerSide.value ? "win" : "loss");
+    } else {
+      persistLocalGame("draw");
+    }
+    trackEvent({
+      name: "finish_game",
+      payload: {
+        matchId: matchId.value || "local",
+        result: status.reason ?? "game-over",
+      },
+    });
+    return;
+  }
+
   clockTickAt.value = Date.now();
   if (!isOnline.value && isAiMatch.value) {
     queueAiMove();
@@ -966,6 +1392,7 @@ const submitOnlineMove = async (move: Move) => {
       from: move.from,
       to: move.to,
       notation: formatMove(move),
+      promotion: move.promotion,
     });
     applyOnlineState(state);
   } catch (error) {
@@ -1066,6 +1493,8 @@ const handleTimeout = async () => {
     return;
   }
   localMatchEnded.value = true;
+  const timedOutSide = sideToMove.value;
+  persistLocalGame(timedOutSide === playerSide.value ? "loss" : "win");
   clockNotice.value = "Temps ecoule. Match termine.";
   clockNoticeError.value = true;
   trackEvent({
@@ -1115,6 +1544,7 @@ const handleAbandon = async () => {
     await handleFinishMatch("resign");
     return;
   }
+  persistLocalGame("loss");
   trackEvent({
     name: "finish_game",
     payload: {
@@ -1131,6 +1561,7 @@ const handleDraw = async () => {
     await handleFinishMatch("draw");
     return;
   }
+  persistLocalGame("draw");
   trackEvent({
     name: "finish_game",
     payload: {
@@ -1145,6 +1576,236 @@ const handleResetMatch = () => {
   if (isOnline.value) return;
   resetLocalMatchState();
 };
+
+const restoreFromRawMoves = (
+  moves: Array<{ from: string; to: string; promotion?: "q" | "r" | "b" | "n" }>,
+) => {
+  let fen = createInitialFen();
+  const history: { ply: number; side: Side; notation: string }[] = [];
+  const raw: Array<{ from: string; to: string; promotion?: "q" | "r" | "b" | "n" }> = [];
+  for (const move of moves) {
+    const applied = applyMove(fen, move);
+    if (!applied.move) break;
+    fen = applied.fen;
+    raw.push({
+      from: applied.move.from,
+      to: applied.move.to,
+      promotion: applied.move.promotion,
+    });
+    history.push({
+      ply: history.length + 1,
+      side: history.length % 2 === 0 ? "white" : "black",
+      notation: formatMove(applied.move),
+    });
+  }
+  gameFen.value = fen;
+  rawMoves.value = raw;
+  moveHistory.value = history;
+  lastMove.value = history.length
+    ? {
+        from: raw[raw.length - 1]?.from ?? "",
+        to: raw[raw.length - 1]?.to ?? "",
+      }
+    : null;
+};
+
+const syncLocalStatus = () => {
+  if (isOnline.value) return;
+  const status = getGameStatus(gameFen.value);
+  if (status.isGameOver) {
+    localMatchEnded.value = true;
+    stopClock();
+    clockNotice.value = localEndLabel(status.reason);
+    clockNoticeError.value = false;
+    return;
+  }
+  localMatchEnded.value = false;
+  clockNotice.value = "";
+  clockNoticeError.value = false;
+  resetLocalClocks();
+  queueAiMove();
+};
+
+const evaluatePuzzleProgress = () => {
+  if (!activePuzzle.value || isOnline.value) {
+    puzzleNotice.value = "";
+    puzzleNoticeError.value = false;
+    puzzleSolved.value = false;
+    return;
+  }
+
+  const played = rawMoves.value.map(
+    (move) => `${move.from}${move.to}${move.promotion ?? ""}`,
+  );
+  const solution = activePuzzle.value.solution;
+  const compared = Math.min(played.length, solution.length);
+
+  for (let index = 0; index < compared; index += 1) {
+    const playedMove = played[index] ?? "";
+    const expectedMove = solution[index] ?? "";
+    if (playedMove !== expectedMove) {
+      puzzleSolved.value = false;
+      puzzleNoticeError.value = true;
+      puzzleNotice.value = `Ligne incorrecte au coup ${
+        index + 1
+      }. Attendu: ${expectedMove}.`;
+      return;
+    }
+  }
+
+  if (played.length >= solution.length) {
+    puzzleSolved.value = true;
+    puzzleNoticeError.value = false;
+    puzzleNotice.value = "Puzzle resolu. Bonne ligne tactique.";
+    return;
+  }
+
+  puzzleSolved.value = false;
+  puzzleNoticeError.value = false;
+  puzzleNotice.value = `Ligne correcte (${played.length}/${solution.length}).`;
+};
+
+const handleImportFen = () => {
+  if (isOnline.value) return;
+  const fen = importFen.value.trim();
+  if (!fen || !isValidFen(fen)) {
+    analysisError.value = "FEN invalide.";
+    return;
+  }
+  analysisError.value = "";
+  gameFen.value = fen;
+  moveHistory.value = [];
+  rawMoves.value = [];
+  lastMove.value = null;
+  syncLocalStatus();
+};
+
+const handleImportPgn = () => {
+  if (isOnline.value) return;
+  const pgn = importPgn.value.trim();
+  if (!pgn) {
+    analysisError.value = "PGN vide.";
+    return;
+  }
+  const loaded = loadPgn(pgn);
+  if (!loaded.ok) {
+    analysisError.value = loaded.error || "PGN invalide.";
+    return;
+  }
+  analysisError.value = "";
+  const moves = loaded.moves.map((move) => ({
+    from: move.from,
+    to: move.to,
+    promotion: move.promotion,
+  }));
+  restoreFromRawMoves(moves);
+  importFen.value = loaded.fen;
+  syncLocalStatus();
+};
+
+const selectAnalysisNode = (nodeId: string) => {
+  if (!analysisNodes.value[nodeId]) return;
+  analysisCurrentId.value = nodeId;
+  analysisSelectedSquare.value = null;
+};
+
+const addAnalysisMove = (move: Move) => {
+  const current = analysisCurrentNode.value;
+  const applied = applyMove(current.fen, {
+    from: move.from,
+    to: move.to,
+    promotion: move.promotion,
+  });
+  if (!applied.move) return;
+  const uci = `${applied.move.from}${applied.move.to}${applied.move.promotion ?? ""}`;
+
+  const existing = current.children
+    .map((id) => analysisNodes.value[id])
+    .find((child) => child && child.moveUci === uci);
+  if (existing) {
+    analysisCurrentId.value = existing.id;
+    analysisSelectedSquare.value = null;
+    return;
+  }
+
+  const id = nextAnalysisId();
+  const node: AnalysisNode = {
+    id,
+    parentId: current.id,
+    fen: applied.fen,
+    moveUci: uci,
+    notation: formatMove(applied.move),
+    children: [],
+    ply: current.ply + 1,
+  };
+  analysisNodes.value = {
+    ...analysisNodes.value,
+    [id]: node,
+    [current.id]: {
+      ...current,
+      children: [...current.children, id],
+    },
+  };
+  analysisCurrentId.value = id;
+  analysisSelectedSquare.value = null;
+};
+
+const handleAnalysisSquareClick = (squareId: string, piece: string) => {
+  if (!analysisSelectedSquare.value) {
+    if (!piece || !isOwnedBySide(piece, analysisTurn.value)) return;
+    analysisSelectedSquare.value = squareId;
+    return;
+  }
+
+  if (analysisSelectedSquare.value === squareId) {
+    analysisSelectedSquare.value = null;
+    return;
+  }
+
+  const move = analysisMovesFromSelected.value.find(
+    (candidate) => candidate.to === squareId,
+  );
+  if (!move) {
+    if (piece && isOwnedBySide(piece, analysisTurn.value)) {
+      analysisSelectedSquare.value = squareId;
+    }
+    return;
+  }
+
+  addAnalysisMove(move);
+};
+
+const analysisSquares = computed(() =>
+  boardRanks.flatMap((rank, rowIndex) =>
+    boardFiles.map((file, colIndex) => {
+      const piece = analysisBoard.value[rowIndex]?.[colIndex] ?? "";
+      const squareId = `${file}${rank}`;
+      const isDark = (rowIndex + colIndex) % 2 === 1;
+      const tone = piece
+        ? piece === piece.toUpperCase()
+          ? "light"
+          : "dark"
+        : "";
+      const isSelected = analysisSelectedSquare.value === squareId;
+      const isTarget = analysisTargetSquares.value.has(squareId);
+      const ariaLabel = piece
+        ? `${squareId} ${pieceNames[piece] ?? "piece"}`
+        : `${squareId} vide`;
+
+      return {
+        id: squareId,
+        piece,
+        symbol: pieceSymbols[piece] ?? "",
+        image: piece ? getPieceImage(piece) : "",
+        dark: isDark,
+        tone,
+        isSelected,
+        isTarget,
+        ariaLabel,
+      };
+    }),
+  ),
+);
 
 const handleLeaveMatch = async () => {
   await router.push("/dashboard");
@@ -1168,6 +1829,8 @@ onBeforeUnmount(() => {
   stopAiTimer();
   stopReadyTimer();
   stopPresenceTimer();
+  disposeAiWorker();
+  disposeStockfishReview();
 });
 
 const squares = computed(() =>
@@ -1231,6 +1894,9 @@ const squares = computed(() =>
 
           <p v-if="onlineNote" class="form-message form-message--success">
             {{ onlineNote }}
+          </p>
+          <p v-if="isOnline && realtimeTransportLabel" class="panel-sub">
+            Transport actif: {{ realtimeTransportLabel }}
           </p>
           <p v-if="onlineError" class="form-message form-message--error">
             {{ onlineError }}
@@ -1454,15 +2120,46 @@ const squares = computed(() =>
             <p class="metric-label">Cadence</p>
             <p class="metric-value">{{ timeControl }}</p>
           </div>
+          <div>
+            <p class="metric-label">Etat</p>
+            <p class="metric-value">{{ gamePhaseLabel }}</p>
+          </div>
           <div v-if="isAiMatch">
             <p class="metric-label">Difficulte</p>
             <p class="metric-value">{{ aiDifficultyLabel }}</p>
+          </div>
+          <div v-if="isAiMatch">
+            <p class="metric-label">Profil IA</p>
+            <p class="metric-value">{{ aiPersonaLabel }}</p>
           </div>
           <div v-if="mode === 'Histoire' && localChapter">
             <p class="metric-label">Chapitre</p>
             <p class="metric-value">#{{ localChapter }}</p>
           </div>
+          <div v-if="activePuzzle">
+            <p class="metric-label">Puzzle</p>
+            <p class="metric-value">{{ activePuzzle.title }}</p>
+          </div>
+          <div v-if="activePuzzle">
+            <p class="metric-label">Progression</p>
+            <p class="metric-value">
+              {{ Math.min(rawMoves.length, activePuzzle.solution.length) }}/{{ activePuzzle.solution.length }}
+            </p>
+          </div>
+          <div v-if="activePuzzle">
+            <p class="metric-label">Statut</p>
+            <p class="metric-value">{{ puzzleSolved ? "Resolu" : "En cours" }}</p>
+          </div>
         </div>
+        <p
+          v-if="puzzleNotice"
+          :class="[
+            'form-message',
+            puzzleNoticeError ? 'form-message--error' : 'form-message--success',
+          ]"
+        >
+          {{ puzzleNotice }}
+        </p>
 
         <div class="panel-subsection">
           <p class="panel-title">Historique</p>
@@ -1476,6 +2173,161 @@ const squares = computed(() =>
                 move.side === "white" ? "Blancs" : "Noirs"
               }}</span>
               <span class="move-notation">{{ move.notation }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="!isOnline" class="panel-subsection">
+          <p class="panel-title">Analyse (FEN / PGN)</p>
+          <div class="form-stack">
+            <label class="form-field">
+              <span class="form-label">FEN courant</span>
+              <textarea class="form-input" rows="2" :value="gameFen" readonly />
+            </label>
+            <label class="form-field">
+              <span class="form-label">PGN courant</span>
+              <textarea class="form-input" rows="5" :value="pgnValue" readonly />
+            </label>
+            <label class="form-field">
+              <span class="form-label">Importer FEN</span>
+              <input
+                v-model="importFen"
+                class="form-input"
+                type="text"
+                placeholder="ex: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+              />
+            </label>
+            <button class="button-ghost game-action" type="button" @click="handleImportFen">
+              Charger FEN
+            </button>
+            <label class="form-field">
+              <span class="form-label">Importer PGN</span>
+              <textarea
+                v-model="importPgn"
+                class="form-input"
+                rows="4"
+                placeholder="Collez un PGN complet"
+              />
+            </label>
+            <button class="button-ghost game-action" type="button" @click="handleImportPgn">
+              Charger PGN
+            </button>
+            <p v-if="analysisError" class="form-message form-message--error">
+              {{ analysisError }}
+            </p>
+            <p v-if="reviewLoading" class="form-message form-message--success">
+              Analyse Stockfish en cours...
+            </p>
+            <p v-if="reviewError" class="form-message form-message--error">
+              {{ reviewError }}
+            </p>
+            <div v-if="reviewResult" class="game-info">
+              <div>
+                <p class="metric-label">Precision</p>
+                <p class="metric-value">{{ reviewResult.accuracy }}%</p>
+              </div>
+              <div>
+                <p class="metric-label">Best / Good</p>
+                <p class="metric-value">{{ reviewResult.best }} / {{ reviewResult.good }}</p>
+              </div>
+              <div>
+                <p class="metric-label">Inexactitudes</p>
+                <p class="metric-value">{{ reviewResult.inaccuracies }}</p>
+              </div>
+              <div>
+                <p class="metric-label">Erreurs / Gaffes</p>
+                <p class="metric-value">{{ reviewResult.mistakes }} / {{ reviewResult.blunders }}</p>
+              </div>
+            </div>
+
+            <div class="panel-subsection">
+              <p class="panel-title">Board d'analyse (variantes)</p>
+              <p class="panel-sub">
+                Cliquez les cases pour explorer une ligne. Un coup non present cree une nouvelle variante.
+              </p>
+              <div class="board-wrap">
+                <div class="board">
+                  <div class="board-grid" role="grid" aria-label="Board analyse">
+                    <button
+                      v-for="square in analysisSquares"
+                      :key="`analysis-${square.id}`"
+                      type="button"
+                      :class="[
+                        'square',
+                        square.dark ? 'square--dark' : 'square--light',
+                        square.isSelected ? 'square--selected' : '',
+                        square.isTarget ? 'square--target' : '',
+                      ]"
+                      :aria-label="square.ariaLabel"
+                      :aria-pressed="square.isSelected"
+                      role="gridcell"
+                      @click="handleAnalysisSquareClick(square.id, square.piece)"
+                    >
+                      <img
+                        v-if="square.piece && square.image"
+                        :src="square.image"
+                        alt=""
+                        aria-hidden="true"
+                        :class="[
+                          'piece',
+                          'piece-img',
+                          square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                        ]"
+                      />
+                      <span
+                        v-else-if="square.piece"
+                        :class="[
+                          'piece',
+                          square.tone === 'light' ? 'piece--light' : 'piece--dark',
+                        ]"
+                      >
+                        {{ square.symbol }}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="game-info">
+                <div>
+                  <p class="metric-label">Noeud</p>
+                  <p class="metric-value">#{{ analysisCurrentNode.ply }}</p>
+                </div>
+                <div>
+                  <p class="metric-label">Trait</p>
+                  <p class="metric-value">{{ analysisTurn === "white" ? "Blancs" : "Noirs" }}</p>
+                </div>
+              </div>
+              <div class="move-list">
+                <div class="move-item">
+                  <span class="move-side">Chemin</span>
+                  <span class="move-notation">
+                    <button
+                      v-for="node in analysisPath"
+                      :key="`path-${node.id}`"
+                      class="button-ghost"
+                      type="button"
+                      @click="selectAnalysisNode(node.id)"
+                    >
+                      {{ node.notation || "Depart" }}
+                    </button>
+                  </span>
+                </div>
+                <div v-if="analysisChildren.length" class="move-item">
+                  <span class="move-side">Branches</span>
+                  <span class="move-notation">
+                    <button
+                      v-for="node in analysisChildren"
+                      :key="`branch-${node.id}`"
+                      class="button-ghost"
+                      type="button"
+                      @click="selectAnalysisNode(node.id)"
+                    >
+                      {{ node.notation || "..." }}
+                    </button>
+                  </span>
+                </div>
+                <div v-else class="empty-state">Aucune branche depuis ce noeud.</div>
+              </div>
             </div>
           </div>
         </div>

@@ -3,9 +3,11 @@ import { computed, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import { getStoryChapters, getStoryProgress, markChapterComplete, setActiveChapter } from '@/lib/story'
+import { getDailyPuzzle } from '@/lib/puzzles'
 
 const router = useRouter()
 const chapters = getStoryChapters()
+const dailyPuzzle = getDailyPuzzle()
 const progress = ref(getStoryProgress())
 
 const isUnlocked = (chapterId: number) => {
@@ -42,6 +44,18 @@ const startChapter = async (chapterId: number) => {
   await router.push(`/play?${params.toString()}`)
 }
 
+const startDailyPuzzle = async () => {
+  setPlayAccess()
+  const params = new URLSearchParams({
+    allow: '1',
+    mode: 'local',
+    puzzle: dailyPuzzle.id,
+    side: 'Aleatoire',
+    time: '10+0',
+  })
+  await router.push(`/play?${params.toString()}`)
+}
+
 const finishChapter = (chapterId: number) => {
   progress.value.completed = markChapterComplete(chapterId)
 }
@@ -70,6 +84,9 @@ const finishChapter = (chapterId: number) => {
             @click="primaryChapter && startChapter(primaryChapter.id)"
           >
             Continuer chapitre {{ primaryChapter?.id ?? 1 }}
+          </button>
+          <button class="button-ghost" type="button" @click="startDailyPuzzle">
+            Daily puzzle
           </button>
           <RouterLink class="button-ghost" to="/matchs">Retour aux matchs</RouterLink>
         </div>

@@ -44,6 +44,9 @@ export type ProfileAiAnalysis = {
   trendHighlights: TrendHighlight[]
 }
 
+// Donnees de demonstration. A remplacer par une vraie pipeline d'analyse.
+export const PROFILE_AI_ANALYSIS_IS_DEMO = true
+
 export const getProfileAiAnalysis = (): ProfileAiAnalysis => ({
   keyMetrics: [
     { label: 'Indice IA', value: '84%', detail: 'Fiabilite sur 30 jours' },

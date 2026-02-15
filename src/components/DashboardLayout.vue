@@ -47,6 +47,7 @@ const logoutLabel = computed(() =>
 const navItems = [
   { label: 'Dashboard', to: '/dashboard' },
   { label: 'Matchs', to: '/matchs' },
+  { label: 'Entrainement', to: '/entrainement' },
   { label: 'Histoire', to: '/histoire' },
   { label: 'Classement', to: '/leaderboard' },
   { label: 'Profil', to: '/profile' },

@@ -23,7 +23,9 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
+    "chess.js": "^1.4.0",
     "pinia": "^3.0.4",
+    "stockfish": "^18.0.5",
     "vue": "^3.5.26",
     "vue-router": "^4.6.4"
   },

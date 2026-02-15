@@ -12,6 +12,15 @@ export type GameRecord = {
   date: string
   moves: number
   accuracy: number
+  pgn?: string
+  finalFen?: string
+  review?: {
+    best?: number
+    good?: number
+    inaccuracies?: number
+    mistakes?: number
+    blunders?: number
+  }
 }
 
 export type DashboardProfile = {
@@ -38,6 +47,7 @@ export type DashboardDb = {
 }
 
 const STORAGE_KEY = 'warchess.dashboard'
+const LOCAL_GAMES_KEY = 'warchess.games.local'
 
 const defaultDb: DashboardDb = {
   profile: {
@@ -80,6 +90,25 @@ const readStorage = (): DashboardDb | null => {
   }
 }
 
+const readLocalGames = (): GameRecord[] => {
+  if (typeof window === 'undefined') return []
+  try {
+    const stored = window.localStorage.getItem(LOCAL_GAMES_KEY)
+    return stored ? (JSON.parse(stored) as GameRecord[]) : []
+  } catch {
+    return []
+  }
+}
+
+const writeLocalGames = (games: GameRecord[]): void => {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(LOCAL_GAMES_KEY, JSON.stringify(games))
+  } catch {
+    // Ignore storage failures (quota, private mode).
+  }
+}
+
 const writeStorage = (payload: DashboardDb): void => {
   if (typeof window === 'undefined') return
   try {
@@ -109,6 +138,31 @@ const applyGuestOverlay = (payload: DashboardDb): DashboardDb => {
   }
 }
 
+const mergeGames = (base: GameRecord[], local: GameRecord[]): GameRecord[] => {
+  if (!local.length) return base
+  const map = new Map<string, GameRecord>()
+  for (const item of base) {
+    map.set(item.id, item)
+  }
+  for (const item of local) {
+    map.set(item.id, item)
+  }
+  return [...map.values()].sort((a, b) => {
+    const left = new Date(b.date).getTime()
+    const right = new Date(a.date).getTime()
+    return (Number.isFinite(left) ? left : 0) - (Number.isFinite(right) ? right : 0)
+  })
+}
+
+const mergeLocalGames = (payload: DashboardDb): DashboardDb => {
+  const local = readLocalGames()
+  if (!local.length) return payload
+  return {
+    ...payload,
+    games: mergeGames(payload.games, local),
+  }
+}
+
 export const clearDashboardCache = (): void => {
   dashboardCache = null
   dashboardPromise = null
@@ -123,7 +177,7 @@ const mergeDashboard = (target: DashboardDb, next: DashboardDb): void => {
 
 export const getDashboardData = async (): Promise<DashboardDb> => {
   const stored = readStorage()
-  const storedMapped = applyGuestOverlay(mapDashboard(stored))
+  const storedMapped = mergeLocalGames(applyGuestOverlay(mapDashboard(stored)))
   const storedAvatar = stored?.profile?.avatarUrl ?? ''
   if (!dashboardCache) {
     dashboardCache = storedMapped
@@ -142,7 +196,7 @@ export const getDashboardData = async (): Promise<DashboardDb> => {
         if (storedAvatar && !mapped.profile.avatarUrl) {
           mapped.profile.avatarUrl = storedAvatar
         }
-        return applyGuestOverlay(mapped)
+        return mergeLocalGames(applyGuestOverlay(mapped))
       })
       .catch(() => storedMapped)
       .then((next) => {
@@ -189,14 +243,27 @@ export const saveDashboardData = async (next: DashboardDb): Promise<DashboardDb>
     if (response.ok && next.profile.avatarUrl && !saved.profile.avatarUrl) {
       saved.profile.avatarUrl = next.profile.avatarUrl
     }
-    dashboardCache = saved
-    writeStorage(saved)
+    const mergedSaved = mergeLocalGames(saved)
+    dashboardCache = mergedSaved
+    writeStorage(mergedSaved)
     dashboardUpdatedAt = Date.now()
-    return saved
+    return mergedSaved
   } catch (error) {
     if (isNetworkError(error) || isOffline()) {
       await enqueueAction('profile-save', { profile: next.profile })
     }
     return next
+  }
+}
+
+export const saveLocalGameRecord = (record: GameRecord): void => {
+  const current = readLocalGames()
+  const deduped = current.filter((item) => item.id !== record.id)
+  const next = [record, ...deduped].slice(0, 200)
+  writeLocalGames(next)
+
+  if (dashboardCache) {
+    dashboardCache.games = mergeGames(dashboardCache.games, [record])
+    writeStorage(dashboardCache)
   }
 }

@@ -396,5 +396,99 @@
   }
 }
 
+/* Plan B - Crown & Marble overrides */
+.landing-page {
+  max-width: 1280px;
+  gap: 44px;
+}
+
+.landing-hero {
+  gap: clamp(18px, 3vw, 42px);
+}
+
+.landing-copy {
+  gap: 18px;
+}
+
+.landing-title {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1.04;
+  font-size: clamp(36px, 6vw, 64px);
+}
+
+.landing-subtitle {
+  max-width: 56ch;
+}
+
+.landing-proof__item,
+.landing-visual__card,
+.feature-card,
+.landing-steps li,
+.landing-cta,
+.intro-loader__panel {
+  backdrop-filter: none;
+  border-radius: var(--radius);
+  border-color: var(--panel-border);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.landing-proof__value {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+.landing-visual__tile {
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(201, 162, 74, 0.66), rgba(122, 30, 42, 0.5));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.landing-section__title {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.landing-step__count {
+  color: var(--accent-2);
+}
+
+.landing-footer {
+  border-top: 1px solid var(--panel-border);
+}
+
+.help-page,
+.notfound-page {
+  max-width: 1200px;
+}
+
+.intro-loader__logo {
+  background: linear-gradient(145deg, var(--accent), #e6c989);
+  color: #2d2218;
+  box-shadow: 0 16px 24px rgba(122, 88, 43, 0.24);
+}
+
+.intro-loader__spinner {
+  border-color: rgba(122, 30, 42, 0.22);
+  border-top-color: var(--accent-2);
+}
+
+.intro-loader__bar {
+  background: rgba(122, 30, 42, 0.14);
+}
+
+.intro-loader__fill {
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+}
+
+@media (max-width: 960px) {
+  .landing-title {
+    font-size: clamp(32px, 8vw, 52px);
+  }
+}
+
 
 

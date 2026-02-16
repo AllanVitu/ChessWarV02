@@ -151,15 +151,15 @@ const savePassword = async () => {
 <template>
   <DashboardLayout
     eyebrow="Profil"
-    title="Parametres du compte"
-    subtitle="Gerez vos informations et la securite du compte."
+    title="Dossier joueur"
+    subtitle="Centralisez votre identite, vos habitudes et votre securite."
   >
     <section class="profile-grid">
       <div class="panel profile-card">
         <div class="panel-header">
           <div>
-            <p class="panel-title">Profil public</p>
-            <h3 class="panel-headline">Identite et preferences</h3>
+            <p class="panel-title">Identite</p>
+            <h3 class="panel-headline">Profil public et habitudes</h3>
           </div>
         </div>
 
@@ -243,7 +243,7 @@ const savePassword = async () => {
         <div class="panel-header">
           <div>
             <p class="panel-title">Securite</p>
-            <h3 class="panel-headline">Changer le mot de passe</h3>
+            <h3 class="panel-headline">Protection du compte</h3>
           </div>
         </div>
 
@@ -294,7 +294,7 @@ const savePassword = async () => {
         <div class="panel-header">
           <div>
             <p class="panel-title">Navigation</p>
-            <h3 class="panel-headline">Raccourcis utiles</h3>
+            <h3 class="panel-headline">Acces rapides</h3>
           </div>
         </div>
         <div class="card-actions">

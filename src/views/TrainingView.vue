@@ -137,15 +137,15 @@ const launchBotDrill = async (drill: BotDrill) => {
 <template>
   <DashboardLayout
     eyebrow="Entrainement"
-    title="Lab d'entrainement"
-    subtitle="Puzzles tactiques, mini-lessons et drills selon personnalite IA."
+    title="Atelier de maitrise"
+    subtitle="Puzzles tactiques, lessons et sparring IA pour une progression continue."
   >
     <section class="content-grid">
       <div class="left-column">
         <article class="panel hero-card">
           <div class="panel-header">
             <div>
-              <p class="panel-title">Daily puzzle</p>
+              <p class="panel-title">Puzzle du jour</p>
               <h3 class="panel-headline">{{ dailyPuzzle.title }}</h3>
               <p class="panel-sub">
                 Themes: {{ dailyPuzzle.themes.join(", ") }} - Niveau {{ dailyPuzzle.difficulty }}
@@ -165,7 +165,7 @@ const launchBotDrill = async (drill: BotDrill) => {
         <article class="panel">
           <div class="panel-header">
             <div>
-              <p class="panel-title">Mini-lessons</p>
+              <p class="panel-title">Lessons</p>
               <h3 class="panel-headline">Ouvertures et finales</h3>
             </div>
           </div>
@@ -208,7 +208,7 @@ const launchBotDrill = async (drill: BotDrill) => {
         <article class="panel">
           <div class="panel-header">
             <div>
-              <p class="panel-title">Bots personnalites</p>
+              <p class="panel-title">Personas IA</p>
               <h3 class="panel-headline">Sparring cible</h3>
             </div>
           </div>

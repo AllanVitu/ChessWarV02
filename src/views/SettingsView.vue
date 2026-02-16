@@ -36,13 +36,13 @@ watch(
 
 const boardThemeOptions = ['Theme sable', 'Theme contraste'] as const
 const haloThemeOptions = [
-  { value: 'blue', label: 'Halo bleu nuit' },
-  { value: 'red', label: 'Halo rouge cardinal' },
-  { value: 'green', label: 'Halo vert emeraude' },
-  { value: 'violet', label: 'Halo violet royal' },
-  { value: 'amber', label: 'Halo ambre solaire' },
-  { value: 'teal', label: 'Halo turquoise lagon' },
-  { value: 'slate', label: 'Halo ardoise lunaire' },
+  { value: 'blue', label: 'Saphir' },
+  { value: 'red', label: 'Bordeaux' },
+  { value: 'green', label: 'Olive' },
+  { value: 'violet', label: 'Royal' },
+  { value: 'amber', label: 'Or antique' },
+  { value: 'teal', label: 'Jade' },
+  { value: 'slate', label: 'Ardoise' },
 ] as const
 
 const handleSave = () => {
@@ -70,7 +70,7 @@ onMounted(() => {
   <DashboardLayout
     eyebrow="Parametres"
     title="Parametres"
-    subtitle="Ajustez votre experience et vos preferences."
+    subtitle="Composez votre ambiance de jeu et vos preferences."
   >
     <section class="settings-grid">
       <div class="panel settings-card">
@@ -110,7 +110,7 @@ onMounted(() => {
           </label>
 
           <label class="form-field">
-            <span class="form-label">Couleur du theme</span>
+            <span class="form-label">Palette editoriale</span>
             <div class="theme-picker" role="radiogroup" aria-label="Couleur du theme">
               <label
                 v-for="option in haloThemeOptions"

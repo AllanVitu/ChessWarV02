@@ -64,8 +64,8 @@ const finishChapter = (chapterId: number) => {
 <template>
   <DashboardLayout
     eyebrow="Histoire"
-    title="Mode histoire"
-    subtitle="Progressez chapitre par chapitre dans une campagne dynamique."
+    title="Chronique des royaumes"
+    subtitle="Avancez chapitre par chapitre avec un cap tactique clair."
   >
     <section class="story-layout">
       <article class="panel story-hero">
@@ -86,9 +86,9 @@ const finishChapter = (chapterId: number) => {
             Continuer chapitre {{ primaryChapter?.id ?? 1 }}
           </button>
           <button class="button-ghost" type="button" @click="startDailyPuzzle">
-            Daily puzzle
+            Puzzle du jour
           </button>
-          <RouterLink class="button-ghost" to="/matchs">Retour aux matchs</RouterLink>
+          <RouterLink class="button-ghost" to="/matchs">Retour a l arena</RouterLink>
         </div>
       </article>
 
@@ -97,7 +97,7 @@ const finishChapter = (chapterId: number) => {
           <div class="story-card__header">
             <p class="panel-title">Chapitre {{ chapter.id }}</p>
             <span :class="['badge-soft', !isUnlocked(chapter.id) ? 'badge-soft--muted' : '']">
-              {{ isUnlocked(chapter.id) ? 'Disponible' : 'Verrouille' }}
+              {{ isUnlocked(chapter.id) ? 'Ouvert' : 'Verrouille' }}
             </span>
           </div>
           <h3 class="panel-headline">{{ chapter.title }}</h3>

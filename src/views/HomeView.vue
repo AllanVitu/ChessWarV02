@@ -33,22 +33,22 @@ const goals = computed(() => dashboard.value?.goals ?? [])
 const greetingTitle = computed(() =>
   dashboard.value ? `Bonjour, ${dashboard.value.profile.name || 'joueur'}` : 'Bonjour',
 )
-const greetingSubtitle = computed(() => dashboard.value?.profile.motto ?? 'Pret pour un nouveau match ?')
+const greetingSubtitle = computed(() => dashboard.value?.profile.motto ?? 'Pret pour votre session du jour ?')
 const onboardingOpen = ref(false)
 const onboardingKey = 'warchess.onboarding.dismissed'
 
 const onboardingSteps = [
   {
-    title: 'Choisir un mode',
-    text: 'Local, invite ou match classe pour trouver le bon rythme.',
+    title: 'Choisir une session',
+    text: 'Duel, entrainement ou histoire selon votre objectif.',
   },
   {
-    title: 'Jouer la partie',
-    text: 'Lancez un duel rapide et suivez les coups en direct.',
+    title: 'Jouer avec intention',
+    text: 'Lancez votre partie et suivez chaque tempo en direct.',
   },
   {
-    title: 'Analyser',
-    text: 'Revoyez vos coups et vos stats pour progresser.',
+    title: 'Noter et progresser',
+    text: 'Relisez les coups critiques et ajustez votre plan.',
   },
 ]
 
@@ -123,23 +123,23 @@ const resumeActiveMatch = async () => {
 
 const actionCards = [
   {
-    title: 'Nouveau match',
+    title: 'Session rapide',
     description: 'Lancez un duel classe ou amical.',
     to: '/matchs',
   },
   {
-    title: 'Mode histoire',
-    description: 'Progressez chapitre par chapitre.',
+    title: 'Chronique',
+    description: 'Poursuivez la campagne chapitre par chapitre.',
     to: '/histoire',
   },
   {
-    title: 'Analyse',
-    description: 'Suivez votre progression.',
+    title: 'Carnet d analyse',
+    description: 'Revoyez vos parties et vos tendances.',
     to: '/profil/analyse',
   },
   {
-    title: 'Classement',
-    description: 'Comparez votre Elo.',
+    title: 'Table des maitres',
+    description: 'Situez votre Elo dans la ligue.',
     to: '/leaderboard',
   },
 ]
@@ -150,7 +150,7 @@ const quickStats = computed(() => [
   {
     label: 'Elo',
     value: profile.value.rating.toString(),
-    detail: profile.value.title || 'Classement actuel',
+    detail: profile.value.title || 'Niveau actuel',
   },
   {
     label: 'Winrate',
@@ -290,16 +290,16 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
         <div class="panel hero-card reveal">
           <div class="hero-header">
             <div>
-              <p class="panel-title">Salle de match</p>
-              <h2 class="panel-headline">Vue d ensemble du terrain</h2>
+              <p class="panel-title">Mission du jour</p>
+              <h2 class="panel-headline">Table de commandement</h2>
               <p class="panel-sub">
-                Pilotez votre progression, vos matchs et vos objectifs depuis un seul espace.
+                Suivez votre forme, vos matchs et votre programme d etude depuis un seul espace.
               </p>
             </div>
             <div class="hero-actions">
-              <RouterLink class="button-primary" to="/matchs">Nouveau match</RouterLink>
+              <RouterLink class="button-primary" to="/matchs">Demarrer un duel</RouterLink>
               <button class="button-ghost" type="button" @click="onboardingOpen = true">
-                Mini tutoriel
+                Voir le guide
               </button>
             </div>
           </div>
@@ -360,8 +360,8 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
         <div class="panel table-card reveal delay-2">
           <div class="panel-header">
             <div>
-              <p class="panel-title">Parties recentes</p>
-              <h3 class="panel-headline">Historique JcJ</h3>
+              <p class="panel-title">Journal recent</p>
+              <h3 class="panel-headline">Chronologie JcJ</h3>
             </div>
             <RouterLink class="range-pill" to="/matchs">Voir tout</RouterLink>
           </div>
@@ -414,7 +414,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
             </svg>
             <div class="ring-center">
               <p class="ring-score">{{ profile.rating }}</p>
-              <p class="ring-label">Classement rapide</p>
+              <p class="ring-label">Elo saison</p>
             </div>
           </div>
 
@@ -433,8 +433,8 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
         <div class="panel reveal delay-1">
           <div class="panel-header">
             <div>
-              <p class="panel-title">Checklist</p>
-              <h3 class="panel-headline">Progres rapide</h3>
+              <p class="panel-title">Plan de progression</p>
+              <h3 class="panel-headline">Rituels rapides</h3>
             </div>
           </div>
 
@@ -457,8 +457,8 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
         <div class="panel reveal delay-2">
           <div class="panel-header">
             <div>
-              <p class="panel-title">Mode histoire</p>
-              <h3 class="panel-headline">Prochain chapitre</h3>
+              <p class="panel-title">Chronique</p>
+              <h3 class="panel-headline">Chapitre suivant</h3>
             </div>
           </div>
 
@@ -484,8 +484,8 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
         <div class="panel focus-card reveal delay-2">
           <div class="panel-header">
             <div>
-              <p class="panel-title">Focus d entrainement</p>
-              <h3 class="panel-headline">Objectifs personnels</h3>
+              <p class="panel-title">Atelier d entrainement</p>
+              <h3 class="panel-headline">Objectifs de la semaine</h3>
             </div>
           </div>
 
@@ -506,10 +506,10 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
         <div class="panel leaderboard-card reveal delay-3">
           <div class="panel-header">
             <div>
-              <p class="panel-title">Meilleurs joueurs</p>
-              <h3 class="panel-headline">Elite du classement</h3>
+              <p class="panel-title">Classement</p>
+              <h3 class="panel-headline">Table des maitres</h3>
             </div>
-            <RouterLink class="range-pill" to="/leaderboard">Classement</RouterLink>
+            <RouterLink class="range-pill" to="/leaderboard">Voir le podium</RouterLink>
           </div>
 
           <div v-if="leaderboardPreview.length" class="leaderboard-list">
@@ -526,7 +526,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
               </span>
             </div>
           </div>
-          <p v-else class="panel-sub">Classement indisponible.</p>
+          <p v-else class="panel-sub">Podium indisponible.</p>
         </div>
       </aside>
     </section>

@@ -69,14 +69,31 @@ export default defineConfig(({ command }) => ({
                 globIgnores: ['**/*.wasm'],
                 runtimeCaching: [
                     {
+                        urlPattern: ({ request }) => request.mode === 'navigate',
+                        handler: 'NetworkFirst',
+                        options: {
+                            cacheName: 'app-pages',
+                            networkTimeoutSeconds: 4,
+                            cacheableResponse: { statuses: [0, 200] },
+                            expiration: { maxEntries: 24, maxAgeSeconds: 60 * 60 * 6 },
+                        },
+                    },
+                    {
                         urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
                         options: {
-                            cacheName: 'api-cache',
-                            networkTimeoutSeconds: 6,
-                            cacheableResponse: { statuses: [0, 200] },
-                            expiration: { maxEntries: 120, maxAgeSeconds: 60 * 5 },
+                            cacheName: 'api-network-only',
                         },
-                        handler: 'NetworkFirst',
+                        handler: 'NetworkOnly',
+                    },
+                    {
+                        urlPattern: ({ request, url }) => ['script', 'style', 'worker', 'font'].includes(request.destination) &&
+                            /-[a-f0-9]{8,}\./i.test(url.pathname),
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'app-assets',
+                            cacheableResponse: { statuses: [0, 200] },
+                            expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                        },
                     },
                     {
                         urlPattern: ({ request }) => request.destination === 'image',
@@ -84,7 +101,7 @@ export default defineConfig(({ command }) => ({
                         options: {
                             cacheName: 'images-cache',
                             cacheableResponse: { statuses: [0, 200] },
-                            expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                            expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 14 },
                         },
                     },
                 ],

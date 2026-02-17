@@ -6,6 +6,7 @@ require_once __DIR__ . '/_shared/auth.php';
 require_once __DIR__ . '/_shared/helpers.php';
 require_once __DIR__ . '/_shared/match.php';
 require_once __DIR__ . '/_shared/realtime.php';
+require_once __DIR__ . '/_shared/security.php';
 
 handle_options();
 require_method('POST');
@@ -15,6 +16,8 @@ if (!$user_id) {
   json_response(401, ['ok' => false, 'message' => 'Session invalide.']);
   exit;
 }
+
+enforce_rate_limit('match-finish-user', 20, 60, 'user:' . $user_id);
 
 if (!match_tables_available()) {
   json_response(503, [
@@ -54,6 +57,16 @@ if (!is_match_player($user_id, $room)) {
   exit;
 }
 
+$status = normalize_match_room_status((string) ($room['status'] ?? 'waiting'));
+if ($status === 'finished' || $status === 'aborted') {
+  $payload = build_match_payload($user_id, $room);
+  json_response(200, [
+    'ok' => true,
+    'match' => $payload,
+  ]);
+  exit;
+}
+
 if ($result === 'draw') {
   $label = 'Match nul';
 } elseif ($result === 'timeout') {
@@ -62,12 +75,19 @@ if ($result === 'draw') {
   $label = 'Abandon';
 }
 
+$room_finished_fragment = match_room_has_column('finished_at')
+  ? 'finished_at = COALESCE(finished_at, now()),'
+  : '';
 db_query(
-  'UPDATE match_rooms
-   SET status = :status,
-       last_move = :last_move,
-       updated_at = now()
-   WHERE match_id = :match_id',
+  sprintf(
+    'UPDATE match_rooms
+     SET status = :status,
+         %s
+         last_move = :last_move,
+         updated_at = now()
+     WHERE match_id = :match_id',
+    $room_finished_fragment
+  ),
   [
     'status' => 'finished',
     'last_move' => $label,
@@ -75,13 +95,19 @@ db_query(
   ]
 );
 
+$matches_finished_fragment = matches_has_column('finished_at')
+  ? ', finished_at = COALESCE(finished_at, now())'
+  : '';
 db_query(
-  'UPDATE matches
-   SET status = :status,
-       last_move = :last_move
-   WHERE id = :match_id',
+  sprintf(
+    'UPDATE matches
+     SET status = :status%s,
+         last_move = :last_move
+     WHERE id = :match_id',
+    $matches_finished_fragment
+  ),
   [
-    'status' => 'termine',
+    'status' => 'finished',
     'last_move' => $label,
     'match_id' => $match_id,
   ]

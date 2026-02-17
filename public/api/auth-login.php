@@ -19,6 +19,9 @@ if ($email === '' || $password === '') {
   exit;
 }
 
+enforce_rate_limit('auth-login-ip', 20, 60);
+enforce_rate_limit('auth-login-email', 8, 300, 'email:' . $email);
+
 $user = db_fetch_one(
   'SELECT id, email, display_name, password_hash, password_salt, created_at
    FROM users

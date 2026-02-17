@@ -22,6 +22,12 @@ const navItems = [
   { label: 'Classement', to: '/leaderboard' },
   { label: 'Connexion', to: '/auth' },
 ]
+const twitchChannelUrl = 'https://www.twitch.tv/chess'
+const twitchPlayerSrc = computed(() => {
+  if (typeof window === 'undefined') return ''
+  const host = window.location.hostname || 'localhost'
+  return `https://player.twitch.tv/?channel=chess&parent=${encodeURIComponent(host)}&muted=true&autoplay=false`
+})
 
 const progress = ref<PreloadProgress>({
   loaded: 0,
@@ -289,11 +295,27 @@ onBeforeUnmount(() => {
           <p class="panel-title">Live arena</p>
           <h2 class="panel-headline">Match express</h2>
           <p class="panel-sub">
-            Tableau fluide, reponse immediate, analyse legere et immersive.
+            Match Echecs en Direct
           </p>
-          <div class="landing-visual__grid" aria-hidden="true">
-            <span v-for="index in 16" :key="index" class="landing-visual__tile"></span>
+          <div class="landing-visual__live">
+            <iframe
+              v-if="twitchPlayerSrc"
+              class="landing-visual__iframe"
+              :src="twitchPlayerSrc"
+              title="Live Twitch Chess"
+              loading="lazy"
+              allowfullscreen
+              allow="autoplay; fullscreen; picture-in-picture"
+            ></iframe>
           </div>
+          <a
+            class="button-ghost landing-visual__live-link"
+            :href="twitchChannelUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Ouvrir le direct Twitch Chess
+          </a>
         </div>
         <div class="landing-visual__stats">
           <div class="stat-chip">

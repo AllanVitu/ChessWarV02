@@ -1,10 +1,4 @@
 <?php
-ini_set('log_errors', '1');
-ini_set('error_log', __DIR__ . '/_shared/error.log');
-error_reporting(E_ALL);
-
-
-
 
 require_once __DIR__ . '/_shared/response.php';
 require_once __DIR__ . '/_shared/db.php';
@@ -24,6 +18,9 @@ if ($email === '' || $password === '' || $display_name === '') {
   json_response(400, ['ok' => false, 'message' => 'Veuillez remplir tous les champs.']);
   exit;
 }
+
+enforce_rate_limit('auth-register-ip', 8, 300);
+enforce_rate_limit('auth-register-email', 3, 900, 'email:' . $email);
 
 $existing = db_fetch_one(
   'SELECT id FROM users WHERE email = :email LIMIT 1',

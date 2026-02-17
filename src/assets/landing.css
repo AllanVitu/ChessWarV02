@@ -93,6 +93,27 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
+.landing-visual__live {
+  margin-top: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  background: rgba(8, 14, 24, 0.72);
+  aspect-ratio: 16 / 9;
+}
+
+.landing-visual__iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.landing-visual__live-link {
+  margin-top: 10px;
+  width: fit-content;
+}
+
 .landing-visual__stats {
   display: grid;
   gap: 12px;
@@ -393,6 +414,11 @@
   .help-hero {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .landing-visual__live {
+    aspect-ratio: 16 / 10;
+    min-height: 220px;
   }
 }
 

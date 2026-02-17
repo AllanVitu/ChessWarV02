@@ -24,7 +24,9 @@ const fetchLeaderboard = async () => {
   loading.value = true
   error.value = ''
   try {
-    players.value = await getLeaderboard(activeTab.value, 1, 50)
+    const result = await getLeaderboard(activeTab.value, 1, 50)
+    players.value = result.players
+    error.value = result.serviceMessage ?? ''
   } catch (err) {
     error.value = (err as Error).message
     players.value = []
@@ -39,12 +41,34 @@ const filteredPlayers = computed(() => {
   if (!trimmed) return list
   return list.filter((player) => player.name.toLowerCase().includes(trimmed))
 })
+const topPlayer = computed(() => players.value[0] ?? null)
+const averageRating = computed(() => {
+  if (!players.value.length) return 0
+  const total = players.value.reduce((sum, player) => sum + player.rating, 0)
+  return Math.round(total / players.value.length)
+})
+const liveSignalLabel = computed(() => {
+  if (loading.value) return 'Signal: synchronisation...'
+  if (error.value) return 'Signal: indisponible'
+  return `Signal: ${filteredPlayers.value.length} joueurs`
+})
 
 const visiblePlayers = computed(() =>
   filteredPlayers.value.slice(0, page.value * pageSize),
 )
 
 const canLoadMore = computed(() => visiblePlayers.value.length < filteredPlayers.value.length)
+const deltaClass = (delta: number) => {
+  if (delta > 0) return 'leaderboard-delta--up'
+  if (delta < 0) return 'leaderboard-delta--down'
+  return 'leaderboard-delta--flat'
+}
+const rankClass = (rank: number) => {
+  if (rank === 1) return 'leaderboard-rank--gold'
+  if (rank === 2) return 'leaderboard-rank--silver'
+  if (rank === 3) return 'leaderboard-rank--bronze'
+  return ''
+}
 
 const resetQuery = () => {
   query.value = ''
@@ -78,6 +102,20 @@ onMounted(async () => {
           <p class="panel-sub">
             Comparez vos performances en temps reel et defiez les meilleurs.
           </p>
+          <div class="leaderboard-hud">
+            <article class="leaderboard-hud-card">
+              <p class="leaderboard-hud-label">Leader</p>
+              <p class="leaderboard-hud-value">{{ topPlayer ? topPlayer.name : '--' }}</p>
+            </article>
+            <article class="leaderboard-hud-card">
+              <p class="leaderboard-hud-label">Elo moyen</p>
+              <p class="leaderboard-hud-value">{{ averageRating || '--' }}</p>
+            </article>
+            <article class="leaderboard-hud-card">
+              <p class="leaderboard-hud-label">Signal</p>
+              <p class="leaderboard-hud-value">{{ liveSignalLabel }}</p>
+            </article>
+          </div>
           <div class="leaderboard-cta">
           <RouterLink class="button-primary" to="/matchs">Lancer un match</RouterLink>
             <RouterLink class="button-ghost" to="/profil/analyse">Voir mon analyse</RouterLink>
@@ -86,6 +124,7 @@ onMounted(async () => {
 
         <div class="leaderboard-controls">
           <AppTabs v-model="activeTab" :tabs="tabs" />
+          <p class="leaderboard-live-note">{{ liveSignalLabel }}</p>
           <label class="search">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.6" fill="none" />
@@ -134,7 +173,7 @@ onMounted(async () => {
 
         <div v-else class="leaderboard-table__body">
           <div v-for="player in visiblePlayers" :key="player.id" class="leaderboard-row">
-            <span class="leaderboard-rank">#{{ player.rank }}</span>
+            <span :class="['leaderboard-rank', rankClass(player.rank)]">#{{ player.rank }}</span>
             <div class="leaderboard-player">
               <div class="leaderboard-avatar">{{ player.name.slice(0, 1) }}</div>
               <div>
@@ -143,7 +182,9 @@ onMounted(async () => {
               </div>
             </div>
             <span class="leaderboard-rating">{{ player.rating }}</span>
-            <span class="leaderboard-delta">{{ player.delta >= 0 ? '+' : '' }}{{ player.delta }}</span>
+            <span :class="['leaderboard-delta', deltaClass(player.delta)]">
+              {{ player.delta >= 0 ? '+' : '' }}{{ player.delta }}
+            </span>
             <RouterLink class="button-ghost" :to="`/joueur/${player.id}`">Voir</RouterLink>
           </div>
           <button

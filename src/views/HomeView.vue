@@ -199,7 +199,12 @@ onMounted(async () => {
   dashboard.value = await getDashboardData()
   matches.value = await getMatches()
   if (getSessionToken()) {
-    leaderboard.value = await getLeaderboard('global', 1, 10)
+    try {
+      const result = await getLeaderboard('global', 1, 10)
+      leaderboard.value = result.players
+    } catch {
+      leaderboard.value = []
+    }
   }
   if (typeof window !== 'undefined' && !window.localStorage.getItem(onboardingKey)) {
     onboardingOpen.value = true

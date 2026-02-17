@@ -11,6 +11,8 @@
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
     "build:o2switch": "npm run type-check && vite build --base=/ --outDir=dist",
+    "smoke:o2switch": "node scripts/o2switch-smoke.mjs",
+    "deploy:o2switch": "powershell -ExecutionPolicy Bypass -File scripts/deploy-o2switch.ps1",
     "preview": "vite preview",
     "test:unit": "vitest",
     "test:e2e": "playwright test",

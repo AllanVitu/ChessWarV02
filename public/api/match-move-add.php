@@ -7,6 +7,7 @@ require_once __DIR__ . '/_shared/helpers.php';
 require_once __DIR__ . '/_shared/match.php';
 require_once __DIR__ . '/_shared/chess_rules.php';
 require_once __DIR__ . '/_shared/realtime.php';
+require_once __DIR__ . '/_shared/security.php';
 
 handle_options();
 require_method('POST');
@@ -16,6 +17,8 @@ if (!$user_id) {
   json_response(401, ['ok' => false, 'message' => 'Session invalide.']);
   exit;
 }
+
+enforce_rate_limit('match-move-user', 120, 60, 'user:' . $user_id);
 
 if (!match_tables_available()) {
   json_response(503, [
@@ -75,7 +78,14 @@ try {
     exit;
   }
 
-  if (($room['status'] ?? 'active') !== 'active') {
+  $room_status = normalize_match_room_status((string) ($room['status'] ?? 'waiting'));
+  if ($room_status === 'waiting' || $room_status === 'ready') {
+    $pdo->rollBack();
+    json_response(409, ['ok' => false, 'message' => "Le match n'a pas encore demarre."]);
+    exit;
+  }
+
+  if ($room_status === 'finished' || $room_status === 'aborted') {
     $pdo->rollBack();
     json_response(409, ['ok' => false, 'message' => 'Match termine.']);
     exit;
@@ -171,12 +181,14 @@ try {
 
   db_query(
     'UPDATE match_rooms
-     SET side_to_move = :side_to_move,
+     SET status = :status,
+         side_to_move = :side_to_move,
          last_move = :last_move,
          move_count = :move_count,
          updated_at = now()
      WHERE match_id = :match_id',
     [
+      'status' => 'started',
       'side_to_move' => $next_side,
       'last_move' => $notation,
       'move_count' => $next_ply,
@@ -184,14 +196,20 @@ try {
     ]
   );
 
+  $started_fragment = matches_has_column('started_at')
+    ? ', started_at = COALESCE(started_at, now())'
+    : '';
   db_query(
-    'UPDATE matches
-     SET last_move = :last_move,
-         status = :status
-     WHERE id = :match_id',
+    sprintf(
+      'UPDATE matches
+       SET last_move = :last_move,
+           status = :status%s
+       WHERE id = :match_id',
+      $started_fragment
+    ),
     [
       'last_move' => $notation,
-      'status' => 'en_cours',
+      'status' => 'started',
       'match_id' => $match_id,
     ]
   );

@@ -30,6 +30,7 @@ const matchmaking = ref<MatchmakingStatus>({ status: 'idle' })
 const matchmakingMessage = ref('')
 const matchmakingError = ref(false)
 let matchmakingTimer: ReturnType<typeof setInterval> | null = null
+const isOffline = ref(false)
 
 const aiDifficultyOptions: Array<{ value: DifficultyKey; label: string }> = [
   { value: 'facile', label: 'Facile' },
@@ -82,6 +83,36 @@ const totalMatches = computed(() => matches.value.length)
 const hasHistoryMatches = computed(() =>
   matches.value.some((match) => match.status === 'finished' || match.status === 'aborted'),
 )
+const statusTotals = computed(() => {
+  const totals = {
+    waiting: 0,
+    ready: 0,
+    started: 0,
+    finished: 0,
+    aborted: 0,
+  }
+  for (const match of matches.value) {
+    if (match.status in totals) {
+      totals[match.status as keyof typeof totals] += 1
+    }
+  }
+  return totals
+})
+const liveNow = computed(() => statusTotals.value.started)
+const readyNow = computed(() => statusTotals.value.ready)
+const waitingNow = computed(() => statusTotals.value.waiting)
+const closedNow = computed(() => statusTotals.value.finished + statusTotals.value.aborted)
+const queueStateLabel = computed(() => {
+  if (isOffline.value) return 'Hors ligne'
+  if (matchmaking.value.status === 'queued') return 'File active'
+  if (matchmaking.value.status === 'matched') return 'Match trouve'
+  return 'Aucune file'
+})
+const queueStateTone = computed(() => {
+  if (matchmaking.value.status === 'queued') return 'match-queue-state--queued'
+  if (matchmaking.value.status === 'matched') return 'match-queue-state--matched'
+  return 'match-queue-state--idle'
+})
 const matchesPage = ref(1)
 const matchesPageSize = 6
 const visibleMatches = computed(() =>
@@ -96,15 +127,31 @@ watch(matches, () => {
 })
 
 onMounted(async () => {
+  updateNetworkState()
+  window.addEventListener('online', updateNetworkState)
+  window.addEventListener('offline', updateNetworkState)
+
   matches.value = await getMatches()
   matchmaking.value = await getMatchmakingStatus()
+  if (matchmaking.value.status === 'idle' && matchmaking.value.serviceMessage) {
+    matchmakingMessage.value = matchmaking.value.serviceMessage
+    matchmakingError.value = true
+  }
+  if (matchmaking.value.status === 'matched' && matchmaking.value.matchId) {
+    await router.push(`/jeu/${matchmaking.value.matchId}`)
+    return
+  }
   if (matchmaking.value.status === 'queued') {
+    matchmakingMessage.value = 'Recherche en cours...'
+    matchmakingError.value = false
     startMatchmakingPoll()
   }
 })
 
 onBeforeUnmount(() => {
   stopMatchmakingPoll()
+  window.removeEventListener('online', updateNetworkState)
+  window.removeEventListener('offline', updateNetworkState)
 })
 
 const stopMatchmakingPoll = () => {
@@ -121,11 +168,52 @@ const startMatchmakingPoll = () => {
   }, 3000)
 }
 
+const updateNetworkState = () => {
+  if (typeof navigator === 'undefined') return
+  const wasOffline = isOffline.value
+  isOffline.value = !navigator.onLine
+  if (isOffline.value) {
+    matchmakingMessage.value =
+      "Connexion perdue. La file reste active localement; reprise automatique a la reconnexion."
+    matchmakingError.value = true
+    return
+  }
+  if (wasOffline && matchmaking.value.status === 'queued') {
+    matchmakingMessage.value = 'Connexion retablie. Verification du matchmaking...'
+    matchmakingError.value = false
+    void refreshMatchmakingStatus()
+  }
+}
+
 const refreshMatchmakingStatus = async () => {
   const status = await getMatchmakingStatus()
+
+  if (
+    status.status === 'idle' &&
+    status.serviceMessage &&
+    matchmaking.value.status === 'queued'
+  ) {
+    matchmakingMessage.value = status.serviceMessage
+    matchmakingError.value = true
+    return
+  }
+
   matchmaking.value = status
+  if (status.status === 'idle' && status.serviceMessage) {
+    matchmakingMessage.value = status.serviceMessage
+    matchmakingError.value = true
+  } else if (status.status === 'queued') {
+    matchmakingMessage.value = 'Recherche en cours...'
+    matchmakingError.value = false
+  } else if (status.status === 'idle') {
+    matchmakingMessage.value = ''
+    matchmakingError.value = false
+  }
+
   if (status.status === 'matched' && status.matchId) {
     stopMatchmakingPoll()
+    matchmakingMessage.value = 'Match trouve. Redirection...'
+    matchmakingError.value = false
     await router.push(`/jeu/${status.matchId}`)
   }
 }
@@ -301,6 +389,25 @@ const handleMatchAction = async (match: MatchRecord) => {
         <p class="panel-sub">
           Tous les nouveaux matchs se lancent depuis ici, puis basculent vers l'arene de jeu IA ou JcJ.
         </p>
+        <div class="match-broadcast-strip">
+          <article class="match-broadcast-card match-broadcast-card--live">
+            <p class="match-broadcast-label">Live</p>
+            <p class="match-broadcast-value">{{ liveNow }}</p>
+          </article>
+          <article class="match-broadcast-card match-broadcast-card--ready">
+            <p class="match-broadcast-label">Ready</p>
+            <p class="match-broadcast-value">{{ readyNow }}</p>
+          </article>
+          <article class="match-broadcast-card match-broadcast-card--queue">
+            <p class="match-broadcast-label">File</p>
+            <p class="match-broadcast-value">{{ waitingNow }}</p>
+          </article>
+          <article class="match-broadcast-card match-broadcast-card--closed">
+            <p class="match-broadcast-label">Clotures</p>
+            <p class="match-broadcast-value">{{ closedNow }}</p>
+          </article>
+        </div>
+        <p :class="['match-queue-state', queueStateTone]">{{ queueStateLabel }}</p>
         <div class="mode-toggle">
           <button
             class="button-ghost mode-pill"
@@ -423,6 +530,13 @@ const handleMatchAction = async (match: MatchRecord) => {
             </button>
           </div>
         </div>
+        <div class="match-status-grid">
+          <span class="match-status-chip match-status-chip--waiting">Attente {{ statusTotals.waiting }}</span>
+          <span class="match-status-chip match-status-chip--ready">Ready {{ statusTotals.ready }}</span>
+          <span class="match-status-chip match-status-chip--started">Live {{ statusTotals.started }}</span>
+          <span class="match-status-chip match-status-chip--finished">Termines {{ statusTotals.finished }}</span>
+          <span class="match-status-chip match-status-chip--aborted">Annules {{ statusTotals.aborted }}</span>
+        </div>
 
           <div class="match-cards">
             <div v-if="!matches.length" class="empty-state">
@@ -443,6 +557,7 @@ const handleMatchAction = async (match: MatchRecord) => {
                 {{ statusLabels[match.status] ?? 'Inconnu' }}
               </span>
             </div>
+            <div :class="['match-signal-bar', `match-signal-bar--${match.status}`]"></div>
 
             <div class="match-meta">
               <span>{{ modeLabel(match.mode) }}</span>

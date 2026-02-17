@@ -382,6 +382,12 @@ const playerReady = computed(() => {
     ? !!onlineWhiteReadyAt.value
     : !!onlineBlackReadyAt.value;
 });
+const whiteReady = computed(() => !!onlineWhiteReadyAt.value);
+const blackReady = computed(() => !!onlineBlackReadyAt.value);
+const opponentReady = computed(() => {
+  if (!isOnline.value) return false;
+  return playerSide.value === "white" ? blackReady.value : whiteReady.value;
+});
 
 const parseTimeControl = (value: string) => {
   const trimmed = value.trim();
@@ -1923,7 +1929,18 @@ const squares = computed(() =>
               <div class="player-avatar">{{ initialsFrom(whiteLabel) }}</div>
               <div class="player-info">
                 <p class="player-name">{{ whiteLabel }}</p>
-                <p class="player-meta">Blancs</p>
+                <p class="player-meta">
+                  Blancs
+                  <span
+                    v-if="isOnline"
+                    :class="[
+                      'live-indicator',
+                      whiteReady ? 'live-indicator--on' : 'live-indicator--off',
+                    ]"
+                  >
+                    {{ whiteReady ? "Pret" : "Attente" }}
+                  </span>
+                </p>
               </div>
               <div :class="['player-clock', clockTone(whiteClockMs)]">
                 {{ whiteClockLabel }}
@@ -1939,7 +1956,18 @@ const squares = computed(() =>
               <div class="player-avatar">{{ initialsFrom(blackLabel) }}</div>
               <div class="player-info">
                 <p class="player-name">{{ blackLabel }}</p>
-                <p class="player-meta">Noirs</p>
+                <p class="player-meta">
+                  Noirs
+                  <span
+                    v-if="isOnline"
+                    :class="[
+                      'live-indicator',
+                      blackReady ? 'live-indicator--on' : 'live-indicator--off',
+                    ]"
+                  >
+                    {{ blackReady ? "Pret" : "Attente" }}
+                  </span>
+                </p>
               </div>
               <div :class="['player-clock', clockTone(blackClockMs)]">
                 {{ blackClockLabel }}
@@ -2016,6 +2044,24 @@ const squares = computed(() =>
                   : "Confirmez votre presence pour lancer la partie."
               }}
             </p>
+            <div class="ready-lane">
+              <span
+                :class="[
+                  'ready-chip',
+                  playerReady ? 'ready-chip--ok' : 'ready-chip--pending',
+                ]"
+              >
+                Vous: {{ playerReady ? "pret" : "attente" }}
+              </span>
+              <span
+                :class="[
+                  'ready-chip',
+                  opponentReady ? 'ready-chip--ok' : 'ready-chip--pending',
+                ]"
+              >
+                Adversaire: {{ opponentReady ? "pret" : "attente" }}
+              </span>
+            </div>
             <button
               class="button-primary"
               type="button"

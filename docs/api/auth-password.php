@@ -14,6 +14,8 @@ if (!$user_id) {
   exit;
 }
 
+enforce_rate_limit('auth-password-user', 6, 300, 'user:' . $user_id);
+
 $payload = request_json();
 $current_password = (string) ($payload['currentPassword'] ?? '');
 $next_password = (string) ($payload['nextPassword'] ?? '');

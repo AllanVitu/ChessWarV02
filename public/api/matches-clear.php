@@ -26,10 +26,13 @@ if ($scope === 'all') {
   db_query(
     'DELETE FROM matches
      WHERE user_id = :user_id
-       AND status = :status',
+       AND status IN (:status_finished, :status_aborted, :status_termine, :status_abandonne)',
     [
       'user_id' => $user_id,
-      'status' => 'termine',
+      'status_finished' => 'finished',
+      'status_aborted' => 'aborted',
+      'status_termine' => 'termine',
+      'status_abandonne' => 'abandonne',
     ]
   );
 }

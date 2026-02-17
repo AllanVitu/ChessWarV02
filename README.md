@@ -29,6 +29,7 @@ Application d echecs premium (Vue 3 + Vite) avec mode histoire, matchmaking JcJ 
 - `POST /api/auth-login`
 - `POST /api/auth-logout`
 - `GET /api/auth-session`
+- `GET /api/health`
 
 ### Dashboard
 - `GET /api/dashboard-get`
@@ -67,6 +68,15 @@ npm run build
 npm run preview
 ```
 
+## Qualite et deploiement O2Switch
+```sh
+npm run smoke:o2switch
+npm run deploy:o2switch
+```
+
+- `smoke:o2switch` verifie que les endpoints critiques repondent en JSON (pas `index.html`).
+- `deploy:o2switch` build `dist/`, lance un smoke test, puis genere une archive `dist-o2switch-*.zip`.
+
 ## Variables d environnement
 - `VITE_API_BASE` URL API (ex: `/api`)
 - `VITE_WS_BASE` URL WebSocket (facultatif)
@@ -84,8 +94,9 @@ npm run preview
 ### O2Switch (PostgreSQL + PHP)
 1) Creez une base PostgreSQL dans cPanel.
 2) Importez `database/schema-o2switch-postgres.sql`.
-3) Configurez `public/api/_shared/config.php` ou les variables d environnement.
-4) Deployer `dist` a la racine du domaine.
+3) Si la base existe deja, appliquez aussi `database/migration-o2switch-hotfix-2026-02-17.sql`.
+4) Configurez `public/api/_shared/config.php` ou les variables d environnement.
+5) Deployer `dist` a la racine du domaine.
 
 ## Notes de migration
 - La table `matches` utilise une cle composite `(user_id, id)`.

@@ -8,7 +8,8 @@ import {
   loadPreferences,
   savePreferences,
 } from '@/lib/preferences'
-import { notifySuccess } from '@/lib/toast'
+import { notifyError, notifySuccess } from '@/lib/toast'
+import { clearApplicationCache } from '@/lib/pwa'
 
 const preferences = reactive(loadPreferences())
 const statusMessage = ref('')
@@ -36,13 +37,13 @@ watch(
 
 const boardThemeOptions = ['Theme sable', 'Theme contraste'] as const
 const haloThemeOptions = [
-  { value: 'blue', label: 'Saphir' },
-  { value: 'red', label: 'Bordeaux' },
-  { value: 'green', label: 'Olive' },
-  { value: 'violet', label: 'Royal' },
-  { value: 'amber', label: 'Or antique' },
-  { value: 'teal', label: 'Jade' },
-  { value: 'slate', label: 'Ardoise' },
+  { value: 'blue', label: 'Neon cyan' },
+  { value: 'red', label: 'Impact rouge' },
+  { value: 'green', label: 'Pulse vert' },
+  { value: 'violet', label: 'Shock violet' },
+  { value: 'amber', label: 'Arena ambre' },
+  { value: 'teal', label: 'Teal tactique' },
+  { value: 'slate', label: 'Slate pro' },
 ] as const
 
 const handleSave = () => {
@@ -59,6 +60,22 @@ const handleReset = () => {
   applyPreferences(preferences)
   statusMessage.value = 'Parametres reinitialises.'
   notifySuccess('Parametres', statusMessage.value)
+}
+
+const handleClearCache = async () => {
+  statusMessage.value = ''
+  try {
+    const result = await clearApplicationCache()
+    statusMessage.value = result.message
+    if (result.ok) {
+      notifySuccess('Cache', result.message)
+    } else {
+      notifyError('Cache', result.message)
+    }
+  } catch {
+    statusMessage.value = "Impossible de vider le cache de l'application."
+    notifyError('Cache', statusMessage.value)
+  }
 }
 
 onMounted(() => {
@@ -110,7 +127,7 @@ onMounted(() => {
           </label>
 
           <label class="form-field">
-            <span class="form-label">Palette editoriale</span>
+            <span class="form-label">Theme broadcast</span>
             <div class="theme-picker" role="radiogroup" aria-label="Couleur du theme">
               <label
                 v-for="option in haloThemeOptions"
@@ -165,6 +182,9 @@ onMounted(() => {
 
         <div class="settings-actions">
           <RouterLink class="button-ghost" to="/perf">Voir diagnostics</RouterLink>
+          <button class="button-ghost" type="button" @click="handleClearCache">
+            Vider cache app
+          </button>
           <button class="button-ghost" type="button" @click="handleReset">Reinitialiser</button>
           <button class="button-primary" type="button" @click="handleSave">Enregistrer</button>
         </div>

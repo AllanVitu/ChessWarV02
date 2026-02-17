@@ -4,10 +4,27 @@ const TOKEN_KEY = 'warchess.session.token'
 const DEFAULT_TIMEOUT_MS = 8000
 const DEFAULT_TIMEOUT_MUTATION_MS = 12000
 const DEFAULT_RETRY_DELAY_MS = 400
+const INVALID_API_RESPONSE_MESSAGE =
+  "Reponse API invalide. Verifiez la configuration /api et le rewrite Apache."
 const REFRESH_PATH = import.meta.env.VITE_AUTH_REFRESH_PATH || ''
+export const API_PROTOCOL_ERROR_EVENT = 'api:protocol-error'
 
 const AUTH_EVENT = 'auth:expired'
 let refreshPromise: Promise<string | null> | null = null
+
+export class ApiProtocolError extends Error {
+  readonly status: number
+  readonly path: string
+  readonly contentType: string
+
+  constructor(message: string, status: number, path: string, contentType: string) {
+    super(message)
+    this.name = 'ApiProtocolError'
+    this.status = status
+    this.path = path
+    this.contentType = contentType
+  }
+}
 
 type ApiFetchOptions = RequestInit & {
   timeoutMs?: number
@@ -59,6 +76,15 @@ const emitAuthExpired = (status: number) => {
   window.dispatchEvent(
     new CustomEvent(AUTH_EVENT, {
       detail: { status },
+    }),
+  )
+}
+
+const emitApiProtocolError = (detail: { path: string; status: number; contentType: string }) => {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(
+    new CustomEvent(API_PROTOCOL_ERROR_EVENT, {
+      detail,
     }),
   )
 }
@@ -170,11 +196,32 @@ export const apiFetch = async <T>(
         })
 
         const text = await response.text()
+        const trimmed = text.trim()
+        const contentType = (response.headers.get('content-type') || '').toLowerCase()
+        const isJsonPayload =
+          contentType.includes('json') || trimmed.startsWith('{') || trimmed.startsWith('[')
+        const isHtmlPayload =
+          contentType.includes('text/html') ||
+          /^<!doctype html/i.test(trimmed) ||
+          /^<html[\s>]/i.test(trimmed)
         let data: T = {} as T
-        try {
-          data = text ? (JSON.parse(text) as T) : ({} as T)
-        } catch {
-          data = {} as T
+
+        if (trimmed) {
+          if (isHtmlPayload) {
+            emitApiProtocolError({ path, status: response.status, contentType })
+            throw new ApiProtocolError(INVALID_API_RESPONSE_MESSAGE, response.status, path, contentType)
+          }
+          if (isJsonPayload) {
+            try {
+              data = JSON.parse(trimmed) as T
+            } catch {
+              emitApiProtocolError({ path, status: response.status, contentType })
+              throw new ApiProtocolError(INVALID_API_RESPONSE_MESSAGE, response.status, path, contentType)
+            }
+          } else {
+            emitApiProtocolError({ path, status: response.status, contentType })
+            throw new ApiProtocolError(INVALID_API_RESPONSE_MESSAGE, response.status, path, contentType)
+          }
         }
 
         if (!response.ok) {

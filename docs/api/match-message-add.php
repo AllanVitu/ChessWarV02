@@ -6,6 +6,7 @@ require_once __DIR__ . '/_shared/auth.php';
 require_once __DIR__ . '/_shared/helpers.php';
 require_once __DIR__ . '/_shared/match.php';
 require_once __DIR__ . '/_shared/realtime.php';
+require_once __DIR__ . '/_shared/security.php';
 
 handle_options();
 require_method('POST');
@@ -15,6 +16,8 @@ if (!$user_id) {
   json_response(401, ['ok' => false, 'message' => 'Session invalide.']);
   exit;
 }
+
+enforce_rate_limit('match-message-user', 40, 60, 'user:' . $user_id);
 
 if (!match_tables_available() || !match_chat_available()) {
   json_response(503, [

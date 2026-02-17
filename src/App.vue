@@ -4,14 +4,28 @@ import { RouterView } from 'vue-router'
 import AppToasts from '@/components/ui/AppToasts.vue'
 import CookieBanner from '@/components/ui/CookieBanner.vue'
 import { flushQueue, subscribeQueue } from '@/lib/offlineQueue'
+import { API_PROTOCOL_ERROR_EVENT } from '@/lib/api'
+import { notifyError } from '@/lib/toast'
 
 const isOnline = ref(true)
 const pendingCount = ref(0)
 let stopQueueWatch: (() => void) | null = null
+let lastProtocolToastAt = 0
 
 const updateOnline = () => {
   if (typeof navigator === 'undefined') return
   isOnline.value = navigator.onLine
+}
+
+const handleApiProtocolError = (event: Event) => {
+  const now = Date.now()
+  if (now - lastProtocolToastAt < 6000) {
+    return
+  }
+  lastProtocolToastAt = now
+  const customEvent = event as CustomEvent<{ path?: string }>
+  const path = customEvent.detail?.path ?? '/api'
+  notifyError('Service API', `Reponse invalide sur ${path}. Verifiez le rewrite Apache /api.`)
 }
 
 const retry = () => {
@@ -24,6 +38,7 @@ onMounted(() => {
   updateOnline()
   window.addEventListener('online', updateOnline)
   window.addEventListener('offline', updateOnline)
+  window.addEventListener(API_PROTOCOL_ERROR_EVENT, handleApiProtocolError as EventListener)
   stopQueueWatch = subscribeQueue((count) => {
     pendingCount.value = count
   })
@@ -33,6 +48,7 @@ onBeforeUnmount(() => {
   if (typeof window === 'undefined') return
   window.removeEventListener('online', updateOnline)
   window.removeEventListener('offline', updateOnline)
+  window.removeEventListener(API_PROTOCOL_ERROR_EVENT, handleApiProtocolError as EventListener)
   if (stopQueueWatch) {
     stopQueueWatch()
     stopQueueWatch = null

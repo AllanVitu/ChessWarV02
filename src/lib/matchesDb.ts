@@ -26,6 +26,7 @@ let matchesCache: MatchRecord[] | null = null
 let matchesPromise: Promise<MatchRecord[]> | null = null
 
 const normalizeMatchStatus = (status: string): MatchStatus => {
+  if (status === 'active') return 'started'
   if (status === 'planifie') return 'waiting'
   if (status === 'en_cours') return 'started'
   if (status === 'termine') return 'finished'

@@ -581,34 +581,7 @@
   flex-wrap: wrap;
 }
 
-.button-primary {
-  background: linear-gradient(135deg, var(--accent-2), var(--accent));
-  color: #ffffff;
-  border: none;
-  border-radius: 999px;
-  padding: 10px 16px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 16px 32px rgba(44, 236, 255, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.22) inset;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.button-ghost {
-  background: var(--panel-soft);
-  color: var(--text);
-  border: 1px solid var(--panel-border);
-  border-radius: 999px;
-  padding: 10px 16px;
-  cursor: pointer;
-  backdrop-filter: blur(12px) saturate(140%);
-}
-
-.theme-dark .button-ghost {
-  background: var(--panel-soft);
-  border-color: var(--panel-border);
-}
+/* Button styles consolidated in ui.css — no duplicates here */
 
 .hero-card {
   padding: 24px;
@@ -2010,7 +1983,7 @@ td {
   opacity: 0.22;
   filter: blur(0.4px);
   mix-blend-mode: screen;
-  animation: silhouette-drift 18s ease-in-out infinite;
+  animation: silhouette-drift 12s ease-in-out infinite;
 }
 
 .auth-silhouette--pawn {
@@ -2108,6 +2081,8 @@ td {
   box-shadow: var(--shadow), 0 0 40px rgba(255, 180, 84, 0.2);
   backdrop-filter: blur(18px) saturate(140%);
   color: var(--text);
+  animation: authCardEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.15s;
 }
 
 .auth-card--orbit::before {
@@ -2202,6 +2177,7 @@ td {
   border-radius: 999px;
   background: #22c55e;
   box-shadow: 0 0 10px rgba(34, 197, 94, 0.35);
+  animation: statusPulse 2s ease-in-out infinite;
 }
 
 .auth-status-count {
@@ -2256,6 +2232,7 @@ td {
 
 .auth-form .form-input:focus {
   background: var(--panel-soft);
+  animation: inputFocusGlow 2s ease-in-out infinite;
 }
 
 .auth-progress {
@@ -2489,38 +2466,95 @@ td {
 @keyframes auth-fade {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(18px) scale(0.97);
+    filter: blur(3px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    filter: blur(0);
   }
 }
 
 @keyframes auth-halo {
   0% {
-    transform: translate(-50%, -50%) scale(0.96);
-    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0.5;
+    filter: blur(38px) hue-rotate(0deg);
   }
-  50% {
-    transform: translate(-50%, -50%) scale(1.03);
-    opacity: 0.85;
+  33% {
+    transform: translate(-50%, -50%) scale(1.04);
+    opacity: 0.82;
+    filter: blur(42px) hue-rotate(12deg);
+  }
+  66% {
+    transform: translate(-50%, -50%) scale(0.98);
+    opacity: 0.7;
+    filter: blur(36px) hue-rotate(-8deg);
   }
   100% {
-    transform: translate(-50%, -50%) scale(0.96);
-    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0.5;
+    filter: blur(38px) hue-rotate(0deg);
   }
 }
 
 @keyframes silhouette-drift {
   0% {
-    transform: translate(0, 0) scale(1);
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 0.22;
+  }
+  25% {
+    transform: translate(8px, -12px) scale(1.04) rotate(2deg);
+    opacity: 0.28;
   }
   50% {
-    transform: translate(6px, -4px) scale(1.02);
+    transform: translate(-4px, -8px) scale(1.01) rotate(-1deg);
+    opacity: 0.24;
+  }
+  75% {
+    transform: translate(10px, 6px) scale(1.03) rotate(1.5deg);
+    opacity: 0.26;
   }
   100% {
-    transform: translate(0, 0) scale(1);
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 0.22;
+  }
+}
+
+/* Status dot live pulse */
+@keyframes statusPulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.35);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(34, 197, 94, 0.6), 0 0 4px rgba(34, 197, 94, 0.9);
+    transform: scale(1.15);
+  }
+}
+
+/* Input focus glow */
+@keyframes inputFocusGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.38), 0 0 12px rgba(59, 130, 246, 0.12);
+  }
+}
+
+/* Auth card entrance with scale + blur */
+@keyframes authCardEntrance {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(20px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
   }
 }
 

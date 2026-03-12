@@ -106,18 +106,21 @@ onBeforeUnmount(() => {
 .fade-enter-active,
 .fade-leave-active {
   transition:
-    opacity 0.25s ease,
-    transform 0.25s ease;
+    opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    filter 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fade-enter-from {
   opacity: 0;
-  transform: translateY(4px);
+  transform: translateY(12px) scale(0.99);
+  filter: blur(2px);
 }
 
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-8px) scale(0.99);
+  filter: blur(2px);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -619,8 +619,8 @@ const handleLogout = async () => {
 </script>
 
 <template>
-  <a class="skip-link" href="#main-content">Aller au contenu</a>
   <div class="app-shell">
+    <a class="skip-link" href="#main-content">Aller au contenu</a>
     <AppNavbar
       class="app-navbar--dashboard"
       :items="navItems"

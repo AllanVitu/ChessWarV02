@@ -134,6 +134,13 @@ body::after {
   );
 }
 
+.theme-light body::before,
+.theme-light body::after,
+.theme-light #app::before,
+.theme-light #app::after {
+  opacity: 0.15;
+}
+
 .ui-simple body::before,
 .ui-simple body::after,
 .ui-simple #app::before,

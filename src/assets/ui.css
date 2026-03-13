@@ -57,6 +57,9 @@
   padding: 10px 16px;
   cursor: pointer;
   backdrop-filter: blur(12px) saturate(140%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .button-outline {
@@ -66,6 +69,9 @@
   border-radius: var(--radius-xs);
   padding: 10px 16px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .button-outline:hover {

@@ -22,11 +22,11 @@ const navItems = [
   { label: 'Classement', to: '/leaderboard' },
   { label: 'Connexion', to: '/auth' },
 ]
-const twitchChannelUrl = 'https://www.twitch.tv/chess'
+const twitchChannelUrl = 'https://www.twitch.tv/tcec_chess_tv'
 const twitchPlayerSrc = computed(() => {
   if (typeof window === 'undefined') return ''
   const host = window.location.hostname || 'localhost'
-  return `https://player.twitch.tv/?channel=chess&parent=${encodeURIComponent(host)}&muted=true&autoplay=false`
+  return `https://player.twitch.tv/?channel=tcec_chess_tv&parent=${encodeURIComponent(host)}&muted=true&autoplay=false`
 })
 
 const progress = ref<PreloadProgress>({

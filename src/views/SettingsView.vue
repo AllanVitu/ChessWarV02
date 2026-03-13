@@ -105,7 +105,15 @@ onMounted(() => {
                 <p class="setting-label">Mode sombre</p>
                 <p class="setting-hint">Palette adaptee pour un confort visuel nocturne.</p>
               </div>
-              <input v-model="preferences.darkMode" class="setting-toggle" type="checkbox" />
+              <input v-model="preferences.darkMode" class="setting-toggle" type="checkbox" @change="preferences.darkMode && (preferences.lightMode = false)" />
+            </label>
+
+            <label class="setting-item">
+              <div>
+                <p class="setting-label">Mode clair</p>
+                <p class="setting-hint">Interface lumineuse pour un usage en journee.</p>
+              </div>
+              <input v-model="preferences.lightMode" class="setting-toggle" type="checkbox" @change="preferences.lightMode && (preferences.darkMode = false)" />
             </label>
 
             <label class="setting-item">

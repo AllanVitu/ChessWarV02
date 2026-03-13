@@ -2,6 +2,7 @@ export type HaloTheme = 'blue' | 'red' | 'green' | 'violet' | 'amber' | 'teal' |
 
 export type UiPreferences = {
   darkMode: boolean
+  lightMode: boolean
   simplifiedUi: boolean
   language: string
   timezone: string
@@ -142,6 +143,7 @@ const haloPalettes: Record<HaloTheme, ThemePalette> = {
 
 const defaultPreferences: UiPreferences = {
   darkMode: false,
+  lightMode: false,
   simplifiedUi: false,
   language: 'Francais',
   timezone: 'Europe/Paris',
@@ -211,6 +213,7 @@ export const applyPreferences = (preferences: UiPreferences): void => {
   const targets = body ? [root, body] : [root]
   targets.forEach((el) => {
     el.classList.toggle('theme-dark', preferences.darkMode)
+    el.classList.toggle('theme-light', preferences.lightMode)
     el.classList.toggle('ui-simple', preferences.simplifiedUi)
   })
   const haloThemes = [

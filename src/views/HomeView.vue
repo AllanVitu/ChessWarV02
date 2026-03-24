@@ -310,7 +310,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
           </div>
 
           <div class="hero-body">
-            <div class="board" aria-hidden="true">
+            <RouterLink to="/matchs" class="board board--interactive" aria-label="Jouer un match">
               <div class="board-grid">
                 <div v-for="square in squares" :key="square.id" :class="[
                   'square',
@@ -340,7 +340,7 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
                   </span>
                 </div>
               </div>
-            </div>
+            </RouterLink>
 
             <div class="hero-metrics">
               <div v-for="stat in quickStats" :key="stat.label" class="metric-card">
@@ -537,3 +537,20 @@ const squares = boardRanks.flatMap((rank, rowIndex) =>
     </section>
   </DashboardLayout>
 </template>
+
+<style scoped>
+.board--interactive {
+  display: block;
+  text-decoration: none;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
+  cursor: pointer;
+  border-radius: 8px; /* Assuming board has rounded corners */
+}
+.board--interactive:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--accent-sheen);
+}
+.board--interactive:active {
+  transform: translateY(-1px) scale(1);
+}
+</style>

@@ -114,13 +114,11 @@ onBeforeUnmount(() => {
 .fade-enter-from {
   opacity: 0;
   transform: translateY(12px) scale(0.99);
-  filter: blur(2px);
 }
 
 .fade-leave-to {
   opacity: 0;
   transform: translateY(-8px) scale(0.99);
-  filter: blur(2px);
 }
 
 @media (prefers-reduced-motion: reduce) {

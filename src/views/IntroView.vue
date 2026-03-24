@@ -40,6 +40,7 @@ const error = ref<LoaderError | null>(null)
 const ready = ref(false)
 const attempt = ref(0)
 const lightMode = ref(false)
+const showTwitch = ref(false)
 let slowTimer: ReturnType<typeof setTimeout> | null = null
 let abortController: AbortController | null = null
 let retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -227,6 +228,10 @@ onMounted(() => {
   }
 
   void startLoading()
+
+  setTimeout(() => {
+    showTwitch.value = true
+  }, 1500)
 })
 
 onBeforeUnmount(() => {
@@ -299,7 +304,7 @@ onBeforeUnmount(() => {
           </p>
           <div class="landing-visual__live">
             <iframe
-              v-if="twitchPlayerSrc"
+              v-if="twitchPlayerSrc && showTwitch"
               class="landing-visual__iframe"
               :src="twitchPlayerSrc"
               title="Live Twitch Chess"

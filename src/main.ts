@@ -12,6 +12,7 @@ import { setupTelemetry } from './lib/telemetry'
 import { setupOfflineQueueSync } from './lib/offlineQueue'
 import { expireSession } from './lib/auth'
 import { setupObservability } from './lib/observability'
+import { isGuestSession } from './lib/guest'
 
 void ensureDatabaseReady()
 
@@ -48,6 +49,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('auth:expired', () => {
+    if (isGuestSession()) return
     const current = router.currentRoute.value
     if (current.path.startsWith('/auth')) return
     try {

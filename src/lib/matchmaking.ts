@@ -1,4 +1,4 @@
-import { ApiProtocolError, apiFetch } from './api'
+import { ApiProtocolError, apiFetch, getSessionToken } from './api'
 
 export type MatchmakingMode = 'ranked' | 'friendly'
 
@@ -52,6 +52,7 @@ export const joinMatchmaking = async (payload: {
 }
 
 export const getMatchmakingStatus = async (): Promise<MatchmakingStatus> => {
+  if (!getSessionToken()) return { status: 'idle' }
   try {
     const response = await apiFetch<{
       ok: boolean
